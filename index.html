@@ -3848,9 +3848,15 @@ async function cargarProduccion(){
   const anyo=parseInt(document.getElementById('prod-anyo').value);
   document.getElementById('prod-tabla').innerHTML='<div style="padding:20px;text-align:center;color:var(--muted)">Cargando...</div>';
   try{
-    const json=await apiFetch('?accion=produccion&mes=0&anyo='+anyo);
+    // Cargar producción + ventas del año en paralelo para que % Ventas funcione
+    const proms=[apiFetch('?accion=produccion&mes=0&anyo='+anyo)];
+    if(!ventasData||!ventasData.length) proms.push(apiFetch('?accion=pedidos&dias=365'));
+    const results=await Promise.all(proms);
+    const json=results[0];
     if(!json.ok)throw new Error(json.error||'Error');
     prodData=json.data;
+    // Si se cargaron ventas, actualizar ventasData global
+    if(results[1]&&results[1].ok) ventasData=results[1].data;
     renderProduccion(anyo);
   }catch(e){
     document.getElementById('prod-tabla').innerHTML='<div style="padding:20px;text-align:center;color:var(--danger)">Error: '+e.message+'</div>';
@@ -3866,13 +3872,22 @@ function renderProduccionFiltrada(){
 
 function renderProduccion(anyo){
   const mesSel=parseInt((document.getElementById('prod-mes')||{}).value)||0;
-  const filteredData=mesSel>0?prodData.filter(r=>{
+  const filteredByMonth=mesSel>0?prodData.filter(r=>{
     if(!r.fecha)return false;
     const parts=r.fecha.split('-');
     return parseInt(parts[1])===mesSel;
   }):prodData;
-  const data=filteredData.filter(r=>r.tipoDia==='P'||r.tnDia>0);
-  const allData=filteredData;
+  // Solo mostrar días que tengan datos reales (producción, mantenimiento, festivo registrado)
+  const allData=filteredByMonth.filter(r=>{
+    const tn=Number(r.tnDia)||0;
+    const t04=Number(r.t04)||0;const t412=Number(r.t412)||0;
+    const t1220=Number(r.t1220)||0;const t2040=Number(r.t2040)||0;
+    const horas=Number(r.horasPlanta)||0;
+    const tipo=r.tipoDia||'';
+    // Tiene producción o tiene tipo explícito (M/FS/F) o tiene horas
+    return tn>0||t04>0||t412>0||t1220>0||t2040>0||horas>0||tipo==='M'||tipo==='FS'||tipo==='F';
+  });
+  const data=allData.filter(r=>r.tipoDia==='P'||Number(r.tnDia)>0);
   // Resumen
   const totalTn=allData.reduce((a,r)=>a+(Number(r.tnDia)||0),0);
   const total04=allData.reduce((a,r)=>a+(Number(r.t04)||0),0);
