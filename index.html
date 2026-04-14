@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ARIFOMA · Gestión</title>
 <style>
+  
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap');
 :root{--bg:#f0f0ec;--surface:#ffffff;--surface2:#f5f5f0;--border:#c8c8b8;--accent:#6b7d2e;--accent2:#5a6b25;--danger:#c0392b;--text:#1a1a1a;--muted:#707070;--radius:12px;--topbar-bg:#1a1a1a;}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -757,9 +759,15 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <div class="page" id="pg-produccion">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
             <div class="sec-title" style="margin:0">Producción Planta</div>
-            <div style="display:flex;gap:8px;align-items:center">
-              <select class="inp" id="prod-mes" onchange="cargarProduccion()" style="width:130px"></select>
-              <select class="inp" id="prod-anyo" onchange="cargarProduccion()" style="width:90px"></select>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <select class="inp" id="prod-mes" onchange="renderProduccionFiltrada()" style="width:130px">
+                <option value="0">Todo el año</option>
+                <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+                <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+                <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+                <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+              </select>
+              <select class="inp" id="prod-anyo" onchange="cargarProduccion()" style="width:100px"></select>
               <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="abrirAddProduccion()">+ Añadir día</button>
             </div>
           </div>
@@ -773,10 +781,22 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
             <div id="prod-chart" style="height:320px;display:flex;align-items:flex-end;gap:3px;overflow-x:auto"></div>
           </div>
 
+          <!-- Tablas porcentajes fabricación y ventas -->
+          <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+            <div style="flex:1;min-width:320px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;overflow-x:auto">
+              <div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px">% Fabricación por mes</div>
+              <div id="prod-pct-fab"></div>
+            </div>
+            <div style="flex:1;min-width:320px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;overflow-x:auto">
+              <div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px">% Ventas por mes</div>
+              <div id="prod-pct-ventas"></div>
+            </div>
+          </div>
+
           <!-- Panel consumos (gasoil) + horas subcontratada -->
           <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
             <div style="flex:1;min-width:280px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
-              <div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px">Consumos Gasoil del mes</div>
+              <div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px">Consumos Gasoil del año</div>
               <div id="prod-gasoil"></div>
             </div>
             <div style="flex:1;min-width:280px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
@@ -1346,41 +1366,309 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 </div>
 
 <script>
-const API='https://script.google.com/macros/s/AKfycbwZYLrm0UBnIyGsPp2RA7ivxhfAtyOlJVFrJG5c0Qfn0fQtM9V2fQXEkEdM0YYfyGdl/exec';
+// ============================================================
+// ARIFOMA · CAPA DE API — SUPABASE
+// ============================================================
+const SUPABASE_URL = 'https://bnsfgzjqmibsrklllqxb.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJuc2ZnempxbWlic3JrbGxscXhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNzYwNzksImV4cCI6MjA4OTk1MjA3OX0.8mTQHPdO954ICBd1Xam-kKmcA69CMyO2v3x1liFgWyk';
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-function apiFetch(params){
-  return new Promise((resolve,reject)=>{
-    const cb='_cb'+Date.now();
-    const script=document.createElement('script');
-    const timeout=setTimeout(()=>{
+// ── GOOGLE SHEETS (para Producción y Gasoil) ────────────────
+const SHEETS_API = 'https://script.google.com/macros/s/AKfycbx9vuPeykNQ4kN4LupjmP7upYYyKk6sDZuxkRyvKb0uqwCs5uh1K1bJP_agzfWOQT9Q/exec';
+
+function sheetsFetch(params) {
+  return new Promise((resolve, reject) => {
+    const cb = '_cb' + Date.now();
+    const script = document.createElement('script');
+    const timeout = setTimeout(() => {
       reject(new Error('Timeout'));
       delete window[cb];
-      if(script.parentNode)script.parentNode.removeChild(script);
-    },15000);
-    window[cb]=function(data){
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }, 15000);
+    window[cb] = function(data) {
       clearTimeout(timeout);
       resolve(data);
       delete window[cb];
-      if(script.parentNode)script.parentNode.removeChild(script);
+      if (script.parentNode) script.parentNode.removeChild(script);
     };
-    script.onerror=()=>{clearTimeout(timeout);reject(new Error('Script error'));};
-    script.src=API+params+'&callback='+cb;
+    script.onerror = () => { clearTimeout(timeout); reject(new Error('Script error')); };
+    script.src = SHEETS_API + params + '&callback=' + cb;
     document.head.appendChild(script);
   });
 }
-async function apiPost(payload){
-  // POST via fetch with no-cors - data is sent but response not readable
-  // We use a workaround: send as GET with encoded data for small payloads
-  // For saving to sheets we accept not reading the response
-  try{
-    await fetch(API,{
-      method:'POST',
-      mode:'no-cors',
-      headers:{'Content-Type':'text/plain'},
-      body:JSON.stringify(payload)
+
+async function sheetsPost(payload) {
+  try {
+    await fetch(SHEETS_API, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
     });
-  }catch(e){}
-  return {ok:true,id:Date.now()};
+  } catch(e) {}
+  return { ok: true, id: Date.now() };
+}
+
+// ── FICHAJES ────────────────────────────────────────────────
+async function getFichajes() {
+  const { data, error } = await _supabase
+    .from('tblFichaje').select('*')
+    .order('fentrada', { ascending: false }).limit(300);
+  return error ? { ok: false, error: error.message } : { ok: true, data };
+}
+async function doPostEntrada(data) {
+  const { error } = await _supabase.from('tblFichaje').insert([{
+    empleado: data.empleado,
+    fecha: data.fecha || new Date().toLocaleDateString('es-ES'),
+    entrada: data.entrada || new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+    tipoTrabajo: data.tipoTrabajo || 'JORNADA',
+    fentrada: data.fentrada || new Date().toISOString()
+  }]);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+async function doEditSalida(data) {
+  const { data: registro, error: searchError } = await _supabase
+    .from('tblFichaje').select('id')
+    .eq('empleado', data.empleado).is('salida', null)
+    .order('fentrada', { ascending: false }).limit(1).single();
+  if (searchError || !registro) {
+    const { error: insErr } = await _supabase.from('tblFichaje').insert([{
+      empleado: data.empleado, salida: data.salida,
+      fsalida: data.fsalida || new Date().toISOString(), tiempodia: data.tiempodia
+    }]);
+    return insErr ? { ok: false, error: insErr.message } : { ok: true };
+  }
+  const { error: updateErr } = await _supabase.from('tblFichaje')
+    .update({ salida: data.salida, fsalida: data.fsalida || new Date().toISOString(), tiempodia: data.tiempodia })
+    .eq('id', registro.id);
+  return updateErr ? { ok: false, error: updateErr.message } : { ok: true };
+}
+async function doEditFichaje(data) {
+  const { error } = await _supabase.from('tblFichaje').update({
+    empleado: data.empleado, fecha: data.fecha,
+    entrada: data.entrada, salida: data.salida,
+    fentrada: data.fentrada, fsalida: data.fsalida, tiempodia: data.tiempodia
+  }).eq('id', data.id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+async function doDeleteFichaje(data) {
+  const { error } = await _supabase.from('tblFichaje').delete().eq('id', data.id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+// ── PEDIDOS ─────────────────────────────────────────────────
+async function getPedidos(diasAtras = 90) {
+  const corte = new Date();
+  corte.setDate(corte.getDate() - diasAtras);
+  const { data, error } = await _supabase.from('tblpedidos').select('*')
+    .gte('fechaHora', corte.toISOString()).order('fechaHora', { ascending: false });
+  return error ? { ok: false, error: error.message } : { ok: true, data };
+}
+async function doPostPesada(data) {
+  const { data: inserted, error } = await _supabase.from('tblpedidos').insert([{
+    matriculacam: data.matriculacam, matricularem: data.matricularem,
+    tara: data.tara, chofer: data.chofer,
+    nombreCliente: data.nombreCliente, codigoCliente: data.codigoCliente,
+    productoNombre: data.productoNombre, productoCod: data.productoCod,
+    pesoBruto: data.pesoBruto, pesoNeto: data.pesoNeto,
+    proyectoName: data.proyectoName, proyectoCod: data.proyectoCod,
+    numPedido: data.numPedido, numLinea: data.numLinea,
+    fechaHora: new Date().toISOString()
+  }]).select('id').single();
+  return error ? { ok: false, error: error.message } : { ok: true, id: inserted?.id };
+}
+async function doEditarPedido(data) {
+  const updates = {};
+  if (data.matriculacam  !== undefined) updates.matriculacam  = data.matriculacam;
+  if (data.matricularem  !== undefined) updates.matricularem  = data.matricularem;
+  if (data.chofer        !== undefined) updates.chofer        = data.chofer;
+  if (data.codigoCliente !== undefined) updates.codigoCliente = data.codigoCliente;
+  if (data.nombreCliente !== undefined) updates.nombreCliente = data.nombreCliente;
+  if (data.productoCod   !== undefined) updates.productoCod   = data.productoCod;
+  if (data.productoNombre!== undefined) updates.productoNombre= data.productoNombre;
+  if (data.pesoBruto     !== undefined) updates.pesoBruto     = Number(data.pesoBruto);
+  if (data.pesoNeto      !== undefined) updates.pesoNeto      = Number(data.pesoNeto);
+  if (data.proyectoCod   !== undefined) updates.proyectoCod   = data.proyectoCod;
+  if (data.proyectoName  !== undefined) updates.proyectoName  = data.proyectoName;
+  const { error } = await _supabase.from('tblpedidos').update(updates).eq('id', data.id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+// ── CAMIONES ────────────────────────────────────────────────
+async function getCamiones() {
+  const { data, error } = await _supabase.from('tblcamiones').select('*').order('matriculacam');
+  return error ? { ok: false, error: error.message } : { ok: true, data };
+}
+async function doNuevoCamion(data) {
+  const { error } = await _supabase.from('tblcamiones').insert([data]);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+async function doEditarCamion(data) {
+  const { id, ...updates } = data;
+  const { error } = await _supabase.from('tblcamiones').update(updates).eq('id', id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+// ── PRODUCCIÓN y GASOIL → Google Sheets (via sheetsFetch/sheetsPost) ──
+
+// ── OT (Órdenes de Trabajo) ──────────────────────────────────
+async function doPostOT(data) {
+  const row = {
+    Activo: data.activo, Fecha: data.fecha, Operario: data.operario,
+    Tiempo: data.tiempo, Texto: data.texto, Estado: data.estado,
+    Gama: data.gama, Medicion: data.medicion
+  };
+  if (data.checks && Array.isArray(data.checks)) {
+    data.checks.forEach((v, i) => { row['n' + (i + 1)] = !!v; });
+  }
+  const { data: inserted, error } = await _supabase.from('tblGamasOT').insert([row]).select('id').single();
+  return error ? { ok: false, error: error.message } : { ok: true, ot: inserted?.id };
+}
+async function getHistorialOT() {
+  const { data, error } = await _supabase.from('tblGamasOT').select('*')
+    .order('Fecha', { ascending: false }).limit(200);
+  if (error) return { ok: false, error: error.message };
+  const mapped = (data || []).map(r => {
+    const checks = [];
+    for (let i = 1; i <= 60; i++) { if (r['n' + i] !== undefined) checks.push(!!r['n' + i]); }
+    return {
+      id: r.id, activo: r.Activo, fecha: r.Fecha, operario: r.Operario,
+      tiempo: r.Tiempo, texto: r.Texto, estado: r.Estado,
+      gama: r.Gama, medicion: r.Medicion, ot: r.Ot, checks
+    };
+  });
+  return { ok: true, data: mapped };
+}
+async function doEditarOT(data) {
+  const { id, ...rest } = data;
+  const updates = {};
+  if (rest.activo !== undefined) updates.Activo = rest.activo;
+  if (rest.fecha !== undefined) updates.Fecha = rest.fecha;
+  if (rest.operario !== undefined) updates.Operario = rest.operario;
+  if (rest.tiempo !== undefined) updates.Tiempo = rest.tiempo;
+  if (rest.texto !== undefined) updates.Texto = rest.texto;
+  if (rest.estado !== undefined) updates.Estado = rest.estado;
+  if (rest.gama !== undefined) updates.Gama = rest.gama;
+  if (rest.medicion !== undefined) updates.Medicion = rest.medicion;
+  if (rest.checks && Array.isArray(rest.checks)) {
+    rest.checks.forEach((v, i) => { updates['n' + (i + 1)] = !!v; });
+  }
+  const { error } = await _supabase.from('tblGamasOT').update(updates).eq('id', id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+// ── AUSENCIAS ────────────────────────────────────────────────
+async function getAusencias() {
+  const { data, error } = await _supabase.from('tblAusencias').select('*');
+  return error ? { ok: false, error: error.message } : { ok: true, data };
+}
+async function doPostAusencia(data) {
+  const { data: inserted, error } = await _supabase.from('tblAusencias').insert([{
+    tipo: data.categoria, trabajador: data.trabajador,
+    start: data.start, end: data.end, dias: data.dias,
+    subtipo: data.subtipo, horas: data.horas, motivo: data.motivo,
+    fechaCreacion: new Date().toISOString()
+  }]).select('id').single();
+  return error ? { ok: false, error: error.message } : { ok: true, id: inserted?.id };
+}
+async function doEditAusencia(data) {
+  const updates = {};
+  if (data.start   !== undefined) updates.start   = data.start;
+  if (data.end     !== undefined) updates.end     = data.end;
+  if (data.dias    !== undefined) updates.dias    = data.dias;
+  if (data.subtipo !== undefined) updates.subtipo = data.subtipo;
+  if (data.horas   !== undefined) updates.horas   = data.horas;
+  if (data.motivo  !== undefined) updates.motivo  = data.motivo;
+  const { error } = await _supabase.from('tblAusencias').update(updates).eq('id', data.id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+async function doDeleteAusencia(data) {
+  const { error } = await _supabase.from('tblAusencias').delete().eq('id', data.id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+// ── DOCUMENTOS ───────────────────────────────────────────────
+async function getDocumentos() {
+  const { data, error } = await _supabase.from('tblControlDocumental').select('*');
+  if (error) return { ok: false, error: error.message };
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const docs = (data||[]).map(r => {
+    const fv = r.fechavencimiento ? new Date(r.fechavencimiento) : null;
+    const dias = fv ? Math.round((fv - hoy) / 86400000) : null;
+    return { fuente:'nuevo', id:r.id, numero:r.numero, nombre:r.nombre, estado:r.estado,
+      organo:r.organo, fechaInicio:r.fechainicio, fechaVig:r.fechavencimiento,
+      creado:r.creado, idDocumento:r.iddocumento, tipoDocumento:r.tipoDocumento,
+      diasRestantes:dias, tiempoAviso:30 };
+  });
+  return { ok: true, data: docs };
+}
+
+// ── CARGA INICIAL ────────────────────────────────────────────
+async function getInit() {
+  try {
+    const [f, a, c] = await Promise.all([
+      getFichajes(), getAusencias(), getCamiones()
+    ]);
+    return {
+      ok: true,
+      fichajes:  f.data || [],
+      ausencias: a.data || [],
+      camiones:  c.data || [],
+      gasoilData: [],
+      gasoilDep1: 0,
+      gasoilDep2: 0
+    };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+// ── ROUTER: apiFetch (híbrido Supabase + Google Sheets) ─────
+async function apiFetch(params) {
+  const p = new URLSearchParams(params.replace(/^\?/,''));
+  const accion = p.get('accion') || '';
+
+  // ── Producción y Gasoil → Google Sheets ──
+  if (accion === 'produccion' || accion === 'gasoil') {
+    return sheetsFetch(params);
+  }
+
+  // ── Todo lo demás → Supabase ──
+  const dias = parseInt(p.get('dias')) || 90;
+  if (accion === 'init')        return getInit();
+  if (accion === 'fichajes')    return getFichajes();
+  if (accion === 'ausencias')   return getAusencias();
+  if (accion === 'camiones')    return getCamiones();
+  if (accion === 'pedidos')     return getPedidos(dias);
+  if (accion === 'historialOT') return getHistorialOT();
+  if (accion === 'documentos')  return getDocumentos();
+  if (accion === 'peso')        return { ok: false, error: 'Lectura de báscula sólo por puerto serie' };
+  return { ok: false, error: 'Acción desconocida: ' + accion };
+}
+
+// ── ROUTER: apiPost (híbrido Supabase + Google Sheets) ──────
+async function apiPost(payload) {
+  const t = payload.tipo || '';
+
+  // ── Producción y Gasoil → Google Sheets ──
+  if (t === 'gasoil' || t === 'editarGasoil' || t === 'editProduccion' || t === 'addProduccion') {
+    return sheetsPost(payload);
+  }
+
+  // ── Todo lo demás → Supabase ──
+  if (t === 'fichajeEntrada')  return doPostEntrada(payload);
+  if (t === 'fichajesSalida')  return doEditSalida(payload);
+  if (t === 'editFichaje')     return doEditFichaje(payload);
+  if (t === 'delFichaje')      return doDeleteFichaje(payload);
+  if (t === 'pesada')          return doPostPesada(payload);
+  if (t === 'editarPedido')    return doEditarPedido(payload);
+  if (t === 'nuevoCamion')     return doNuevoCamion(payload);
+  if (t === 'editarCamion')    return doEditarCamion(payload);
+  if (t === 'ausencia')        return doPostAusencia(payload);
+  if (t === 'editAusencia')    return doEditAusencia(payload);
+  if (t === 'delAusencia')     return doDeleteAusencia(payload);
+  if (t === 'editarOT')        return doEditarOT(payload);
+  return doPostOT(payload);
 }
 
 const PIN_OK='2507';
@@ -3359,18 +3647,18 @@ function renderGasoilConsumos(){
 }
 
 function openGasoilEditModal(r){
-  document.getElementById('gedit-rownum').value=r.rowNum||'';
+  document.getElementById('gedit-rownum').value=r.id||r.rowNum||'';
   document.getElementById('gedit-tipo').value=r.tipo||'SALIDA';
   document.getElementById('gedit-origen').value=r.origen||'DEPOSITO 1';
   document.getElementById('gedit-destino').value=r.destino||'';
   document.getElementById('gedit-prov').value=r.proveedor||'';
   document.getElementById('gedit-litros').value=r.litros||'';
   // Convert d/mm/yyyy to yyyy-mm-dd for date input
+  let fechaVal='';
   const fp=String(r.fecha||'').split('/');
-  if(fp.length===3){
-    const dd=fp[0].padStart(2,'0'),mm=fp[1].padStart(2,'0'),yy=fp[2];
-    document.getElementById('gedit-fecha').value=yy+'-'+mm+'-'+dd;
-  } else document.getElementById('gedit-fecha').value='';
+  if(fp.length===3){const dd=fp[0].padStart(2,'0'),mm=fp[1].padStart(2,'0'),yy=fp[2];fechaVal=yy+'-'+mm+'-'+dd;}
+  else if(String(r.fecha||'').match(/^\d{4}-\d{2}-\d{2}/)){fechaVal=String(r.fecha).slice(0,10);}
+  document.getElementById('gedit-fecha').value=fechaVal;
   document.getElementById('gedit-msg').textContent='';
   document.getElementById('gasoil-edit-modal').style.display='flex';
 }
@@ -3380,7 +3668,7 @@ function closeGasoilEditModal(){
 }
 
 async function saveGasoilEdit(){
-  const rowNum=document.getElementById('gedit-rownum').value;
+  const recordId=document.getElementById('gedit-rownum').value;
   const tipo=document.getElementById('gedit-tipo').value;
   const origen=document.getElementById('gedit-origen').value;
   const destino=document.getElementById('gedit-destino').value;
@@ -3394,10 +3682,10 @@ async function saveGasoilEdit(){
   const fechaFmt=parseInt(d)+'/'+m+'/'+y;
   msg.style.color='var(--muted)';msg.textContent='Guardando...';
   try{
-    await apiPost({tipo:'editarGasoil',rowNum,fecha:fechaFmt,proveedor,origen,destino,tipoMovimiento:tipo,litros});
+    await apiPost({tipo:'editarGasoil',id:recordId,fecha:fechaFmt,proveedor,origen,destino,tipoMovimiento:tipo,litros});
     // Update local data
-    const idx=gasoilData.findIndex(r=>String(r.rowNum)===String(rowNum));
-    if(idx>=0)gasoilData[idx]={rowNum,fecha:fechaFmt,proveedor,origen,destino,tipo,litros};
+    const idx=gasoilData.findIndex(r=>String(r.id)===String(recordId));
+    if(idx>=0)gasoilData[idx]={...gasoilData[idx],fecha:fechaFmt,proveedor,origen,destino,tipo,litros};
     closeGasoilEditModal();
     renderGasoilHistorial();
     setTimeout(()=>cargarGasoil(),1500); // reload to get updated stock
@@ -3439,40 +3727,56 @@ let prodInited=false;
 
 function initProduccion(){
   if(!prodInited){
-    const mSel=document.getElementById('prod-mes');
-    mSel.innerHTML=MESES.map((m,i)=>`<option value="${i}">${m}</option>`).join('');
-    mSel.value=new Date().getMonth();
     const aSel=document.getElementById('prod-anyo');
     const cy=new Date().getFullYear();
-    aSel.innerHTML='';for(let y=cy;y>=cy-2;y--)aSel.innerHTML+=`<option value="${y}">${y}</option>`;
+    aSel.innerHTML='';for(let y=cy;y>=cy-3;y--)aSel.innerHTML+=`<option value="${y}">${y}</option>`;
+    const mSel=document.getElementById('prod-mes');
+    if(mSel)mSel.value=String(new Date().getMonth()+1);
     prodInited=true;
   }
   cargarProduccion();
 }
 
 async function cargarProduccion(){
-  const mes=parseInt(document.getElementById('prod-mes').value);
   const anyo=parseInt(document.getElementById('prod-anyo').value);
   document.getElementById('prod-tabla').innerHTML='<div style="padding:20px;text-align:center;color:var(--muted)">Cargando...</div>';
   try{
-    const json=await apiFetch('?accion=produccion&mes='+(mes+1)+'&anyo='+anyo);
+    const json=await apiFetch('?accion=produccion&mes=0&anyo='+anyo);
     if(!json.ok)throw new Error(json.error||'Error');
     prodData=json.data;
-    renderProduccion(mes,anyo);
+    renderProduccion(anyo);
   }catch(e){
     document.getElementById('prod-tabla').innerHTML='<div style="padding:20px;text-align:center;color:var(--danger)">Error: '+e.message+'</div>';
   }
 }
 
-function renderProduccion(mes,anyo){
-  const data=prodData.filter(r=>r.tipoDia==='P'||r.tnDia>0);
-  const allData=prodData;
+
+
+function renderProduccionFiltrada(){
+  const anyo=parseInt(document.getElementById('prod-anyo').value);
+  renderProduccion(anyo);
+}
+
+function renderProduccion(anyo){
+  const mesSel=parseInt((document.getElementById('prod-mes')||{}).value)||0;
+  const filteredData=mesSel>0?prodData.filter(r=>{
+    if(!r.fecha)return false;
+    const parts=r.fecha.split('-');
+    return parseInt(parts[1])===mesSel;
+  }):prodData;
+  const data=filteredData.filter(r=>r.tipoDia==='P'||r.tnDia>0);
+  const allData=filteredData;
   // Resumen
   const totalTn=allData.reduce((a,r)=>a+(Number(r.tnDia)||0),0);
   const total04=allData.reduce((a,r)=>a+(Number(r.t04)||0),0);
   const total412=allData.reduce((a,r)=>a+(Number(r.t412)||0),0);
   const total1220=allData.reduce((a,r)=>a+(Number(r.t1220)||0),0);
   const total2040=allData.reduce((a,r)=>a+(Number(r.t2040)||0),0);
+  const totalMat=total04+total412+total1220+total2040;
+  const pct04=totalMat>0?(total04/totalMat*100).toFixed(1):'0';
+  const pct412=totalMat>0?(total412/totalMat*100).toFixed(1):'0';
+  const pct1220=totalMat>0?(total1220/totalMat*100).toFixed(1):'0';
+  const pct2040=totalMat>0?(total2040/totalMat*100).toFixed(1):'0';
   const diasProd=data.length;
   const totalHoras=allData.reduce((a,r)=>a+(Number(r.horasPlanta)||0),0);
   const rendMedio=totalHoras>0?(totalTn/totalHoras).toFixed(1):'—';
@@ -3493,18 +3797,22 @@ function renderProduccion(mes,anyo){
     <div style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px">
       <div style="font-size:.62rem;color:var(--muted);text-transform:uppercase;font-weight:700">0/4</div>
       <div style="font-size:1.1rem;font-weight:700;color:var(--text);font-family:'DM Mono',monospace">${total04.toLocaleString()} <span style="font-size:.7rem;color:var(--muted)">Tn</span></div>
+      <div style="font-size:.72rem;font-weight:600;color:var(--accent);margin-top:2px">${pct04}%</div>
     </div>
     <div style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px">
       <div style="font-size:.62rem;color:var(--muted);text-transform:uppercase;font-weight:700">4/12</div>
       <div style="font-size:1.1rem;font-weight:700;color:var(--text);font-family:'DM Mono',monospace">${total412.toLocaleString()} <span style="font-size:.7rem;color:var(--muted)">Tn</span></div>
+      <div style="font-size:.72rem;font-weight:600;color:var(--accent);margin-top:2px">${pct412}%</div>
     </div>
     <div style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px">
       <div style="font-size:.62rem;color:var(--muted);text-transform:uppercase;font-weight:700">12/20</div>
       <div style="font-size:1.1rem;font-weight:700;color:var(--text);font-family:'DM Mono',monospace">${total1220.toLocaleString()} <span style="font-size:.7rem;color:var(--muted)">Tn</span></div>
+      <div style="font-size:.72rem;font-weight:600;color:var(--accent);margin-top:2px">${pct1220}%</div>
     </div>
     <div style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px">
       <div style="font-size:.62rem;color:var(--muted);text-transform:uppercase;font-weight:700">20/40</div>
       <div style="font-size:1.1rem;font-weight:700;color:var(--text);font-family:'DM Mono',monospace">${total2040.toLocaleString()} <span style="font-size:.7rem;color:var(--muted)">Tn</span></div>
+      <div style="font-size:.72rem;font-weight:600;color:var(--accent);margin-top:2px">${pct2040}%</div>
     </div>`;
 
   // Gráfico barras
@@ -3514,9 +3822,10 @@ function renderProduccion(mes,anyo){
     const h=tn>0?Math.max(4,Math.round(tn/maxTn*290)):2;
     const fecha=r.fecha?r.fecha.substring(8,10):'';
     const col=r.tipoDia==='M'?'var(--danger)':r.tipoDia==='P'&&tn>0?'var(--accent)':'var(--border)';
+    const realIdx=prodData.indexOf(r);
     return `<div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:18px;max-width:36px" title="${fecha}: ${tn} Tn">
       <div style="font-size:.55rem;color:var(--muted);margin-bottom:2px">${tn>0?tn:''}</div>
-      <div style="width:100%;height:${h}px;background:${col};border-radius:3px 3px 0 0;cursor:pointer" onclick="editarProdDia(${allData.indexOf(r)})"></div>
+      <div style="width:100%;height:${h}px;background:${col};border-radius:3px 3px 0 0;cursor:pointer" onclick="editarProdDia(${realIdx})"></div>
       <div style="font-size:.55rem;color:var(--muted);margin-top:2px">${fecha}</div>
     </div>`;
   }).join('');
@@ -3530,8 +3839,12 @@ function renderProduccion(mes,anyo){
     <div style="display:flex;justify-content:space-between;padding:6px 0"><span>Ore Sizer</span><span style="font-family:'DM Mono',monospace;font-weight:700">${hOre.toFixed(0)} h</span></div>
     <div style="border-top:1px solid var(--accent);margin-top:6px;padding-top:6px;display:flex;justify-content:space-between;font-weight:700"><span>Total horas planta</span><span style="font-family:'DM Mono',monospace;color:var(--accent2)">${totalHoras.toFixed(0)} h</span></div>`;
 
-  // Consumos gasoil del mes
-  renderProdGasoil(mes,anyo);
+  // Consumos gasoil del año
+  renderProdGasoil(anyo);
+
+  // Porcentajes fabricación y ventas
+  renderPctFabricacion(anyo);
+  renderPctVentas(anyo);
 
   // Tabla
   let tbl=`<table style="width:100%;border-collapse:collapse;font-size:.72rem;white-space:nowrap">
@@ -3542,7 +3855,8 @@ function renderProduccion(mes,anyo){
       <th style="text-align:right">Horas</th><th style="text-align:right">Rend.</th>
       <th>Obs.</th><th></th>
     </tr></thead><tbody>`;
-  allData.forEach((r,idx)=>{
+  allData.forEach((r)=>{
+    const realIdx=prodData.indexOf(r);
     const isMant=r.tipoDia==='M'||r.tipoDia==='FS'||r.tipoDia==='F';
     const rowCol=isMant?'color:var(--muted)':'';
     const tn=Number(r.tnDia)||0;
@@ -3558,25 +3872,25 @@ function renderProduccion(mes,anyo){
       <td style="text-align:right;font-family:'DM Mono',monospace">${r.horasPlanta||'—'}</td>
       <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--accent)">${r.rendimiento?Number(r.rendimiento).toFixed(1):'—'}</td>
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;font-size:.65rem;color:var(--muted)">${r.observaciones||''}</td>
-      <td><button onclick="editarProdDia(${idx})" style="background:transparent;border:none;cursor:pointer;color:var(--accent);font-size:.72rem">&#9998;</button></td>
+      <td><button onclick="editarProdDia(${realIdx})" style="background:transparent;border:none;cursor:pointer;color:var(--accent);font-size:.72rem">&#9998;</button></td>
     </tr>`;
   });
   tbl+=`</tbody></table>`;
   document.getElementById('prod-tabla').innerHTML=tbl;
 }
 
-function renderProdGasoil(mes,anyo){
+function renderProdGasoil(anyo){
   const el=document.getElementById('prod-gasoil');
   // Usar gasoilData si está cargado
   if(typeof gasoilData==='undefined'||!gasoilData||!gasoilData.length){
     el.innerHTML='<div style="font-size:.75rem;color:var(--muted)">Carga Gasoil primero para ver consumos</div>';
     return;
   }
-  // Filtrar por mes
+  // Filtrar por año
   const consumos={};let total=0;
   gasoilData.forEach(r=>{
     const d=parseFechaFact(r.fecha);
-    if(!d||d.getMonth()!==mes||d.getFullYear()!==anyo)return;
+    if(!d||d.getFullYear()!==anyo)return;
     const t=String(r.tipo||'').toUpperCase();
     if(t==='ENTRADA'||t==='REAJUSTE COMBUSTIBLE')return;
     const dest=r.destino||r.maquina||'Otros';
@@ -3585,7 +3899,7 @@ function renderProdGasoil(mes,anyo){
     consumos[dest]+=Number(r.litros)||0;
     total+=Number(r.litros)||0;
   });
-  if(!total){el.innerHTML='<div style="font-size:.75rem;color:var(--muted)">Sin consumos este mes</div>';return;}
+  if(!total){el.innerHTML='<div style="font-size:.75rem;color:var(--muted)">Sin consumos este año</div>';return;}
   el.innerHTML=Object.entries(consumos).sort((a,b)=>b[1]-a[1]).map(([dest,l])=>
     `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.06);font-size:.75rem">
       <span>${dest}</span><span style="font-family:'DM Mono',monospace;font-weight:700">${l.toFixed(0)} L</span></div>`
@@ -3593,9 +3907,111 @@ function renderProdGasoil(mes,anyo){
     <span>Total</span><span style="font-family:'DM Mono',monospace;color:var(--accent2)">${total.toFixed(0)} L</span></div>`;
 }
 
+function renderPctFabricacion(anyo){
+  const el=document.getElementById('prod-pct-fab');
+  if(!el)return;
+  const meses=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+  const byMonth=Array.from({length:12},()=>({t04:0,t412:0,t1220:0,t2040:0}));
+  prodData.forEach(r=>{
+    if(!r.fecha)return;
+    const m=parseInt(r.fecha.split('-')[1])-1;
+    if(m<0||m>11)return;
+    byMonth[m].t04+=Number(r.t04)||0;
+    byMonth[m].t412+=Number(r.t412)||0;
+    byMonth[m].t1220+=Number(r.t1220)||0;
+    byMonth[m].t2040+=Number(r.t2040)||0;
+  });
+  const totY={t04:0,t412:0,t1220:0,t2040:0};
+  byMonth.forEach(m=>{totY.t04+=m.t04;totY.t412+=m.t412;totY.t1220+=m.t1220;totY.t2040+=m.t2040;});
+  function pctRow(d){
+    const sum=d.t04+d.t412+d.t1220+d.t2040;
+    if(!sum)return {p04:'—',p412:'—',p1220:'—',p2040:'—'};
+    return {p04:Math.round(d.t04/sum*100)+'%',p412:Math.round(d.t412/sum*100)+'%',p1220:Math.round(d.t1220/sum*100)+'%',p2040:Math.round(d.t2040/sum*100)+'%'};
+  }
+  let html=`<table style="width:100%;border-collapse:collapse;font-size:.72rem">
+    <thead><tr style="background:var(--surface2);color:var(--muted);font-size:.62rem;text-transform:uppercase">
+      <th style="padding:6px;text-align:left"></th><th style="text-align:right">0/4</th><th style="text-align:right">4/12</th><th style="text-align:right">12/20</th><th style="text-align:right">20/40</th>
+    </tr></thead><tbody>`;
+  byMonth.forEach((m,i)=>{
+    const sum=m.t04+m.t412+m.t1220+m.t2040;
+    if(!sum)return;
+    const p=pctRow(m);
+    html+=`<tr style="border-top:1px solid var(--border)">
+      <td style="padding:5px 6px;font-weight:600">${meses[i]}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace">${p.p04}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace">${p.p412}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace">${p.p1220}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace">${p.p2040}</td>
+    </tr>`;
+  });
+  const pt=pctRow(totY);
+  html+=`<tr style="border-top:2px solid var(--accent);font-weight:700">
+    <td style="padding:5px 6px;color:var(--accent)">TOTAL</td>
+    <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--accent)">${pt.p04}</td>
+    <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--accent)">${pt.p412}</td>
+    <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--accent)">${pt.p1220}</td>
+    <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--accent)">${pt.p2040}</td>
+  </tr></tbody></table>`;
+  el.innerHTML=html;
+}
+
+function renderPctVentas(anyo){
+  const el=document.getElementById('prod-pct-ventas');
+  if(!el)return;
+  if(!ventasData||!ventasData.length){el.innerHTML='<div style="font-size:.75rem;color:var(--muted)">Carga Ventas primero para ver porcentajes</div>';return;}
+  const meses=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+  const byMonth=Array.from({length:12},()=>({v04:0,v412:0,v1220:0,v2040:0,otros:0}));
+  ventasData.forEach(r=>{
+    const d=parseFechaHoraObj(r.fechaHora);
+    if(!d||d.getFullYear()!==anyo)return;
+    const m=d.getMonth();
+    const cat=getCat(r.productoNombre);
+    const kg=Number(r.pesoNeto)||0;
+    if(cat==='0/4')byMonth[m].v04+=kg;
+    else if(cat==='4/12')byMonth[m].v412+=kg;
+    else if(cat==='12/20')byMonth[m].v1220+=kg;
+    else if(cat==='20/40')byMonth[m].v2040+=kg;
+    else byMonth[m].otros+=kg;
+  });
+  const totY={v04:0,v412:0,v1220:0,v2040:0,otros:0};
+  byMonth.forEach(m=>{totY.v04+=m.v04;totY.v412+=m.v412;totY.v1220+=m.v1220;totY.v2040+=m.v2040;totY.otros+=m.otros;});
+  function pctRow(d){
+    const sum=d.v04+d.v412+d.v1220+d.v2040+d.otros;
+    if(!sum)return {p04:'—',p412:'—',p1220:'—',p2040:'—',pOtros:'—'};
+    return {p04:Math.round(d.v04/sum*100)+'%',p412:Math.round(d.v412/sum*100)+'%',p1220:Math.round(d.v1220/sum*100)+'%',p2040:Math.round(d.v2040/sum*100)+'%',pOtros:Math.round(d.otros/sum*100)+'%'};
+  }
+  let html=`<table style="width:100%;border-collapse:collapse;font-size:.72rem">
+    <thead><tr style="background:var(--surface2);color:var(--muted);font-size:.62rem;text-transform:uppercase">
+      <th style="padding:6px;text-align:left"></th><th style="text-align:right">0/4</th><th style="text-align:right">4/12</th><th style="text-align:right">12/20</th><th style="text-align:right">20/40</th><th style="text-align:right">Otros</th>
+    </tr></thead><tbody>`;
+  byMonth.forEach((m,i)=>{
+    const sum=m.v04+m.v412+m.v1220+m.v2040+m.otros;
+    if(!sum)return;
+    const p=pctRow(m);
+    html+=`<tr style="border-top:1px solid var(--border)">
+      <td style="padding:5px 6px;font-weight:600">${meses[i]}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace">${p.p04}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace">${p.p412}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace">${p.p1220}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace">${p.p2040}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace">${p.pOtros}</td>
+    </tr>`;
+  });
+  const pt=pctRow(totY);
+  html+=`<tr style="border-top:2px solid var(--accent);font-weight:700">
+    <td style="padding:5px 6px;color:var(--accent)">TOTAL</td>
+    <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--accent)">${pt.p04}</td>
+    <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--accent)">${pt.p412}</td>
+    <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--accent)">${pt.p1220}</td>
+    <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--accent)">${pt.p2040}</td>
+    <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--accent)">${pt.pOtros}</td>
+  </tr></tbody></table>`;
+  el.innerHTML=html;
+}
+
 function editarProdDia(idx){
   const r=prodData[idx];if(!r)return;
-  document.getElementById('pe-fila').value=r.fila;
+  document.getElementById('pe-fila').value=r.fila||'';
   document.getElementById('pe-anyo').value=document.getElementById('prod-anyo').value;
   document.getElementById('pe-fecha').value=r.fecha;
   document.getElementById('pe-tipo').value=r.tipoDia||'P';
