@@ -278,23 +278,38 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 </head>
 <body>
 
-<!-- PIN -->
+<!-- LOGIN -->
 <div id="pinScreen" style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:20px">
-  <div style="width:100%;max-width:300px;text-align:center">
-    <div style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;color:var(--accent);margin-bottom:4px">ARIFOMA</div>
-    <div style="font-size:.8rem;color:var(--muted);margin-bottom:28px">Introduce el PIN para acceder</div>
-    <div style="display:flex;justify-content:center;gap:16px;margin-bottom:24px">
-      <div class="pin-dot" id="pd1"></div><div class="pin-dot" id="pd2"></div>
-      <div class="pin-dot" id="pd3"></div><div class="pin-dot" id="pd4"></div>
+  <div style="width:100%;max-width:340px;text-align:center">
+    <img src="logo.png" alt="ARIFOMA" style="max-width:180px;margin:0 auto 12px;display:block" onerror="this.style.display='none'">
+    <div style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;color:var(--accent);margin-bottom:2px">ARIFOMA</div>
+    <div style="font-size:.72rem;color:var(--muted);margin-bottom:20px;letter-spacing:.04em">Aridos Fonoliticos de Maspalomas SL</div>
+
+    <!-- Selector de usuario -->
+    <div style="margin-bottom:16px;text-align:left">
+      <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:5px">Usuario</div>
+      <select id="login-user-sel" class="inp" style="font-size:.95rem" onchange="loginUserChange()">
+        <option value="">Seleccionar usuario...</option>
+      </select>
     </div>
-    <div id="pinError" style="color:var(--danger);font-size:.75rem;margin-bottom:14px;min-height:16px"></div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px;max-width:260px;margin:0 auto">
-      <button class="pin-key" onclick="pinPress('1')">1</button><button class="pin-key" onclick="pinPress('2')">2</button><button class="pin-key" onclick="pinPress('3')">3</button>
-      <button class="pin-key" onclick="pinPress('4')">4</button><button class="pin-key" onclick="pinPress('5')">5</button><button class="pin-key" onclick="pinPress('6')">6</button>
-      <button class="pin-key" onclick="pinPress('7')">7</button><button class="pin-key" onclick="pinPress('8')">8</button><button class="pin-key" onclick="pinPress('9')">9</button>
-      <button class="pin-key" onclick="pinPress('0')" style="grid-column:2">0</button>
-      <button class="pin-key" onclick="pinDel()" style="background:var(--surface2);color:var(--muted);font-size:1.1rem">⌫</button>
+
+    <div id="login-pin-section" style="display:none">
+      <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px;text-align:left">PIN de acceso</div>
+      <div style="display:flex;justify-content:center;gap:16px;margin-bottom:20px">
+        <div class="pin-dot" id="pd1"></div><div class="pin-dot" id="pd2"></div>
+        <div class="pin-dot" id="pd3"></div><div class="pin-dot" id="pd4"></div>
+      </div>
+      <div id="pinError" style="color:var(--danger);font-size:.75rem;margin-bottom:14px;min-height:16px"></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px;max-width:260px;margin:0 auto">
+        <button class="pin-key" onclick="pinPress('1')">1</button><button class="pin-key" onclick="pinPress('2')">2</button><button class="pin-key" onclick="pinPress('3')">3</button>
+        <button class="pin-key" onclick="pinPress('4')">4</button><button class="pin-key" onclick="pinPress('5')">5</button><button class="pin-key" onclick="pinPress('6')">6</button>
+        <button class="pin-key" onclick="pinPress('7')">7</button><button class="pin-key" onclick="pinPress('8')">8</button><button class="pin-key" onclick="pinPress('9')">9</button>
+        <button class="pin-key" onclick="pinPress('0')" style="grid-column:2">0</button>
+        <button class="pin-key" onclick="pinDel()" style="background:var(--surface2);color:var(--muted);font-size:1.1rem">&#9003;</button>
+      </div>
     </div>
+
+    <div id="login-loading" style="display:none;padding:20px;color:var(--muted);font-size:.82rem">Cargando usuarios...</div>
   </div>
 </div>
 
@@ -1671,7 +1686,8 @@ async function apiPost(payload) {
   return doPostOT(payload);
 }
 
-const PIN_OK='2507';
+let loginUser=null; // {id, nombre, pin, rol}
+let loginUsuarios=[]; // lista de usuarios de Supabase
 const WORKERS=['Gabriel Reyes','David Espacios','Antonio Juan Martel','Rubén Díaz'];
 const TOTAL_VAC=35;
 // Horas esperadas por día de semana: 1=Lun,2=Mar,3=Mié,4=Jue,5=Vie,6=Sáb,0=Dom
@@ -1691,12 +1707,25 @@ const PROD_CAT={'ARIDO AF-T-0/4-I':'0/4','ARIDO AG-T-4/12-I':'4/12','ARIDO AG-T-
 const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas',produccion:'Producción Planta',camiones:'Camiones',gasoil:'Gasoil',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental'};
 
 // ── PIN ──────────────────────────────────────────────────────
+// ── LOGIN CON SUPABASE ────────────────────────────────────────
 let pinStr='';
-function pinPress(d){if(pinStr.length>=4)return;pinStr+=d;updPinDots();if(pinStr.length===4)setTimeout(checkPin,200);}
+function pinPress(d){if(pinStr.length>=4||!loginUser)return;pinStr+=d;updPinDots();if(pinStr.length===4)setTimeout(checkPin,200);}
 function pinDel(){pinStr=pinStr.slice(0,-1);updPinDots();document.getElementById('pinError').textContent='';}
 function updPinDots(){for(let i=1;i<=4;i++){const d=document.getElementById('pd'+i);d.classList.toggle('filled',i<=pinStr.length);d.classList.remove('error');}}
+
+function loginUserChange(){
+  const sel=document.getElementById('login-user-sel');
+  const uid=sel.value;
+  const section=document.getElementById('login-pin-section');
+  if(!uid){loginUser=null;section.style.display='none';return;}
+  loginUser=loginUsuarios.find(u=>String(u.id)===uid)||null;
+  section.style.display='block';
+  pinStr='';updPinDots();document.getElementById('pinError').textContent='';
+}
+
 function checkPin(){
-  if(pinStr===PIN_OK){
+  if(!loginUser){pinStr='';updPinDots();return;}
+  if(pinStr===String(loginUser.pin)){
     document.getElementById('pinScreen').style.display='none';
     document.getElementById('shell').style.display='flex';
     initApp();
@@ -1706,6 +1735,32 @@ function checkPin(){
     setTimeout(()=>{pinStr='';updPinDots();document.getElementById('pinError').textContent='';},1200);
   }
 }
+
+async function cargarUsuariosLogin(){
+  const loading=document.getElementById('login-loading');
+  const sel=document.getElementById('login-user-sel');
+  loading.style.display='block';
+  try{
+    const {data,error}=await _supabase.from('tblUsuarios').select('*').order('nombre');
+    if(error)throw new Error(error.message);
+    loginUsuarios=data||[];
+    sel.innerHTML='<option value="">Seleccionar usuario...</option>';
+    loginUsuarios.forEach(u=>{
+      const o=document.createElement('option');
+      o.value=u.id;
+      o.textContent=u.nombre+(u.rol?' ('+u.rol+')':'');
+      sel.appendChild(o);
+    });
+  }catch(e){
+    sel.innerHTML='<option value="">Error cargando usuarios</option>';
+    console.warn('Error cargando usuarios:',e);
+  }finally{
+    loading.style.display='none';
+  }
+}
+
+// Cargar usuarios al iniciar la página
+document.addEventListener('DOMContentLoaded',cargarUsuariosLogin);
 
 // ── SHELL ─────────────────────────────────────────────────────
 let menuOpen=false;
