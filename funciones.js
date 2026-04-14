@@ -4,7 +4,43 @@
 
 const SUPABASE_URL = 'https://bnsfgzjqmibsrklllqxb.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJuc2ZnempxbWlic3JrbGxscXhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNzYwNzksImV4cCI6MjA4OTk1MjA3OX0.8mTQHPdO954ICBd1Xam-kKmcA69CMyO2v3x1liFgWyk';
-const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let _sessionToken = null;
+
+// Recrear cliente Supabase con token de sesión en headers
+function _initAuthClient(token) {
+  _sessionToken = token;
+  _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    global: { headers: { 'x-session-token': token } }
+  });
+}
+
+// ── AUTENTICACIÓN SEGURA ────────────────────────────────────
+
+async function obtenerUsuarios() {
+  const { data, error } = await _supabase.rpc('obtener_usuarios');
+  return error ? { ok: false, error: error.message } : { ok: true, data: data || [] };
+}
+
+async function verificarPin(nombre, pin) {
+  const { data, error } = await _supabase.rpc('verificar_pin', {
+    p_nombre: nombre,
+    p_pin: pin
+  });
+  if (error) return { ok: false, error: error.message };
+  if (data && data.ok) {
+    _initAuthClient(data.token);
+  }
+  return data;
+}
+
+async function cerrarSesion() {
+  if (_sessionToken) {
+    await _supabase.rpc('cerrar_sesion', { p_token: _sessionToken });
+  }
+  _sessionToken = null;
+  _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+}
 
 // ── FICHAJES ─────────────────────────────────────────────────
 

@@ -1386,7 +1386,16 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 // ============================================================
 const SUPABASE_URL = 'https://bnsfgzjqmibsrklllqxb.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJuc2ZnempxbWlic3JrbGxscXhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNzYwNzksImV4cCI6MjA4OTk1MjA3OX0.8mTQHPdO954ICBd1Xam-kKmcA69CMyO2v3x1liFgWyk';
-const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let _sessionToken = null;
+
+// Recrear cliente Supabase con token de sesión en headers
+function _initAuthClient(token) {
+  _sessionToken = token;
+  _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    global: { headers: { 'x-session-token': token } }
+  });
+}
 
 // ── GOOGLE SHEETS (para Producción y Gasoil) ────────────────
 const SHEETS_API = 'https://script.google.com/macros/s/AKfycbx9vuPeykNQ4kN4LupjmP7upYYyKk6sDZuxkRyvKb0uqwCs5uh1K1bJP_agzfWOQT9Q/exec';
@@ -1686,8 +1695,8 @@ async function apiPost(payload) {
   return doPostOT(payload);
 }
 
-let loginUser=null; // {id, nombre, pin, rol}
-let loginUsuarios=[]; // lista de usuarios de Supabase
+let loginUser=null; // {id, nombre, rol} — SIN pin
+let loginUsuarios=[]; // lista de usuarios (solo nombre+rol, sin pin)
 const WORKERS=['Gabriel Reyes','David Espacios','Antonio Juan Martel','Rubén Díaz'];
 const TOTAL_VAC=35;
 // Horas esperadas por día de semana: 1=Lun,2=Mar,3=Mié,4=Jue,5=Vie,6=Sáb,0=Dom
@@ -1707,9 +1716,15 @@ const PROD_CAT={'ARIDO AF-T-0/4-I':'0/4','ARIDO AG-T-4/12-I':'4/12','ARIDO AG-T-
 const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas',produccion:'Producción Planta',camiones:'Camiones',gasoil:'Gasoil',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental'};
 
 // ── PIN ──────────────────────────────────────────────────────
-// ── LOGIN CON SUPABASE ────────────────────────────────────────
+// ── LOGIN SEGURO CON SUPABASE (server-side) ──────────────────
 let pinStr='';
-function pinPress(d){if(pinStr.length>=4||!loginUser)return;pinStr+=d;updPinDots();if(pinStr.length===4)setTimeout(checkPin,200);}
+let pinLocked=false; // bloqueo por rate limiting
+
+function pinPress(d){
+  if(pinStr.length>=4||!loginUser||pinLocked)return;
+  pinStr+=d;updPinDots();
+  if(pinStr.length===4)setTimeout(checkPin,200);
+}
 function pinDel(){pinStr=pinStr.slice(0,-1);updPinDots();document.getElementById('pinError').textContent='';}
 function updPinDots(){for(let i=1;i<=4;i++){const d=document.getElementById('pd'+i);d.classList.toggle('filled',i<=pinStr.length);d.classList.remove('error');}}
 
@@ -1720,19 +1735,55 @@ function loginUserChange(){
   if(!uid){loginUser=null;section.style.display='none';return;}
   loginUser=loginUsuarios.find(u=>String(u.id)===uid)||null;
   section.style.display='block';
-  pinStr='';updPinDots();document.getElementById('pinError').textContent='';
+  pinStr='';pinLocked=false;updPinDots();document.getElementById('pinError').textContent='';
 }
 
-function checkPin(){
-  if(!loginUser){pinStr='';updPinDots();return;}
-  if(pinStr===String(loginUser.pin)){
-    document.getElementById('pinScreen').style.display='none';
-    document.getElementById('shell').style.display='flex';
-    initApp();
-  } else {
+async function checkPin(){
+  if(!loginUser||pinLocked){pinStr='';updPinDots();return;}
+
+  const errEl=document.getElementById('pinError');
+  // Deshabilitar input mientras se verifica
+  pinLocked=true;
+  errEl.textContent='Verificando...';
+
+  try{
+    // Verificación 100% server-side via RPC
+    const {data,error}=await _supabase.rpc('verificar_pin',{
+      p_nombre:loginUser.nombre,
+      p_pin:pinStr
+    });
+
+    if(error) throw new Error(error.message);
+
+    if(data && data.ok){
+      // Login exitoso: inicializar cliente con token de sesión
+      _initAuthClient(data.token);
+      loginUser=data.usuario;
+      document.getElementById('pinScreen').style.display='none';
+      document.getElementById('shell').style.display='flex';
+      initApp();
+    } else {
+      // PIN incorrecto o bloqueado
+      for(let i=1;i<=4;i++)document.getElementById('pd'+i).classList.add('error');
+      let msg=data?.error||'PIN incorrecto';
+      if(data?.intentos_restantes!==undefined && data.intentos_restantes>=0){
+        msg+=` (${data.intentos_restantes} intentos restantes)`;
+      }
+      errEl.textContent=msg;
+
+      if(data?.bloqueado){
+        pinLocked=true;
+        // Desbloquear UI tras 60s (el servidor sigue bloqueando 15min)
+        setTimeout(()=>{pinLocked=false;errEl.textContent='Puedes intentar de nuevo';},60000);
+      } else {
+        setTimeout(()=>{pinStr='';pinLocked=false;updPinDots();errEl.textContent='';},1500);
+      }
+    }
+  }catch(e){
+    console.error('Error verificando PIN:',e);
     for(let i=1;i<=4;i++)document.getElementById('pd'+i).classList.add('error');
-    document.getElementById('pinError').textContent='PIN incorrecto';
-    setTimeout(()=>{pinStr='';updPinDots();document.getElementById('pinError').textContent='';},1200);
+    errEl.textContent='Error de conexión';
+    setTimeout(()=>{pinStr='';pinLocked=false;updPinDots();errEl.textContent='';},2000);
   }
 }
 
@@ -1741,7 +1792,8 @@ async function cargarUsuariosLogin(){
   const sel=document.getElementById('login-user-sel');
   loading.style.display='block';
   try{
-    const {data,error}=await _supabase.from('tblUsuarios').select('*').order('nombre');
+    // Solo obtiene nombre+rol via RPC seguro (nunca PIN ni hash)
+    const {data,error}=await _supabase.rpc('obtener_usuarios');
     if(error)throw new Error(error.message);
     loginUsuarios=data||[];
     sel.innerHTML='<option value="">Seleccionar usuario...</option>';
