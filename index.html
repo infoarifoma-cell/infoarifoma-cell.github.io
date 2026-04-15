@@ -4389,36 +4389,56 @@ function renderProduccion(anyo){
   renderPctFabricacion(anyo);
   renderPctVentas(anyo);
 
-  // Tabla
-  let tbl=`<table style="width:100%;border-collapse:collapse;font-size:.72rem;white-space:nowrap">
+  // Tabla — solo días con producción real (tnDia>0)
+  const tablaData=allData.filter(r=>Number(r.tnDia)>0);
+  let tbl='';
+  if(!tablaData.length){
+    tbl='<div style="padding:20px;text-align:center;color:var(--muted);font-size:.8rem">Sin días de producción en el período</div>';
+  }else{
+    // Cabecera con totales por árido del período filtrado
+    const s04=tablaData.reduce((a,r)=>a+(Number(r.t04)||0),0);
+    const s412=tablaData.reduce((a,r)=>a+(Number(r.t412)||0),0);
+    const s1220=tablaData.reduce((a,r)=>a+(Number(r.t1220)||0),0);
+    const s2040=tablaData.reduce((a,r)=>a+(Number(r.t2040)||0),0);
+    const sTn=tablaData.reduce((a,r)=>a+(Number(r.tnDia)||0),0);
+    const sH=tablaData.reduce((a,r)=>a+(Number(r.horasPlanta)||0),0);
+    const cats=[
+      {l:'0/4',v:s04},{l:'4/12',v:s412},{l:'12/20',v:s1220},{l:'20/40',v:s2040}
+    ].filter(c=>c.v>0);
+    const catBadges=cats.map(c=>`<span style="padding:3px 8px;border-radius:4px;background:var(--surface2);font-size:.68rem;font-weight:700">${c.l}: <span style="color:var(--accent2)">${c.v.toLocaleString()} Tn</span></span>`).join('');
+    tbl=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 12px;background:var(--surface2);border-bottom:1px solid var(--border)">
+      <span style="font-size:.7rem;color:var(--muted);font-weight:700">${tablaData.length} días</span>
+      <span style="padding:3px 8px;border-radius:4px;background:var(--surface2);font-size:.68rem;font-weight:700">Total: <span style="color:var(--accent2)">${sTn.toLocaleString()} Tn</span></span>
+      ${catBadges}
+      <span style="padding:3px 8px;border-radius:4px;background:var(--surface2);font-size:.68rem;font-weight:700">Horas: <span style="color:var(--accent)">${sH.toFixed(0)} h</span></span>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:.72rem;white-space:nowrap">
     <thead><tr style="background:var(--surface2);color:var(--muted);font-size:.62rem;text-transform:uppercase">
-      <th style="padding:8px 6px;text-align:left">Fecha</th><th>Día</th><th>Tipo</th>
+      <th style="padding:8px 6px;text-align:left">Fecha</th><th>Día</th>
       <th style="text-align:right">Tn/día</th><th style="text-align:right">0/4</th><th style="text-align:right">4/12</th>
       <th style="text-align:right">12/20</th><th style="text-align:right">20/40</th>
       <th style="text-align:right">Horas</th><th style="text-align:right">Rend.</th>
       <th>Obs.</th><th></th>
     </tr></thead><tbody>`;
-  allData.forEach((r)=>{
-    const realIdx=prodData.indexOf(r);
-    const isMant=r.tipoDia==='M'||r.tipoDia==='FS'||r.tipoDia==='F';
-    const rowCol=isMant?'color:var(--muted)':'';
-    const tn=Number(r.tnDia)||0;
-    const f=r.fecha?r.fecha.substring(5).replace('-','/'):'-';
-    tbl+=`<tr style="border-top:1px solid var(--border);${rowCol}">
-      <td style="padding:6px">${f}</td><td style="text-align:center">${r.diaSem}</td>
-      <td style="text-align:center"><span style="color:${isMant?'var(--danger)':'var(--accent)'};font-weight:700">${r.tipoDia}</span></td>
-      <td style="text-align:right;font-family:'DM Mono',monospace;font-weight:700;color:${tn>0?'var(--accent2)':'var(--muted)'}">${tn||'—'}</td>
-      <td style="text-align:right;font-family:'DM Mono',monospace">${r.t04||'—'}</td>
-      <td style="text-align:right;font-family:'DM Mono',monospace">${r.t412||'—'}</td>
-      <td style="text-align:right;font-family:'DM Mono',monospace">${r.t1220||'—'}</td>
-      <td style="text-align:right;font-family:'DM Mono',monospace">${r.t2040||'—'}</td>
-      <td style="text-align:right;font-family:'DM Mono',monospace">${r.horasPlanta||'—'}</td>
-      <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--accent)">${r.rendimiento?Number(r.rendimiento).toFixed(1):'—'}</td>
-      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;font-size:.65rem;color:var(--muted)">${r.observaciones||''}</td>
-      <td><button onclick="editarProdDia(${realIdx})" style="background:transparent;border:none;cursor:pointer;color:var(--accent);font-size:.72rem">&#9998;</button></td>
-    </tr>`;
-  });
-  tbl+=`</tbody></table>`;
+    tablaData.forEach((r)=>{
+      const realIdx=prodData.indexOf(r);
+      const tn=Number(r.tnDia)||0;
+      const f=r.fecha?r.fecha.substring(5).replace('-','/'):'-';
+      tbl+=`<tr style="border-top:1px solid var(--border)">
+        <td style="padding:6px">${f}</td><td style="text-align:center;color:var(--muted);font-size:.65rem">${r.diaSem||''}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace;font-weight:700;color:var(--accent2)">${tn}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace">${r.t04||'—'}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace">${r.t412||'—'}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace">${r.t1220||'—'}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace">${r.t2040||'—'}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace">${r.horasPlanta||'—'}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--accent)">${r.rendimiento?Number(r.rendimiento).toFixed(1):'—'}</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;font-size:.65rem;color:var(--muted)">${r.observaciones||''}</td>
+        <td><button onclick="editarProdDia(${realIdx})" style="background:transparent;border:none;cursor:pointer;color:var(--accent);font-size:.72rem">&#9998;</button></td>
+      </tr>`;
+    });
+    tbl+=`</tbody></table>`;
+  }
   document.getElementById('prod-tabla').innerHTML=tbl;
 }
 
@@ -5104,8 +5124,15 @@ async function cargarNormas(){
   const sel=document.getElementById('msubg-norma');
   if(sel){sel.innerHTML=normasData.map(n=>`<option value="${n.id}">${n.Gama||n.Numero||n.id} — ${n.Modelo||''} (${n.Intervalo||0}H)</option>`).join('');}
   if(!normasData.length){el.innerHTML='<div class="tbl"><div class="empty">Sin normas</div></div>';return;}
+  // Resumen por modelo
+  const modelosN={};
+  normasData.forEach(n=>{const m=n.Modelo||'Sin modelo';if(!modelosN[m])modelosN[m]=0;modelosN[m]++;});
+  const normasBanner=`<div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 10px;background:var(--surface2);border-radius:8px;margin-bottom:8px;align-items:center">
+    <span style="font-size:.68rem;font-weight:700;color:var(--muted)">${normasData.length} gamas</span>
+    ${Object.entries(modelosN).map(([m,c])=>`<span style="padding:2px 8px;border-radius:4px;background:var(--surface);border:1px solid var(--border);font-size:.68rem;font-weight:700">${m} <span style="color:var(--accent)">${c}</span></span>`).join('')}
+  </div>`;
   // contar checks (n1..n60 no nulos)
-  el.innerHTML='<div class="tbl">'+
+  el.innerHTML=normasBanner+'<div class="tbl">'+
     '<div class="tr th"><div class="tc" style="flex:.4">#</div><div class="tc" style="flex:.5">Nº</div><div class="tc" style="flex:1">Gama</div><div class="tc" style="flex:.8">Modelo</div><div class="tc" style="flex:.5;text-align:center">Intervalo</div><div class="tc" style="flex:.3;text-align:center">Checks</div><div class="tc" style="flex:.6"></div></div>'+
     normasData.map(n=>{
       let nc=0; for(let i=1;i<=60;i++) if(n['n'+i]) nc++;
@@ -5170,7 +5197,12 @@ async function cargarSubgamas(){
   if(!json.ok){el.innerHTML='<div class="tbl"><div class="empty">Error: '+json.error+'</div></div>';return;}
   subgamasData=json.data;
   if(!subgamasData.length){el.innerHTML='<div class="tbl"><div class="empty">Sin subgamas</div></div>';return;}
-  el.innerHTML='<div class="tbl">'+
+  const totalSubg=subgamasData.reduce((a,s)=>{for(let i=1;i<=6;i++)if(s['Gama_'+i])a++;return a;},0);
+  const subgBanner=`<div style="display:flex;gap:8px;flex-wrap:wrap;padding:8px 10px;background:var(--surface2);border-radius:8px;margin-bottom:8px;align-items:center">
+    <span style="padding:2px 8px;border-radius:4px;background:var(--surface);border:1px solid var(--border);font-size:.68rem;font-weight:700">${subgamasData.length} grupos</span>
+    <span style="padding:2px 8px;border-radius:4px;background:var(--surface);border:1px solid var(--border);font-size:.68rem;font-weight:700">${totalSubg} subgamas totales</span>
+  </div>`;
+  el.innerHTML=subgBanner+'<div class="tbl">'+
     '<div class="tr th"><div class="tc" style="flex:.4">#</div><div class="tc" style="flex:1">Gama Principal</div><div class="tc" style="flex:1.2">Subgamas</div><div class="tc" style="flex:.6"></div></div>'+
     subgamasData.map(s=>{
       const sublist=[s.Gama_1,s.Gama_2,s.Gama_3,s.Gama_4,s.Gama_5,s.Gama_6].filter(Boolean).join(', ')||'—';
@@ -5230,7 +5262,12 @@ async function cargarActivosGama(){
   activoGamaData=json.data;
   if(!activoGamaData.length){el.innerHTML='<div class="tbl"><div class="empty">Sin registros</div></div>';return;}
   const gamasCols=['Gama_1','Gama_2','Gama_3','Gama_4','Gama_5','Gama_6','Gama_7','Gama_8','Gama_9'];
-  el.innerHTML='<div class="tbl">'+
+  const totalGamasAct=activoGamaData.reduce((a,r)=>{gamasCols.forEach(c=>{if(r[c])a++;});return a;},0);
+  const activosBanner=`<div style="display:flex;gap:8px;flex-wrap:wrap;padding:8px 10px;background:var(--surface2);border-radius:8px;margin-bottom:8px;align-items:center">
+    <span style="padding:2px 8px;border-radius:4px;background:var(--surface);border:1px solid var(--border);font-size:.68rem;font-weight:700">${activoGamaData.length} activos</span>
+    <span style="padding:2px 8px;border-radius:4px;background:var(--surface);border:1px solid var(--border);font-size:.68rem;font-weight:700">${totalGamasAct} asignaciones gama</span>
+  </div>`;
+  el.innerHTML=activosBanner+'<div class="tbl">'+
     '<div class="tr th"><div class="tc" style="flex:.4">#</div><div class="tc" style="flex:1">Activo</div><div class="tc" style="flex:2">Gamas asignadas</div><div class="tc" style="flex:.8">Checks</div><div class="tc" style="flex:.6"></div></div>'+
     activoGamaData.map(a=>{
       const gamas=gamasCols.map(c=>a[c]).filter(Boolean).join(', ')||'—';
@@ -5289,7 +5326,17 @@ async function cargarListadoPreventivo(){
   if(!json.ok){el.innerHTML='<div class="tbl"><div class="empty">Error: '+json.error+'</div></div>';return;}
   listadoPrevData=json.data;
   if(!listadoPrevData.length){el.innerHTML='<div class="tbl"><div class="empty">Sin registros — pulsa + Nuevo para añadir</div></div>';return;}
-  el.innerHTML='<div class="tbl">'+
+  // Resumen por activo
+  const activosL={};
+  listadoPrevData.forEach(r=>{const a=r.Activo||'?';if(!activosL[a])activosL[a]=0;activosL[a]++;});
+  const nPdteL=listadoPrevData.filter(r=>{const f=Number(r.Falta)||(Number(r.Proximo)-Number(r.U_Medicion_med));return f<0;}).length;
+  const listadoBanner=`<div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 10px;background:var(--surface2);border-radius:8px;margin-bottom:8px;align-items:center">
+    <span style="padding:2px 8px;border-radius:4px;background:var(--surface);border:1px solid var(--border);font-size:.68rem;font-weight:700">${listadoPrevData.length} entradas</span>
+    <span style="padding:2px 8px;border-radius:4px;background:var(--surface);border:1px solid var(--border);font-size:.68rem;font-weight:700">${Object.keys(activosL).length} activos</span>
+    ${nPdteL>0?`<span style="padding:2px 8px;border-radius:4px;background:#ff4d4d22;border:1px solid #ff4d4d55;font-size:.68rem;font-weight:700;color:#ff4d4d">${nPdteL} pendientes</span>`:''}
+    ${Object.entries(activosL).map(([a,c])=>`<span style="padding:2px 7px;border-radius:4px;background:var(--surface);border:1px solid var(--border);font-size:.65rem;font-family:monospace">${a} <span style="color:var(--accent)">${c}</span></span>`).join('')}
+  </div>`;
+  el.innerHTML=listadoBanner+'<div class="tbl">'+
     '<div class="tr th"><div class="tc" style="flex:1">Activo</div><div class="tc" style="flex:1.5">Código Gama</div><div class="tc" style="flex:.4;text-align:center">Med.</div><div class="tc" style="flex:.7;text-align:right">Próximo</div><div class="tc" style="flex:.7;text-align:right">Ultima</div><div class="tc" style="flex:1.1;text-align:center">Ultima fecha</div><div class="tc" style="flex:.6;text-align:right">Falta</div><div class="tc" style="flex:.6"></div></div>'+
     listadoPrevData.map(r=>{
       const falta=Number(r.Falta)||(Number(r.Proximo)-Number(r.U_Medicion_med));
