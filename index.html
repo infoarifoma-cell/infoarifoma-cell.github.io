@@ -1525,8 +1525,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
             <div class="modal-box" style="max-width:440px">
               <h3 id="mlist-title">Editar entrada listado</h3>
               <input type="hidden" id="mlist-id">
-              <label>Activo</label><input class="inp" id="mlist-activo" placeholder="Ej: M966G.01">
-              <label>Gama</label><input class="inp" id="mlist-codigogama" placeholder="Ej: 966G-500H">
+              <label>Activo</label>
+              <select class="inp" id="mlist-activo" onchange="mlistActivoChange()">
+                <option value="">Seleccionar activo...</option>
+              </select>
+              <label>Gama</label>
+              <select class="inp" id="mlist-codigogama">
+                <option value="">— elige activo primero —</option>
+              </select>
               <label>Medidor</label><select class="inp" id="mlist-medidor"><option value="H">H — Horas</option><option value="D">D — Días</option><option value="KM">KM</option></select>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
                 <div><label>Próximo</label><input class="inp inp-mono" type="number" id="mlist-proximo"></div>
@@ -5298,13 +5304,44 @@ async function cargarListadoPreventivo(){
     }).join('')+
   '</div>';
 }
-function abrirModalListado(id){
+function mlistActivoChange(){
+  const activo=document.getElementById('mlist-activo').value;
+  const sel=document.getElementById('mlist-codigogama');
+  sel.innerHTML='';
+  if(!activo){sel.innerHTML='<option value="">— elige activo primero —</option>';return;}
+  // Buscar en activoGamaData las gamas de este activo
+  const row=activoGamaData.find(x=>x.Activo===activo);
+  const gamas=[];
+  if(row){for(let i=1;i<=9;i++){if(row['Gama_'+i])gamas.push(row['Gama_'+i]);}}
+  if(!gamas.length){sel.innerHTML='<option value="">Sin gamas asignadas</option>';return;}
+  sel.innerHTML=gamas.map(g=>`<option value="${g}">${g}</option>`).join('');
+}
+async function abrirModalListado(id){
   document.getElementById('mlist-msg').textContent='';
   const r=id?listadoPrevData.find(x=>x.id===id):null;
   document.getElementById('mlist-title').textContent=r?'Editar entrada':'Nueva entrada';
   document.getElementById('mlist-id').value=r?r.id:'';
-  document.getElementById('mlist-activo').value=r?r.Activo||'':'';
-  document.getElementById('mlist-codigogama').value=r?r.Gama||'':'';
+  // Cargar activoGamaData si está vacío
+  if(!activoGamaData.length){
+    const j=await apiFetch('?accion=gamasActivos').catch(()=>({ok:false}));
+    if(j.ok)activoGamaData=j.data||[];
+  }
+  // Poblar selector activos
+  const selAct=document.getElementById('mlist-activo');
+  selAct.innerHTML='<option value="">Seleccionar activo...</option>'+
+    activoGamaData.map(a=>`<option value="${a.Activo}">${a.Activo}</option>`).join('');
+  selAct.value=r?r.Activo||'':'';
+  // Poblar gamas dependiendo del activo seleccionado
+  mlistActivoChange();
+  // Si editando, seleccionar la gama actual
+  if(r&&r.Gama){
+    const selGama=document.getElementById('mlist-codigogama');
+    // Si la gama no está en las opciones (caso raro), añadirla
+    if(![...selGama.options].some(o=>o.value===r.Gama)){
+      selGama.insertAdjacentHTML('beforeend',`<option value="${r.Gama}">${r.Gama}</option>`);
+    }
+    selGama.value=r.Gama;
+  }
   document.getElementById('mlist-medidor').value=r?r.Medidor||'H':'H';
   document.getElementById('mlist-proximo').value=r?r.Proximo??'':'';
   document.getElementById('mlist-ultima').value=r?r.U_Medicion_med??'':'';
