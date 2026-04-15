@@ -1563,6 +1563,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
                 <option value="">Todos los estados</option><option value="pdte">Pendientes</option><option value="prox">Próximos</option><option value="ok">Correctos</option>
               </select>
             </div>
+            <div id="prev-alert-banner" style="display:none;margin-bottom:10px;padding:10px 14px;border-radius:8px;background:#ff4d4d18;border:1.5px solid #ff4d4d55;font-size:.78rem;color:#ff4d4d;font-weight:700;cursor:pointer" onclick="(function(){const b=document.getElementById('prev-alert-banner'),cntPdte=Number(document.getElementById('prev-cnt-pdte').textContent)||0;document.getElementById('filt-prev-estado').value=cntPdte>0?'pdte':'prox';renderMantenimientoPreventivo();})()"></div>
             <div id="prev-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
           </div>
 
@@ -4807,6 +4808,8 @@ function cerrarOTPrint(){document.getElementById('ot-print-wrap').style.display=
 
 // ── MANTENIMIENTO PREVENTIVO ──────────────────────────────────
 let prevData=[];
+let prevGasoilHoroMap={};   // {activo → horómetro} desde gasoil consumos col C (max)
+let prevGasoilFechaMap={}; // {activo → fecha último registro gasoil}
 let customGamas=JSON.parse(localStorage.getItem('customGamas')||'[]');
 
 function getEffectiveGamas(){
@@ -4823,39 +4826,73 @@ async function cargarMantenimientoPreventivo(){
   const el=document.getElementById('prev-list');
   el.innerHTML='<div class="tbl"><div class="empty">Cargando...</div></div>';
   try{
-    const json=await apiFetch('?accion=historialOT');
-    if(!json.ok)throw new Error(json.error);
-    prevData=json.data;
+    // Fetch OT history + gasoil in parallel
+    const [jsonOT, jsonGasoil]=await Promise.all([
+      apiFetch('?accion=historialOT'),
+      apiFetch('?accion=gasoil').catch(()=>({ok:false}))
+    ]);
+    if(!jsonOT.ok)throw new Error(jsonOT.error);
+    prevData=jsonOT.data;
+    // Build horómetro map from gasoil consumos columna C (max = horómetro actual)
+    prevGasoilHoroMap={};
+    prevGasoilFechaMap={};
+    if(jsonGasoil.ok){
+      if(jsonGasoil.consumos){
+        jsonGasoil.consumos.forEach(c=>{
+          if(c.activo&&c.max!=null&&Number(c.max)>0)
+            prevGasoilHoroMap[c.activo]=Number(c.max);
+        });
+      }
+      // Última fecha por activo (destino) desde historial gasoil
+      if(jsonGasoil.data){
+        jsonGasoil.data.forEach(r=>{
+          const dest=r.destino||r.maquina;
+          if(!dest)return;
+          if(!prevGasoilFechaMap[dest]||r.fecha>prevGasoilFechaMap[dest])
+            prevGasoilFechaMap[dest]=r.fecha;
+        });
+      }
+    }
     // Populate machine filter
     const maquinas=[...new Set(MACHINES.map(m=>m.id))].sort();
     const sel=document.getElementById('filt-prev-maquina');
     sel.innerHTML='<option value="">Todas las máquinas</option>';
     maquinas.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;sel.appendChild(o);});
     renderMantenimientoPreventivo();
+    notificarMantenimiento();
   }catch(e){el.innerHTML='<div class="tbl"><div class="empty">Error: '+e.message+'</div></div>';}
 }
 
 function calcMantenimiento(){
   const gamas=getEffectiveGamas();
   const result=[];
-  // For each machine, get current horometer (max medicion across all OTs)
-  const machineHoro={};
+  const hoy=new Date(); hoy.setHours(0,0,0,0);
+  const HORAS_DIA=8; // horas de trabajo/día para convertir horas → días
+  // For each machine, get current horometer from OTs
+  const machineHoroOT={};
   prevData.forEach(r=>{
     const m=Number(r.medicion)||0;
-    if(!machineHoro[r.activo]||m>machineHoro[r.activo])machineHoro[r.activo]=m;
+    if(!machineHoroOT[r.activo]||m>machineHoroOT[r.activo])machineHoroOT[r.activo]=m;
   });
   // For each machine+gama combo
   MACHINES.forEach(machine=>{
     const mGamas=gamas.filter(g=>g.modelo===machine.modelo);
+    // Horómetro: gasoil (columna C = max) tiene prioridad sobre OT
+    const gasoilHoro=prevGasoilHoroMap[machine.id]||null;
     mGamas.forEach(g=>{
       // Last OT for this machine+gama
       const ots=prevData.filter(r=>r.activo===machine.id&&r.gama===g.id).sort((a,b)=>Number(b.medicion)-Number(a.medicion));
       const lastOT=ots[0];
       const lastMedicion=lastOT?Number(lastOT.medicion)||0:null;
       const lastFecha=lastOT?lastOT.fecha:'—';
-      const currentHoro=machineHoro[machine.id]||lastMedicion||0;
+      // Gasoil horómetro overrides OT-based if higher/available
+      const currentHoro=gasoilHoro||machineHoroOT[machine.id]||lastMedicion||0;
+      // Fecha gasoil: la fecha del último registro del historial gasoil para esta máquina
+      const gasoilFecha=prevGasoilFechaMap&&prevGasoilFechaMap[machine.id]||null;
       const proximo=lastMedicion!==null?lastMedicion+g.intervalo:null;
       const falta=proximo!==null?proximo-currentHoro:null;
+      // Días restantes: falta(h) / HORAS_DIA. Si falta<0 ya pasó.
+      const diasRestantes=falta!==null?Math.round(falta/HORAS_DIA):null;
       const isCustom=customGamas.some(cg=>cg.id===g.id);
       result.push({
         activo:machine.id,
@@ -4865,10 +4902,12 @@ function calcMantenimiento(){
         intervalo:g.intervalo,
         proximo,
         ultima:currentHoro||null,
-        ultimaFecha:lastFecha,
+        ultimaFecha:gasoilFecha||lastFecha,
         falta,
+        diasRestantes,
         estado:falta===null?'sin_datos':falta<=0?'pdte':falta<=g.intervalo*0.1?'prox':'ok',
         isCustom,
+        fromGasoil:gasoilHoro!=null,
       });
     });
   });
@@ -4889,6 +4928,23 @@ function renderMantenimientoPreventivo(){
   document.getElementById('prev-cnt-pdte').textContent=allData.filter(r=>r.estado==='pdte').length;
   document.getElementById('prev-cnt-prox').textContent=allData.filter(r=>r.estado==='prox').length;
   document.getElementById('prev-cnt-ok').textContent=allData.filter(r=>r.estado==='ok').length;
+  // Alert banner
+  const banner=document.getElementById('prev-alert-banner');
+  if(banner){
+    const allD=calcMantenimiento();
+    const nPdte=allD.filter(r=>r.estado==='pdte').length;
+    const nProx=allD.filter(r=>r.estado==='prox').length;
+    if(nPdte||nProx){
+      banner.style.display='block';
+      const parts=[];
+      if(nPdte)parts.push(`⚠ ${nPdte} gama${nPdte>1?'s':''} PENDIENTE${nPdte>1?'S':''} de mantenimiento`);
+      if(nProx)parts.push(`⏰ ${nProx} gama${nProx>1?'s':''} PRÓXIMA${nProx>1?'S':''} — pulsa para filtrar`);
+      banner.innerHTML=parts.join('&nbsp;&nbsp;|&nbsp;&nbsp;');
+      banner.style.borderColor=nPdte?'#ff4d4d55':'#f5a62355';
+      banner.style.background=nPdte?'#ff4d4d18':'#f5a62318';
+      banner.style.color=nPdte?'#ff4d4d':'#f5a623';
+    }else{banner.style.display='none';}
+  }
   if(!data.length){el.innerHTML='<div class="tbl"><div class="empty">Sin datos</div></div>';return;}
   const estadoColor={pdte:'#ff4d4d',prox:'#f5a623',ok:'#4caf50',sin_datos:'#888'};
   const estadoLabel={pdte:'PDTE',prox:'PRÓXIMO',ok:'CORRECTO',sin_datos:'SIN DATOS'};
@@ -4897,29 +4953,55 @@ function renderMantenimientoPreventivo(){
       '<div class="tc" style="flex:1">Activo</div>'+
       '<div class="tc" style="flex:1.5">Gama</div>'+
       '<div class="tc" style="flex:.4;text-align:center">Med.</div>'+
+      '<div class="tc" style="flex:.65;text-align:right">Horóm.</div>'+
       '<div class="tc" style="flex:.7;text-align:right">Próximo</div>'+
-      '<div class="tc" style="flex:.7;text-align:right">Ultima</div>'+
-      '<div class="tc" style="flex:1.2;text-align:center">Ultima fecha</div>'+
-      '<div class="tc" style="flex:.7;text-align:right">Falta</div>'+
+      '<div class="tc" style="flex:.6;text-align:right">Falta h</div>'+
+      '<div class="tc" style="flex:.6;text-align:right">Días</div>'+
+      '<div class="tc" style="flex:1.1;text-align:center">Última fecha</div>'+
       '<div class="tc" style="flex:.9;text-align:center">Estado</div>'+
       '<div class="tc" style="flex:.5;text-align:center"></div>'+
     '</div>'+
     data.map(r=>{
       const faltaStyle=r.falta!==null&&r.falta<0?'background:rgba(255,77,77,.15);':'';
       const faltaColor=r.falta!==null&&r.falta<0?'color:#ff4d4d;font-weight:700':'';
+      const diasColor=r.diasRestantes!==null?(r.diasRestantes<=0?'color:#ff4d4d;font-weight:700':r.diasRestantes<=7?'color:#f5a623;font-weight:700':''):'';
+      const horomLabel=r.ultima!==null?(r.fromGasoil?`<span title="Gasoil">${r.ultima}</span>`:`${r.ultima}`):'—';
       return `<div class="tr" style="${faltaStyle}">
         <div class="tc" style="flex:1;font-family:monospace;font-weight:700;color:var(--accent);font-size:.75rem">${r.activo}</div>
-        <div class="tc" style="flex:1.5;font-size:.75rem">${r.gamaNombre}${r.isCustom?' <span style="font-size:.6rem;color:var(--accent2)">[custom]</span>':''}</div>
+        <div class="tc" style="flex:1.5;font-size:.75rem">${r.gamaNombre}${r.isCustom?' <span style="font-size:.6rem;color:var(--accent2)">[C]</span>':''}</div>
         <div class="tc" style="flex:.4;text-align:center;font-size:.72rem;color:var(--muted)">H</div>
+        <div class="tc" style="flex:.65;text-align:right;font-family:monospace;font-size:.75rem${r.fromGasoil?';color:var(--accent2)':''}">${horomLabel}</div>
         <div class="tc" style="flex:.7;text-align:right;font-family:monospace;font-size:.75rem">${r.proximo!==null?r.proximo:'—'}</div>
-        <div class="tc" style="flex:.7;text-align:right;font-family:monospace;font-size:.75rem">${r.ultima!==null?r.ultima:'—'}</div>
-        <div class="tc" style="flex:1.2;text-align:center;font-size:.7rem;color:var(--muted)">${r.ultimaFecha!=='—'?r.ultimaFecha:''}</div>
-        <div class="tc" style="flex:.7;text-align:right;font-family:monospace;font-size:.75rem;${faltaColor}">${r.falta!==null?r.falta:'—'}</div>
+        <div class="tc" style="flex:.6;text-align:right;font-family:monospace;font-size:.75rem;${faltaColor}">${r.falta!==null?r.falta:'—'}</div>
+        <div class="tc" style="flex:.6;text-align:right;font-family:monospace;font-size:.75rem;${diasColor}">${r.diasRestantes!==null?r.diasRestantes+'d':'—'}</div>
+        <div class="tc" style="flex:1.1;text-align:center;font-size:.7rem;color:var(--muted)">${r.ultimaFecha!=='—'?r.ultimaFecha:''}</div>
         <div class="tc" style="flex:.9;text-align:center"><span style="font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:4px;background:${estadoColor[r.estado]}22;color:${estadoColor[r.estado]}">${estadoLabel[r.estado]}</span></div>
         <div class="tc" style="flex:.5;text-align:center"><button class="btn-sm" onclick="abrirModalGama(${JSON.stringify(r.gama).replace(/"/g,'&quot;')})" style="font-size:.62rem;padding:2px 6px">✏</button></div>
       </div>`;
     }).join('')+
   '</div>';
+}
+
+// ── NOTIFICACIÓN MANTENIMIENTO ────────────────────────────────
+function notificarMantenimiento(){
+  const data=calcMantenimiento();
+  const pdtes=data.filter(r=>r.estado==='pdte');
+  const proxs=data.filter(r=>r.estado==='prox');
+  if(!pdtes.length&&!proxs.length)return;
+  const lines=[];
+  if(pdtes.length)lines.push(`⚠ ${pdtes.length} gama${pdtes.length>1?'s':''} pendiente${pdtes.length>1?'s':''}`);
+  if(proxs.length)lines.push(`⏰ ${proxs.length} gama${proxs.length>1?'s':''} próxima${proxs.length>1?'s':''}`);
+  const msg=lines.join(' · ');
+  // Browser Notification API
+  if('Notification' in window){
+    if(Notification.permission==='granted'){
+      new Notification('Mantenimiento Preventivo',{body:msg,icon:'',tag:'mant-preventivo'});
+    }else if(Notification.permission!=='denied'){
+      Notification.requestPermission().then(p=>{
+        if(p==='granted')new Notification('Mantenimiento Preventivo',{body:msg,icon:'',tag:'mant-preventivo'});
+      });
+    }
+  }
 }
 
 // ── GAMA CRUD ─────────────────────────────────────────────────
