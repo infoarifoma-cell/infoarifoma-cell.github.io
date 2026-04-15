@@ -33,7 +33,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .sidebar{width:0;overflow:hidden;transition:width .25s ease;background:var(--surface);border-right:1px solid var(--border);flex-shrink:0;position:sticky;top:0;height:100vh;overflow-y:auto}
 .sidebar.open{width:220px}
 .sidebar-inner{width:220px;padding:16px 12px}
-@media(min-width:900px){.sidebar{width:220px;overflow:visible}.menu-btn{display:none!important}}
+@media(min-width:900px){.sidebar{width:220px;overflow-y:auto;overflow-x:hidden}.menu-btn{display:none!important}}
 .sidebar-section{font-family:'Syne',sans-serif;font-size:.72rem;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;padding:8px 10px 4px;margin-top:6px}
 .sidebar-section:first-child{margin-top:0}
 .snav-btn{display:flex;align-items:center;gap:10px;padding:12px 10px;border-radius:8px;font-size:1.05rem;font-weight:400;color:var(--text);background:transparent;border:none;cursor:pointer;text-align:left;width:100%;transition:all .12s}
@@ -1451,65 +1451,133 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
         <!-- ══ MANTENIMIENTO PREVENTIVO ══ -->
         <div class="page" id="pg-preventivo">
-          <!-- Modal editar gama -->
-          <div class="modal-wrap" id="modal-gama">
+          <!-- ── Modales preventivo ── -->
+          <!-- Modal Norma/Gama -->
+          <div class="modal-wrap" id="modal-norma">
             <div class="modal-box" style="max-width:500px">
-              <h3 id="mgama-title">Nueva Gama</h3>
-              <input type="hidden" id="mgama-id">
-              <label>Modelo de máquina</label>
-              <input class="inp" id="mgama-modelo" placeholder="Ej: 966G">
-              <label>Nombre de la gama</label>
-              <input class="inp" id="mgama-nombre" placeholder="Ej: 500 Horas">
-              <label>Intervalo (horas)</label>
-              <input class="inp" type="number" id="mgama-intervalo" placeholder="Ej: 500" min="1">
+              <h3 id="mnorma-title">Nueva Norma/Gama</h3>
+              <input type="hidden" id="mnorma-id">
+              <label>Nombre</label><input class="inp" id="mnorma-nombre" placeholder="Ej: 500 Horas">
+              <label>Modelo máquina</label><input class="inp" id="mnorma-modelo" placeholder="Ej: 966G">
+              <label>Intervalo (h)</label><input class="inp" type="number" id="mnorma-intervalo" placeholder="500" min="1">
+              <label>Unidad</label><select class="inp" id="mnorma-unidad"><option value="H">H — Horas</option><option value="D">D — Días</option><option value="KM">KM — Kilómetros</option></select>
               <label>Puntos de verificación (uno por línea)</label>
-              <textarea class="inp" id="mgama-checks" placeholder="Cambio aceite motor&#10;Revisar filtros..." style="resize:vertical;min-height:120px"></textarea>
-              <div class="warn-msg" id="mgama-msg"></div>
-              <div class="modal-btns">
-                <button class="btn-cancel" onclick="cerrarModalGama()">Cancelar</button>
-                <button class="btn-save" onclick="guardarGama()">Guardar</button>
+              <textarea class="inp" id="mnorma-checks" placeholder="Cambio aceite motor&#10;Revisar filtros..." style="resize:vertical;min-height:100px"></textarea>
+              <div class="warn-msg" id="mnorma-msg"></div>
+              <div class="modal-btns"><button class="btn-cancel" onclick="cerrarModalNorma()">Cancelar</button><button class="btn-save" onclick="guardarNorma()">Guardar</button></div>
+            </div>
+          </div>
+          <!-- Modal Subgama -->
+          <div class="modal-wrap" id="modal-subgama">
+            <div class="modal-box" style="max-width:480px">
+              <h3 id="msubg-title">Nueva Subgama</h3>
+              <input type="hidden" id="msubg-id">
+              <label>Norma padre</label><select class="inp" id="msubg-norma"></select>
+              <label>Nombre subgama</label><input class="inp" id="msubg-nombre" placeholder="Ej: Revisión nivel aceite">
+              <label>Puntos de verificación (uno por línea)</label>
+              <textarea class="inp" id="msubg-checks" style="resize:vertical;min-height:80px" placeholder="Comprobar nivel&#10;Rellenar si precisa"></textarea>
+              <div class="warn-msg" id="msubg-msg"></div>
+              <div class="modal-btns"><button class="btn-cancel" onclick="cerrarModalSubgama()">Cancelar</button><button class="btn-save" onclick="guardarSubgama()">Guardar</button></div>
+            </div>
+          </div>
+          <!-- Modal Activo-Gama -->
+          <div class="modal-wrap" id="modal-activogama">
+            <div class="modal-box" style="max-width:420px">
+              <h3 id="mag-title">Nuevo Activo-Gama</h3>
+              <input type="hidden" id="mag-id">
+              <label>Activo</label>
+              <select class="inp" id="mag-activo">
+                <option value="">Seleccionar...</option>
+              </select>
+              <label>Código Gama</label><input class="inp" id="mag-codigogama" placeholder="Ej: 966G-500H">
+              <div class="warn-msg" id="mag-msg"></div>
+              <div class="modal-btns"><button class="btn-cancel" onclick="cerrarModalActivoGama()">Cancelar</button><button class="btn-save" onclick="guardarActivoGama()">Guardar</button></div>
+            </div>
+          </div>
+          <!-- Modal Editar Listado -->
+          <div class="modal-wrap" id="modal-listado">
+            <div class="modal-box" style="max-width:440px">
+              <h3 id="mlist-title">Editar entrada listado</h3>
+              <input type="hidden" id="mlist-id">
+              <label>Activo</label><input class="inp" id="mlist-activo" placeholder="Ej: M966G.01">
+              <label>Código Gama</label><input class="inp" id="mlist-codigogama" placeholder="Ej: 966G-500H">
+              <label>Medidor</label><select class="inp" id="mlist-medidor"><option value="H">H</option><option value="D">D</option><option value="KM">KM</option></select>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div><label>Próximo</label><input class="inp inp-mono" type="number" id="mlist-proximo"></div>
+                <div><label>Ultima</label><input class="inp inp-mono" type="number" id="mlist-ultima"></div>
               </div>
+              <label>Ultima fecha</label><input class="inp" type="datetime-local" id="mlist-ultimafecha">
+              <div class="warn-msg" id="mlist-msg"></div>
+              <div class="modal-btns"><button class="btn-cancel" onclick="cerrarModalListado()">Cancelar</button><button class="btn-save" onclick="guardarListado()">Guardar</button></div>
             </div>
           </div>
 
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-            <div class="sec-title" style="margin:0">Mantenimiento Preventivo</div>
-            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-              <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="abrirModalGama()">+ Gama</button>
+          <!-- ── Sub-navegación ── -->
+          <div style="display:flex;gap:2px;margin-bottom:14px;border-bottom:2px solid var(--border);padding-bottom:0;overflow-x:auto">
+            <button class="ctrl-tab active" id="ptab-listado" onclick="prevTab('listado')">Listado</button>
+            <button class="ctrl-tab" id="ptab-normas" onclick="prevTab('normas')">Gamas-Normas</button>
+            <button class="ctrl-tab" id="ptab-subgamas" onclick="prevTab('subgamas')">Subgamas</button>
+            <button class="ctrl-tab" id="ptab-activos" onclick="prevTab('activos')">Activo-Gama</button>
+            <button class="ctrl-tab" id="ptab-editar" onclick="prevTab('editar')">Editar Listado</button>
+          </div>
+
+          <!-- Tab: Listado (calculated view) -->
+          <div class="ctrl-section active" id="psec-listado">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:#ff4d4d22;font-size:.75rem;color:#ff4d4d;font-weight:700"><span id="prev-cnt-pdte">0</span> Pendientes</div>
+                <div style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:#f5a62322;font-size:.75rem;color:#f5a623;font-weight:700"><span id="prev-cnt-prox">0</span> Próximos</div>
+                <div style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:#4caf5022;font-size:.75rem;color:#4caf50;font-weight:700"><span id="prev-cnt-ok">0</span> Correctos</div>
+              </div>
               <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="cargarMantenimientoPreventivo()">&#8635; Actualizar</button>
             </div>
+            <div class="frow" style="margin-bottom:10px">
+              <select class="fsel" id="filt-prev-maquina" onchange="renderMantenimientoPreventivo()"><option value="">Todas las máquinas</option></select>
+              <select class="fsel" id="filt-prev-estado" onchange="renderMantenimientoPreventivo()">
+                <option value="">Todos los estados</option><option value="pdte">Pendientes</option><option value="prox">Próximos</option><option value="ok">Correctos</option>
+              </select>
+            </div>
+            <div id="prev-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
           </div>
 
-          <!-- Badges resumen -->
-          <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
-            <div style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:#ff4d4d22;font-size:.75rem;color:#ff4d4d;font-weight:700">
-              <span id="prev-cnt-pdte">0</span> Pendientes
+          <!-- Tab: Gamas-Normas -->
+          <div class="ctrl-section" id="psec-normas">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <div class="sec-title" style="margin:0">Gamas / Normas</div>
+              <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="abrirModalNorma()">+ Nueva</button>
             </div>
-            <div style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:#f5a62322;font-size:.75rem;color:#f5a623;font-weight:700">
-              <span id="prev-cnt-prox">0</span> Próximos (&lt;10%)
-            </div>
-            <div style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:#4caf5022;font-size:.75rem;color:#4caf50;font-weight:700">
-              <span id="prev-cnt-ok">0</span> Correctos
-            </div>
+            <div id="normas-list"><div class="tbl"><div class="empty">Cargando...</div></div></div>
           </div>
 
-          <!-- Filtros -->
-          <div class="frow" style="margin-bottom:10px">
-            <select class="fsel" id="filt-prev-maquina" onchange="renderMantenimientoPreventivo()">
-              <option value="">Todas las máquinas</option>
-            </select>
-            <select class="fsel" id="filt-prev-estado" onchange="renderMantenimientoPreventivo()">
-              <option value="">Todos los estados</option>
-              <option value="pdte">Pendientes</option>
-              <option value="prox">Próximos</option>
-              <option value="ok">Correctos</option>
-            </select>
-            <label style="display:flex;align-items:center;gap:5px;font-size:.78rem;color:var(--muted);cursor:pointer">
-              <input type="checkbox" id="filt-prev-custom" onchange="renderMantenimientoPreventivo()"> Solo custom
-            </label>
+          <!-- Tab: Subgamas -->
+          <div class="ctrl-section" id="psec-subgamas">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <div class="sec-title" style="margin:0">Subgamas</div>
+              <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="abrirModalSubgama()">+ Nueva</button>
+            </div>
+            <div id="subgamas-list"><div class="tbl"><div class="empty">Cargando...</div></div></div>
           </div>
 
-          <div id="prev-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
+          <!-- Tab: Activo-Gama -->
+          <div class="ctrl-section" id="psec-activos">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <div class="sec-title" style="margin:0">Activo-Gama</div>
+              <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="abrirModalActivoGama()">+ Nuevo</button>
+            </div>
+            <div id="activogama-list"><div class="tbl"><div class="empty">Cargando...</div></div></div>
+          </div>
+
+          <!-- Tab: Editar Listado -->
+          <div class="ctrl-section" id="psec-editar">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <div class="sec-title" style="margin:0">Editar Listado</div>
+              <div style="display:flex;gap:6px">
+                <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="cargarListadoPreventivo()">&#8635; Actualizar</button>
+                <button class="btn-pri" style="font-size:.72rem;padding:6px 12px" onclick="abrirModalListado()">+ Nuevo</button>
+              </div>
+            </div>
+            <div id="listado-prev-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
+          </div>
         </div>
 
       </div>
@@ -2425,12 +2493,16 @@ function basGoStep(n){
   document.getElementById('bas-step-label').textContent=labels[n];
 
   if(n===2){
-    document.getElementById('bas-btn-s2').disabled=true;
-    document.getElementById('bas-pedido-generado').style.display='none';
-    basNumPedido=null;
-    basSelCliente=null;
-    document.getElementById('bas-cli-text').textContent='Seleccionar cliente...';
-    document.getElementById('bas-cli-text').style.color='var(--muted)';
+    // Only reset client/pedido when navigating FORWARD (new weighing, not going back from step 3)
+    const comingForward=n>basCurrentStep||(n===2&&basCurrentStep<=2);
+    if(!basNumPedido){
+      // No active pedido — always reset UI
+      document.getElementById('bas-btn-s2').disabled=true;
+      document.getElementById('bas-pedido-generado').style.display='none';
+      basSelCliente=null;
+      document.getElementById('bas-cli-text').textContent='Seleccionar cliente...';
+      document.getElementById('bas-cli-text').style.color='var(--muted)';
+    }
     cargarPedidosHoy();
   }
   if(n===3) renderAlbaranStep3();
@@ -2714,8 +2786,11 @@ async function guardarLinea(){
   }
 }
 
+// Store last saved line for albaran button (avoids inline JSON in onclick)
+let _lastSavedId=null, _lastSavedPayload=null;
+
 function mostrarExitoLinea(id,payload){
-  // Show compact success banner at top of step3, no forced print
+  _lastSavedId=id; _lastSavedPayload=payload;
   let banner=document.getElementById('linea-ok-banner');
   if(!banner){
     banner=document.createElement('div');
@@ -2726,7 +2801,10 @@ function mostrarExitoLinea(id,payload){
   }
   const neto=Number(payload.pesoNeto).toLocaleString();
   banner.innerHTML=`<span style="font-size:.82rem;color:var(--accent2);font-weight:700">✓ Guardado — ${payload.productoNombre} · ${neto} kg</span>`+
-    `<button onclick="mostrarAlbaran(${JSON.stringify(id)},${JSON.stringify(payload).replace(/</g,'\\u003c')})" style="padding:5px 12px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">🖨 Albarán</button>`;
+    `<button onclick="mostrarAlbaranUltimaLinea()" style="padding:5px 12px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">🖨 Albarán</button>`;
+}
+function mostrarAlbaranUltimaLinea(){
+  if(_lastSavedId!==null&&_lastSavedPayload)mostrarAlbaran(_lastSavedId,_lastSavedPayload);
 }
 
 function mostrarAlbaran(id,p){
@@ -3802,8 +3880,8 @@ function filtrarHistorialOT(){
   let data=otHistData;if(fm)data=data.filter(r=>r.activo===fm);if(fo)data=data.filter(r=>r.operario===fo);
   const el=document.getElementById('ot-hist-list');
   if(!data.length){el.innerHTML='<div class="tbl"><div class="empty">Sin resultados</div></div>';return;}
-  el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:.5">OT</div><div class="tc" style="flex:1.2">Máquina</div><div class="tc" style="flex:1">Gama</div><div class="tc" style="flex:.8">Fecha</div><div class="tc" style="flex:.8">Operario</div><div class="tc" style="flex:.4;text-align:center">Estado</div><div class="tc" style="flex:.4"></div></div>'+
-  data.map(r=>`<div class="tr"><div class="tc" style="flex:.5;font-family:monospace;color:var(--muted)">#${String(r.ot).padStart(4,'0')}</div><div class="tc" style="flex:1.2;font-size:.78rem">${r.activo}</div><div class="tc" style="flex:1;color:var(--muted);font-size:.72rem">${r.gama}</div><div class="tc" style="flex:.8;color:var(--muted);font-size:.72rem">${r.fecha}</div><div class="tc" style="flex:.8;font-size:.75rem">${r.operario}</div><div class="tc" style="flex:.4;text-align:center"><span class="badge ${r.estado===true||r.estado==='TRUE'?'badge-ok':'badge-pend'}">${r.estado===true||r.estado==='TRUE'?'OK':'Pend'}</span></div><div class="tc" style="flex:.4;text-align:right"><button class="btn-sm" onclick="openOTEditModal(${r.id})">Editar</button></div></div>`).join('')+'</div>';
+  el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:.5">OT</div><div class="tc" style="flex:1.2">Máquina</div><div class="tc" style="flex:1">Gama</div><div class="tc" style="flex:.8">Fecha</div><div class="tc" style="flex:.8">Operario</div><div class="tc" style="flex:.4;text-align:center">Estado</div><div class="tc" style="flex:.6"></div></div>'+
+  data.map(r=>`<div class="tr"><div class="tc" style="flex:.5;font-family:monospace;color:var(--muted)">#${String(r.ot||r.id).padStart(4,'0')}</div><div class="tc" style="flex:1.2;font-size:.78rem">${r.activo}</div><div class="tc" style="flex:1;color:var(--muted);font-size:.72rem">${r.gama}</div><div class="tc" style="flex:.8;color:var(--muted);font-size:.72rem">${r.fecha}</div><div class="tc" style="flex:.8;font-size:.75rem">${r.operario||'—'}</div><div class="tc" style="flex:.4;text-align:center"><span class="badge ${r.estado===true||r.estado==='TRUE'?'badge-ok':'badge-pend'}">${r.estado===true||r.estado==='TRUE'?'OK':'Pend'}</span></div><div class="tc" style="flex:.6;text-align:right;display:flex;gap:4px;justify-content:flex-end"><button class="btn-sm" onclick="printOTHistorial(${r.id})" title="Imprimir" style="font-size:.65rem;padding:2px 5px">🖨</button><button class="btn-sm" onclick="openOTEditModal(${r.id})">Editar</button></div></div>`).join('')+'</div>';
 }
 function openOTEditModal(id){const r=otHistData.find(x=>x.id==id);if(!r)return;otEditingId=id;document.getElementById('ot-edit-modal').classList.add('open');document.getElementById('oem-fecha').value=r.fecha||'';document.getElementById('oem-operario').value=r.operario||'';document.getElementById('oem-medicion').value=r.medicion||'';document.getElementById('oem-texto').value=r.texto||'';}
 function closeOTEditModal(){document.getElementById('ot-edit-modal').classList.remove('open');otEditingId=null;}
@@ -4714,7 +4792,7 @@ function guardarGama(){
 function renderInicioMant(){
   const el=document.getElementById('inicio-mant-alert');
   if(!el)return;
-  if(!prevData.length)return; // No data loaded yet
+  if(!prevData.length)return;
   const data=calcMantenimiento();
   const pdtes=data.filter(r=>r.estado==='pdte').length;
   const proxs=data.filter(r=>r.estado==='prox').length;
@@ -4725,6 +4803,301 @@ function renderInicioMant(){
     ${pdtes?`<div style="color:#ff4d4d;font-size:.82rem;font-weight:700">${pdtes} gama${pdtes>1?'s':''} pendiente${pdtes>1?'s':''}</div>`:''}
     ${proxs?`<div style="color:#f5a623;font-size:.82rem;font-weight:700">${proxs} gama${proxs>1?'s':''} próxima${proxs>1?'s':''}</div>`:''}
   </div>`;
+}
+
+// ── PREVENTIVO TABS ───────────────────────────────────────────
+function prevTab(name){
+  ['listado','normas','subgamas','activos','editar'].forEach(t=>{
+    document.getElementById('psec-'+t).classList.toggle('active',t===name);
+    document.getElementById('ptab-'+t).classList.toggle('active',t===name);
+  });
+  if(name==='normas')cargarNormas();
+  if(name==='subgamas')cargarSubgamas();
+  if(name==='activos')cargarActivosGama();
+  if(name==='editar')cargarListadoPreventivo();
+}
+
+// ── NORMAS CRUD ───────────────────────────────────────────────
+let normasData=[];
+async function cargarNormas(){
+  const el=document.getElementById('normas-list');
+  el.innerHTML='<div class="tbl"><div class="empty">Cargando...</div></div>';
+  const json=await apiFetch('?accion=gamasNormas').catch(e=>({ok:false,error:e.message}));
+  if(!json.ok){el.innerHTML='<div class="tbl"><div class="empty">Error: '+json.error+'</div></div>';return;}
+  normasData=json.data;
+  // Populate norma select in subgama modal
+  const sel=document.getElementById('msubg-norma');
+  if(sel){sel.innerHTML=normasData.map(n=>`<option value="${n.id}">${n.nombre} (${n.modelo})</option>`).join('');}
+  if(!normasData.length){el.innerHTML='<div class="tbl"><div class="empty">Sin normas</div></div>';return;}
+  el.innerHTML='<div class="tbl">'+
+    '<div class="tr th"><div class="tc" style="flex:.4">#</div><div class="tc" style="flex:1">Nombre</div><div class="tc" style="flex:.8">Modelo</div><div class="tc" style="flex:.5;text-align:center">Intervalo</div><div class="tc" style="flex:.3;text-align:center">Checks</div><div class="tc" style="flex:.6"></div></div>'+
+    normasData.map(n=>`<div class="tr">
+      <div class="tc" style="flex:.4;font-family:monospace;font-size:.7rem;color:var(--muted)">${n.id}</div>
+      <div class="tc" style="flex:1;font-size:.78rem;font-weight:600">${n.nombre||'—'}</div>
+      <div class="tc" style="flex:.8;font-size:.75rem;color:var(--accent)">${n.modelo||'—'}</div>
+      <div class="tc" style="flex:.5;text-align:center;font-family:monospace;font-size:.75rem">${n.intervalo||'—'}${n.unidad||'H'}</div>
+      <div class="tc" style="flex:.3;text-align:center;font-size:.7rem;color:var(--muted)">${Array.isArray(n.checks)?n.checks.length:0}</div>
+      <div class="tc" style="flex:.6;text-align:right;display:flex;gap:4px;justify-content:flex-end">
+        <button class="btn-sm" onclick="abrirModalNorma(${n.id})" style="font-size:.65rem;padding:2px 5px">✏</button>
+        <button class="btn-sm" onclick="eliminarNorma(${n.id})" style="font-size:.65rem;padding:2px 5px;color:#ff4d4d;border-color:#ff4d4d">🗑</button>
+      </div></div>`).join('')+
+  '</div>';
+}
+function abrirModalNorma(id){
+  document.getElementById('mnorma-msg').textContent='';
+  const n=id?normasData.find(x=>x.id===id):null;
+  document.getElementById('mnorma-title').textContent=n?'Editar Norma':'Nueva Norma/Gama';
+  document.getElementById('mnorma-id').value=n?n.id:'';
+  document.getElementById('mnorma-nombre').value=n?n.nombre||'':'';
+  document.getElementById('mnorma-modelo').value=n?n.modelo||'':'';
+  document.getElementById('mnorma-intervalo').value=n?n.intervalo||'':'';
+  document.getElementById('mnorma-unidad').value=n?n.unidad||'H':'H';
+  document.getElementById('mnorma-checks').value=n&&Array.isArray(n.checks)?n.checks.join('\n'):'';
+  document.getElementById('modal-norma').classList.add('open');
+}
+function cerrarModalNorma(){document.getElementById('modal-norma').classList.remove('open');}
+async function guardarNorma(){
+  const nombre=document.getElementById('mnorma-nombre').value.trim();
+  const modelo=document.getElementById('mnorma-modelo').value.trim();
+  const intervalo=parseInt(document.getElementById('mnorma-intervalo').value)||0;
+  const unidad=document.getElementById('mnorma-unidad').value;
+  const checks=document.getElementById('mnorma-checks').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  if(!nombre||!modelo||!intervalo){document.getElementById('mnorma-msg').textContent='Nombre, modelo e intervalo requeridos.';return;}
+  const id=document.getElementById('mnorma-id').value;
+  const tipo=id?'editGamaNorma':'postGamaNorma';
+  const btn=document.querySelector('#modal-norma .btn-save');
+  btn.disabled=true;btn.textContent='Guardando...';
+  const json=await apiPost({tipo,id:id||undefined,nombre,modelo,intervalo,unidad,checks}).catch(e=>({ok:false,error:e.message}));
+  btn.disabled=false;btn.textContent='Guardar';
+  if(!json.ok){document.getElementById('mnorma-msg').textContent='Error: '+json.error;return;}
+  cerrarModalNorma();cargarNormas();
+}
+async function eliminarNorma(id){
+  if(!confirm('¿Eliminar esta norma?'))return;
+  await apiPost({tipo:'delGamaNorma',id});cargarNormas();
+}
+
+// ── SUBGAMAS CRUD ─────────────────────────────────────────────
+let subgamasData=[];
+async function cargarSubgamas(){
+  const el=document.getElementById('subgamas-list');
+  el.innerHTML='<div class="tbl"><div class="empty">Cargando...</div></div>';
+  // Ensure normas loaded for dropdown
+  if(!normasData.length)await cargarNormasQuiet();
+  const json=await apiFetch('?accion=gamasSubgamas').catch(e=>({ok:false,error:e.message}));
+  if(!json.ok){el.innerHTML='<div class="tbl"><div class="empty">Error: '+json.error+'</div></div>';return;}
+  subgamasData=json.data;
+  if(!subgamasData.length){el.innerHTML='<div class="tbl"><div class="empty">Sin subgamas</div></div>';return;}
+  el.innerHTML='<div class="tbl">'+
+    '<div class="tr th"><div class="tc" style="flex:.4">#</div><div class="tc" style="flex:1">Norma</div><div class="tc" style="flex:1.2">Nombre</div><div class="tc" style="flex:.3;text-align:center">Checks</div><div class="tc" style="flex:.6"></div></div>'+
+    subgamasData.map(s=>{
+      const norma=normasData.find(n=>n.id==s.normaId);
+      return `<div class="tr">
+        <div class="tc" style="flex:.4;font-family:monospace;font-size:.7rem;color:var(--muted)">${s.id}</div>
+        <div class="tc" style="flex:1;font-size:.75rem;color:var(--accent)">${norma?norma.nombre:'#'+s.normaId}</div>
+        <div class="tc" style="flex:1.2;font-size:.78rem">${s.nombre||'—'}</div>
+        <div class="tc" style="flex:.3;text-align:center;font-size:.7rem;color:var(--muted)">${Array.isArray(s.checks)?s.checks.length:0}</div>
+        <div class="tc" style="flex:.6;text-align:right;display:flex;gap:4px;justify-content:flex-end">
+          <button class="btn-sm" onclick="abrirModalSubgama(${s.id})" style="font-size:.65rem;padding:2px 5px">✏</button>
+          <button class="btn-sm" onclick="eliminarSubgama(${s.id})" style="font-size:.65rem;padding:2px 5px;color:#ff4d4d;border-color:#ff4d4d">🗑</button>
+        </div></div>`;
+    }).join('')+
+  '</div>';
+}
+async function cargarNormasQuiet(){
+  const json=await apiFetch('?accion=gamasNormas').catch(()=>({ok:false}));
+  if(json.ok)normasData=json.data;
+}
+function abrirModalSubgama(id){
+  document.getElementById('msubg-msg').textContent='';
+  const s=id?subgamasData.find(x=>x.id===id):null;
+  const sel=document.getElementById('msubg-norma');
+  if(!normasData.length)cargarNormasQuiet().then(()=>{sel.innerHTML=normasData.map(n=>`<option value="${n.id}">${n.nombre}</option>`).join('');});
+  else sel.innerHTML=normasData.map(n=>`<option value="${n.id}"${s&&s.normaId==n.id?' selected':''}>${n.nombre}</option>`).join('');
+  document.getElementById('msubg-title').textContent=s?'Editar Subgama':'Nueva Subgama';
+  document.getElementById('msubg-id').value=s?s.id:'';
+  document.getElementById('msubg-nombre').value=s?s.nombre||'':'';
+  document.getElementById('msubg-checks').value=s&&Array.isArray(s.checks)?s.checks.join('\n'):'';
+  document.getElementById('modal-subgama').classList.add('open');
+}
+function cerrarModalSubgama(){document.getElementById('modal-subgama').classList.remove('open');}
+async function guardarSubgama(){
+  const normaId=document.getElementById('msubg-norma').value;
+  const nombre=document.getElementById('msubg-nombre').value.trim();
+  const checks=document.getElementById('msubg-checks').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  if(!normaId||!nombre){document.getElementById('msubg-msg').textContent='Norma y nombre requeridos.';return;}
+  const id=document.getElementById('msubg-id').value;
+  const btn=document.querySelector('#modal-subgama .btn-save');
+  btn.disabled=true;btn.textContent='Guardando...';
+  const json=await apiPost({tipo:id?'editGamaSubgama':'postGamaSubgama',id:id||undefined,normaId,nombre,checks}).catch(e=>({ok:false,error:e.message}));
+  btn.disabled=false;btn.textContent='Guardar';
+  if(!json.ok){document.getElementById('msubg-msg').textContent='Error: '+json.error;return;}
+  cerrarModalSubgama();cargarSubgamas();
+}
+async function eliminarSubgama(id){
+  if(!confirm('¿Eliminar esta subgama?'))return;
+  await apiPost({tipo:'delGamaSubgama',id});cargarSubgamas();
+}
+
+// ── ACTIVO-GAMA CRUD ──────────────────────────────────────────
+let activoGamaData=[];
+async function cargarActivosGama(){
+  const el=document.getElementById('activogama-list');
+  el.innerHTML='<div class="tbl"><div class="empty">Cargando...</div></div>';
+  const json=await apiFetch('?accion=gamasActivos').catch(e=>({ok:false,error:e.message}));
+  if(!json.ok){el.innerHTML='<div class="tbl"><div class="empty">Error: '+json.error+'</div></div>';return;}
+  activoGamaData=json.data;
+  if(!activoGamaData.length){el.innerHTML='<div class="tbl"><div class="empty">Sin registros</div></div>';return;}
+  el.innerHTML='<div class="tbl">'+
+    '<div class="tr th"><div class="tc" style="flex:.4">#</div><div class="tc" style="flex:1">Activo</div><div class="tc" style="flex:.8">Modelo</div><div class="tc" style="flex:1.2">Código Gama</div><div class="tc" style="flex:.6"></div></div>'+
+    activoGamaData.map(a=>`<div class="tr">
+      <div class="tc" style="flex:.4;font-family:monospace;font-size:.7rem;color:var(--muted)">${a.id}</div>
+      <div class="tc" style="flex:1;font-family:monospace;font-weight:700;color:var(--accent);font-size:.75rem">${a.activo||'—'}</div>
+      <div class="tc" style="flex:.8;font-size:.75rem">${a.modelo||'—'}</div>
+      <div class="tc" style="flex:1.2;font-size:.75rem">${a.codigogama||a.codigoGama||'—'}</div>
+      <div class="tc" style="flex:.6;text-align:right;display:flex;gap:4px;justify-content:flex-end">
+        <button class="btn-sm" onclick="abrirModalActivoGama(${a.id})" style="font-size:.65rem;padding:2px 5px">✏</button>
+        <button class="btn-sm" onclick="eliminarActivoGama(${a.id})" style="font-size:.65rem;padding:2px 5px;color:#ff4d4d;border-color:#ff4d4d">🗑</button>
+      </div></div>`).join('')+
+  '</div>';
+  // Populate activo select in modal
+  const sel=document.getElementById('mag-activo');
+  if(sel){sel.innerHTML='<option value="">Seleccionar...</option>'+MACHINES.map(m=>`<option value="${m.id}">${m.id} — ${m.name}</option>`).join('');}
+}
+function abrirModalActivoGama(id){
+  document.getElementById('mag-msg').textContent='';
+  const a=id?activoGamaData.find(x=>x.id===id):null;
+  document.getElementById('mag-title').textContent=a?'Editar Activo-Gama':'Nuevo Activo-Gama';
+  document.getElementById('mag-id').value=a?a.id:'';
+  document.getElementById('mag-activo').value=a?a.activo||'':'';
+  document.getElementById('mag-codigogama').value=a?a.codigogama||a.codigoGama||'':'';
+  document.getElementById('modal-activogama').classList.add('open');
+}
+function cerrarModalActivoGama(){document.getElementById('modal-activogama').classList.remove('open');}
+async function guardarActivoGama(){
+  const activo=document.getElementById('mag-activo').value;
+  const codigogama=document.getElementById('mag-codigogama').value.trim();
+  if(!activo||!codigogama){document.getElementById('mag-msg').textContent='Activo y código gama requeridos.';return;}
+  const machine=MACHINES.find(m=>m.id===activo);
+  const modelo=machine?machine.modelo:'';
+  const id=document.getElementById('mag-id').value;
+  const btn=document.querySelector('#modal-activogama .btn-save');
+  btn.disabled=true;btn.textContent='Guardando...';
+  const json=await apiPost({tipo:id?'editGamaActivo':'postGamaActivo',id:id||undefined,activo,modelo,codigogama}).catch(e=>({ok:false,error:e.message}));
+  btn.disabled=false;btn.textContent='Guardar';
+  if(!json.ok){document.getElementById('mag-msg').textContent='Error: '+json.error;return;}
+  cerrarModalActivoGama();cargarActivosGama();
+}
+async function eliminarActivoGama(id){
+  if(!confirm('¿Eliminar?'))return;
+  await apiPost({tipo:'delGamaActivo',id});cargarActivosGama();
+}
+
+// ── LISTADO PREVENTIVO CRUD ───────────────────────────────────
+let listadoPrevData=[];
+async function cargarListadoPreventivo(){
+  const el=document.getElementById('listado-prev-list');
+  el.innerHTML='<div class="tbl"><div class="empty">Cargando...</div></div>';
+  const json=await apiFetch('?accion=gamasListado').catch(e=>({ok:false,error:e.message}));
+  if(!json.ok){el.innerHTML='<div class="tbl"><div class="empty">Error: '+json.error+'</div></div>';return;}
+  listadoPrevData=json.data;
+  if(!listadoPrevData.length){el.innerHTML='<div class="tbl"><div class="empty">Sin registros — pulsa + Nuevo para añadir</div></div>';return;}
+  el.innerHTML='<div class="tbl">'+
+    '<div class="tr th"><div class="tc" style="flex:1">Activo</div><div class="tc" style="flex:1.5">Código Gama</div><div class="tc" style="flex:.4;text-align:center">Med.</div><div class="tc" style="flex:.7;text-align:right">Próximo</div><div class="tc" style="flex:.7;text-align:right">Ultima</div><div class="tc" style="flex:1.1;text-align:center">Ultima fecha</div><div class="tc" style="flex:.6;text-align:right">Falta</div><div class="tc" style="flex:.6"></div></div>'+
+    listadoPrevData.map(r=>{
+      const falta=Number(r.falta)||(Number(r.proximo)-Number(r.ultima));
+      const rowBg=falta<0?'background:rgba(255,77,77,.1)':'';
+      const faltaColor=falta<0?'color:#ff4d4d;font-weight:700':'';
+      const fecha=r.ultimafecha?new Date(r.ultimafecha).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+      return `<div class="tr" style="${rowBg}">
+        <div class="tc" style="flex:1;font-family:monospace;font-weight:700;color:var(--accent);font-size:.75rem">${r.activo||'—'}</div>
+        <div class="tc" style="flex:1.5;font-size:.75rem">${r.codigogama||r.codigoGama||'—'}</div>
+        <div class="tc" style="flex:.4;text-align:center;font-size:.72rem;color:var(--muted)">${r.medidor||'H'}</div>
+        <div class="tc" style="flex:.7;text-align:right;font-family:monospace;font-size:.75rem">${r.proximo||'—'}</div>
+        <div class="tc" style="flex:.7;text-align:right;font-family:monospace;font-size:.75rem">${r.ultima||'—'}</div>
+        <div class="tc" style="flex:1.1;text-align:center;font-size:.68rem;color:var(--muted)">${fecha}</div>
+        <div class="tc" style="flex:.6;text-align:right;font-family:monospace;font-size:.75rem;${faltaColor}">${falta||'—'}</div>
+        <div class="tc" style="flex:.6;text-align:right;display:flex;gap:3px;justify-content:flex-end">
+          <button class="btn-sm" onclick="abrirModalListado(${r.id})" style="font-size:.62rem;padding:2px 5px">✏</button>
+          <button class="btn-sm" onclick="eliminarListado(${r.id})" style="font-size:.62rem;padding:2px 5px;color:#ff4d4d;border-color:#ff4d4d">🗑</button>
+        </div></div>`;
+    }).join('')+
+  '</div>';
+}
+function abrirModalListado(id){
+  document.getElementById('mlist-msg').textContent='';
+  const r=id?listadoPrevData.find(x=>x.id===id):null;
+  document.getElementById('mlist-title').textContent=r?'Editar entrada':'Nueva entrada';
+  document.getElementById('mlist-id').value=r?r.id:'';
+  document.getElementById('mlist-activo').value=r?r.activo||'':'';
+  document.getElementById('mlist-codigogama').value=r?r.codigogama||r.codigoGama||'':'';
+  document.getElementById('mlist-medidor').value=r?r.medidor||'H':'H';
+  document.getElementById('mlist-proximo').value=r?r.proximo||'':'';
+  document.getElementById('mlist-ultima').value=r?r.ultima||'':'';
+  if(r&&r.ultimafecha){
+    try{const d=new Date(r.ultimafecha);d.setMinutes(d.getMinutes()-d.getTimezoneOffset());document.getElementById('mlist-ultimafecha').value=d.toISOString().slice(0,16);}catch(e){document.getElementById('mlist-ultimafecha').value='';}
+  }else document.getElementById('mlist-ultimafecha').value='';
+  document.getElementById('modal-listado').classList.add('open');
+}
+function cerrarModalListado(){document.getElementById('modal-listado').classList.remove('open');}
+async function guardarListado(){
+  const activo=document.getElementById('mlist-activo').value.trim();
+  const codigogama=document.getElementById('mlist-codigogama').value.trim();
+  const proximo=document.getElementById('mlist-proximo').value;
+  const ultima=document.getElementById('mlist-ultima').value;
+  if(!activo||!codigogama){document.getElementById('mlist-msg').textContent='Activo y código gama requeridos.';return;}
+  const id=document.getElementById('mlist-id').value;
+  const btn=document.querySelector('#modal-listado .btn-save');
+  btn.disabled=true;btn.textContent='Guardando...';
+  const payload={
+    tipo:id?'editGamaListado':'postGamaListado',
+    id:id||undefined,activo,codigogama,
+    medidor:document.getElementById('mlist-medidor').value,
+    proximo:Number(proximo)||0,ultima:Number(ultima)||0,
+    ultimafecha:document.getElementById('mlist-ultimafecha').value||null,
+  };
+  const json=await apiPost(payload).catch(e=>({ok:false,error:e.message}));
+  btn.disabled=false;btn.textContent='Guardar';
+  if(!json.ok){document.getElementById('mlist-msg').textContent='Error: '+json.error;return;}
+  cerrarModalListado();cargarListadoPreventivo();
+}
+async function eliminarListado(id){
+  if(!confirm('¿Eliminar esta entrada del listado?'))return;
+  const json=await apiPost({tipo:'delGamaListado',id}).catch(e=>({ok:false,error:e.message}));
+  if(!json.ok){alert('Error: '+json.error);return;}
+  cargarListadoPreventivo();
+}
+
+// ── OT HISTORIAL PRINT ────────────────────────────────────────
+function printOTHistorial(id){
+  const r=otHistData.find(x=>x.id==id);
+  if(!r)return;
+  const machine=MACHINES.find(m=>m.id===r.activo)||{name:r.activo,fabricante:'—'};
+  const gama=getEffectiveGamas().find(g=>g.id===r.gama)||{nombre:r.gama,intervalo:'—',checks:[]};
+  const checks=Array.isArray(r.checks)?r.checks:[];
+  document.getElementById('otp-ref').textContent='OT-'+String(r.ot||r.id).padStart(4,'0');
+  document.getElementById('otp-maquina').textContent=machine.name+' ('+r.activo+')';
+  document.getElementById('otp-fecha').textContent=r.fecha||'';
+  document.getElementById('otp-activo').textContent=r.activo;
+  document.getElementById('otp-gama').textContent=gama.nombre+(gama.intervalo!=='—'?' ('+gama.intervalo+'h)':'');
+  document.getElementById('otp-horas').textContent=r.medicion?r.medicion+' h':'';
+  document.getElementById('otp-tipo').textContent='Preventivo programado';
+  document.getElementById('otp-operario').textContent=r.operario||'';
+  document.getElementById('otp-fabricante').textContent=machine.fabricante||'';
+  document.getElementById('otp-obs').textContent=r.texto||'';
+  const tbl=document.getElementById('otp-checks-table');
+  let rows='';
+  gama.checks.forEach((c,i)=>{
+    const done=checks[i]===true||checks[i]==='TRUE';
+    rows+=`<tr style="background:${i%2===0?'#f9f9f9':'#fff'}">
+      <td style="border:1px solid #ddd;padding:3px 6px;width:60%;font-size:7.5pt">${c}</td>
+      <td style="border:1px solid #ddd;padding:3px 6px;width:20%;text-align:center;font-size:7.5pt;color:${done?'#2e7d32':'#999'}">${done?'✓ OK':'—'}</td>
+      <td style="border:1px solid #ddd;padding:3px 6px;width:20%;font-size:7pt;color:#999"></td>
+    </tr>`;
+  });
+  if(!rows)rows='<tr><td colspan="3" style="padding:6px;font-size:7.5pt;color:#999">Sin puntos de verificación registrados</td></tr>';
+  tbl.innerHTML=`<thead><tr style="background:#444;color:#fff"><th style="padding:3px 6px;border:1px solid #444;text-align:left;width:60%">Punto de verificación</th><th style="padding:3px 6px;border:1px solid #444;width:20%">Estado</th><th style="padding:3px 6px;border:1px solid #444;width:20%">Observación</th></tr></thead><tbody>${rows}</tbody>`;
+  document.getElementById('ot-print-wrap').style.display='flex';
 }
 </script>
 </body>

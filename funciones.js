@@ -424,6 +424,92 @@ async function getInit() {
   }
 }
 
+// ── GAMAS NORMAS ─────────────────────────────────────────────
+
+async function getGamasNormas() {
+  const { data, error } = await _supabase.from('tblGamasNormas').select('*').order('id', { ascending: true });
+  return error ? { ok: false, error: error.message } : { ok: true, data: data || [] };
+}
+async function doPostGamaNorma(d) {
+  const { error } = await _supabase.from('tblGamasNormas').insert([{ nombre: d.nombre, modelo: d.modelo, intervalo: Number(d.intervalo), unidad: d.unidad || 'H', checks: d.checks || [] }]);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+async function doEditGamaNorma(d) {
+  const { error } = await _supabase.from('tblGamasNormas').update({ nombre: d.nombre, modelo: d.modelo, intervalo: Number(d.intervalo), unidad: d.unidad || 'H', checks: d.checks || [] }).eq('id', d.id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+async function doDeleteGamaNorma(id) {
+  const { error } = await _supabase.from('tblGamasNormas').delete().eq('id', id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+// ── GAMAS DEPENDIENTES (Subgamas) ─────────────────────────────
+
+async function getGamasDependientes() {
+  const { data, error } = await _supabase.from('tblGamasDependientes').select('*').order('id', { ascending: true });
+  return error ? { ok: false, error: error.message } : { ok: true, data: data || [] };
+}
+async function doPostGamaDependiente(d) {
+  const { error } = await _supabase.from('tblGamasDependientes').insert([{ normaId: d.normaId, nombre: d.nombre, checks: d.checks || [] }]);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+async function doEditGamaDependiente(d) {
+  const { error } = await _supabase.from('tblGamasDependientes').update({ normaId: d.normaId, nombre: d.nombre, checks: d.checks || [] }).eq('id', d.id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+async function doDeleteGamaDependiente(id) {
+  const { error } = await _supabase.from('tblGamasDependientes').delete().eq('id', id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+// ── GAMAS ACTIVOS ─────────────────────────────────────────────
+
+async function getGamasActivos() {
+  const { data, error } = await _supabase.from('tblGamasActivos').select('*').order('activo', { ascending: true });
+  return error ? { ok: false, error: error.message } : { ok: true, data: data || [] };
+}
+async function doPostGamaActivo(d) {
+  const { error } = await _supabase.from('tblGamasActivos').insert([{ activo: d.activo, modelo: d.modelo, codigogama: d.codigogama }]);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+async function doEditGamaActivo(d) {
+  const { error } = await _supabase.from('tblGamasActivos').update({ activo: d.activo, modelo: d.modelo, codigogama: d.codigogama }).eq('id', d.id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+async function doDeleteGamaActivo(id) {
+  const { error } = await _supabase.from('tblGamasActivos').delete().eq('id', id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+// ── GAMAS LISTADO PREVENTIVO ──────────────────────────────────
+
+async function getGamasListado() {
+  const { data, error } = await _supabase.from('tblGamasListadoPreventivo').select('*').order('activo', { ascending: true });
+  return error ? { ok: false, error: error.message } : { ok: true, data: data || [] };
+}
+async function doPostGamaListado(d) {
+  const proximo = Number(d.proximo) || 0;
+  const ultima  = Number(d.ultima)  || 0;
+  const { data: ins, error } = await _supabase.from('tblGamasListadoPreventivo').insert([{
+    activo: d.activo, codigogama: d.codigogama, medidor: d.medidor || 'H',
+    proximo, ultima, ultimafecha: d.ultimafecha || null, falta: proximo - ultima
+  }]).select('id').single();
+  return error ? { ok: false, error: error.message } : { ok: true, id: ins?.id };
+}
+async function doEditGamaListado(d) {
+  const proximo = Number(d.proximo) || 0;
+  const ultima  = Number(d.ultima)  || 0;
+  const { error } = await _supabase.from('tblGamasListadoPreventivo').update({
+    activo: d.activo, codigogama: d.codigogama, medidor: d.medidor || 'H',
+    proximo, ultima, ultimafecha: d.ultimafecha || null, falta: proximo - ultima
+  }).eq('id', d.id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+async function doDeleteGamaListado(id) {
+  const { error } = await _supabase.from('tblGamasListadoPreventivo').delete().eq('id', id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
 // ── ROUTER: apiFetch → Supabase ──────────────────────────────
 
 async function apiFetch(params) {
@@ -439,10 +525,14 @@ async function apiFetch(params) {
   if (accion === 'camiones')    return getCamiones();
   if (accion === 'pedidos')     return getPedidos(dias);
   if (accion === 'gasoil')      return getGasoil();
-  if (accion === 'historialOT') return getHistorialOT();
-  if (accion === 'documentos')  return getDocumentos();
-  if (accion === 'produccion')  return getProduccion(mes, anyo);
-  if (accion === 'peso')        return { ok: false, error: 'Lectura de báscula sólo por puerto serie' };
+  if (accion === 'historialOT')    return getHistorialOT();
+  if (accion === 'documentos')     return getDocumentos();
+  if (accion === 'produccion')     return getProduccion(mes, anyo);
+  if (accion === 'gamasNormas')    return getGamasNormas();
+  if (accion === 'gamasSubgamas')  return getGamasDependientes();
+  if (accion === 'gamasActivos')   return getGamasActivos();
+  if (accion === 'gamasListado')   return getGamasListado();
+  if (accion === 'peso')           return { ok: false, error: 'Lectura de báscula sólo por puerto serie' };
   return { ok: false, error: 'Acción desconocida: ' + accion };
 }
 
@@ -465,7 +555,19 @@ async function apiPost(payload) {
   if (t === 'delAusencia')     return doDeleteAusencia(payload);
   if (t === 'editProduccion')  return doEditProduccion(payload);
   if (t === 'addProduccion')   return doAddProduccion(payload);
-  if (t === 'editarOT')        return doEditarOT(payload);
+  if (t === 'editarOT')            return doEditarOT(payload);
+  if (t === 'postGamaNorma')       return doPostGamaNorma(payload);
+  if (t === 'editGamaNorma')       return doEditGamaNorma(payload);
+  if (t === 'delGamaNorma')        return doDeleteGamaNorma(payload.id);
+  if (t === 'postGamaSubgama')     return doPostGamaDependiente(payload);
+  if (t === 'editGamaSubgama')     return doEditGamaDependiente(payload);
+  if (t === 'delGamaSubgama')      return doDeleteGamaDependiente(payload.id);
+  if (t === 'postGamaActivo')      return doPostGamaActivo(payload);
+  if (t === 'editGamaActivo')      return doEditGamaActivo(payload);
+  if (t === 'delGamaActivo')       return doDeleteGamaActivo(payload.id);
+  if (t === 'postGamaListado')     return doPostGamaListado(payload);
+  if (t === 'editGamaListado')     return doEditGamaListado(payload);
+  if (t === 'delGamaListado')      return doDeleteGamaListado(payload.id);
   // OT nueva: payload lleva activo, gama, checks…
   return doPostOT(payload);
 }
