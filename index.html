@@ -1854,16 +1854,21 @@ async function getInit() {
 }
 
 // ── GAMAS NORMAS ─────────────────────────────────────────────
+// Columnas reales: id, Numero, Gama, Modelo, Intervalo, n1..n60
 async function getGamasNormas() {
   const { data, error } = await _supabase.from('tblGamasNormas').select('*').order('id', { ascending: true });
   return error ? { ok: false, error: error.message } : { ok: true, data: data || [] };
 }
 async function doPostGamaNorma(d) {
-  const { error } = await _supabase.from('tblGamasNormas').insert([{ nombre: d.nombre, modelo: d.modelo, intervalo: Number(d.intervalo), unidad: d.unidad || 'H', checks: d.checks || [] }]);
+  const row = { Numero: d.Numero||'', Gama: d.Gama||'', Modelo: d.Modelo||'', Intervalo: Number(d.Intervalo)||0 };
+  for(let i=1;i<=60;i++) row['n'+i] = d['n'+i]||null;
+  const { error } = await _supabase.from('tblGamasNormas').insert([row]);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 async function doEditGamaNorma(d) {
-  const { error } = await _supabase.from('tblGamasNormas').update({ nombre: d.nombre, modelo: d.modelo, intervalo: Number(d.intervalo), unidad: d.unidad || 'H', checks: d.checks || [] }).eq('id', d.id);
+  const row = { Numero: d.Numero||'', Gama: d.Gama||'', Modelo: d.Modelo||'', Intervalo: Number(d.Intervalo)||0 };
+  for(let i=1;i<=60;i++) row['n'+i] = d['n'+i]||null;
+  const { error } = await _supabase.from('tblGamasNormas').update(row).eq('id', d.id);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 async function doDeleteGamaNorma(id) {
@@ -1872,16 +1877,21 @@ async function doDeleteGamaNorma(id) {
 }
 
 // ── GAMAS DEPENDIENTES (Subgamas) ─────────────────────────────
+// Columnas reales: id, Gama_Principal, Gama_1..Gama_6
 async function getGamasDependientes() {
   const { data, error } = await _supabase.from('tblGamasDependientes').select('*').order('id', { ascending: true });
   return error ? { ok: false, error: error.message } : { ok: true, data: data || [] };
 }
 async function doPostGamaDependiente(d) {
-  const { error } = await _supabase.from('tblGamasDependientes').insert([{ normaId: d.normaId, nombre: d.nombre, checks: d.checks || [] }]);
+  const row = { Gama_Principal: d.Gama_Principal||'' };
+  for(let i=1;i<=6;i++) row['Gama_'+i] = d['Gama_'+i]||null;
+  const { error } = await _supabase.from('tblGamasDependientes').insert([row]);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 async function doEditGamaDependiente(d) {
-  const { error } = await _supabase.from('tblGamasDependientes').update({ normaId: d.normaId, nombre: d.nombre, checks: d.checks || [] }).eq('id', d.id);
+  const row = { Gama_Principal: d.Gama_Principal||'' };
+  for(let i=1;i<=6;i++) row['Gama_'+i] = d['Gama_'+i]||null;
+  const { error } = await _supabase.from('tblGamasDependientes').update(row).eq('id', d.id);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 async function doDeleteGamaDependiente(id) {
@@ -1890,16 +1900,23 @@ async function doDeleteGamaDependiente(id) {
 }
 
 // ── GAMAS ACTIVOS ─────────────────────────────────────────────
+// Columnas reales: id, Activo, Gama_1..Gama_9, Check_1..Check_3
 async function getGamasActivos() {
-  const { data, error } = await _supabase.from('tblGamasActivos').select('*').order('activo', { ascending: true });
+  const { data, error } = await _supabase.from('tblGamasActivos').select('*').order('Activo', { ascending: true });
   return error ? { ok: false, error: error.message } : { ok: true, data: data || [] };
 }
 async function doPostGamaActivo(d) {
-  const { error } = await _supabase.from('tblGamasActivos').insert([{ activo: d.activo, modelo: d.modelo, codigogama: d.codigogama }]);
+  const row = { Activo: d.Activo||'' };
+  for(let i=1;i<=9;i++) row['Gama_'+i] = d['Gama_'+i]||null;
+  for(let i=1;i<=3;i++) row['Check_'+i] = d['Check_'+i]||null;
+  const { error } = await _supabase.from('tblGamasActivos').insert([row]);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 async function doEditGamaActivo(d) {
-  const { error } = await _supabase.from('tblGamasActivos').update({ activo: d.activo, modelo: d.modelo, codigogama: d.codigogama }).eq('id', d.id);
+  const row = { Activo: d.Activo||'' };
+  for(let i=1;i<=9;i++) row['Gama_'+i] = d['Gama_'+i]||null;
+  for(let i=1;i<=3;i++) row['Check_'+i] = d['Check_'+i]||null;
+  const { error } = await _supabase.from('tblGamasActivos').update(row).eq('id', d.id);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 async function doDeleteGamaActivo(id) {
@@ -1908,30 +1925,58 @@ async function doDeleteGamaActivo(id) {
 }
 
 // ── GAMAS LISTADO PREVENTIVO ──────────────────────────────────
+// Columnas reales: id, Activo, Gama, Medidor, Proximo, U_Medicion_med, U_Medicion_fecha, Falta, Estado, Principal, Aviso
 async function getGamasListado() {
-  const { data, error } = await _supabase.from('tblGamasListadoPreventivo').select('*').order('activo', { ascending: true });
+  const { data, error } = await _supabase.from('tblGamasListadoPreventivo').select('*').order('Activo', { ascending: true });
   return error ? { ok: false, error: error.message } : { ok: true, data: data || [] };
 }
 async function doPostGamaListado(d) {
-  const proximo = Number(d.proximo) || 0;
-  const ultima  = Number(d.ultima)  || 0;
+  const proximo = Number(d.Proximo) || 0;
+  const umed    = Number(d.U_Medicion_med) || 0;
   const { data: ins, error } = await _supabase.from('tblGamasListadoPreventivo').insert([{
-    activo: d.activo, codigogama: d.codigogama, medidor: d.medidor || 'H',
-    proximo, ultima, ultimafecha: d.ultimafecha || null, falta: proximo - ultima
+    Activo: d.Activo||'', Gama: d.Gama||'', Medidor: d.Medidor||'H',
+    Proximo: proximo, U_Medicion_med: umed, U_Medicion_fecha: d.U_Medicion_fecha||null,
+    Falta: proximo - umed, Estado: d.Estado||null, Principal: d.Principal||false, Aviso: d.Aviso||null
   }]).select('id').single();
   return error ? { ok: false, error: error.message } : { ok: true, id: ins?.id };
 }
 async function doEditGamaListado(d) {
-  const proximo = Number(d.proximo) || 0;
-  const ultima  = Number(d.ultima)  || 0;
+  const proximo = Number(d.Proximo) || 0;
+  const umed    = Number(d.U_Medicion_med) || 0;
   const { error } = await _supabase.from('tblGamasListadoPreventivo').update({
-    activo: d.activo, codigogama: d.codigogama, medidor: d.medidor || 'H',
-    proximo, ultima, ultimafecha: d.ultimafecha || null, falta: proximo - ultima
+    Activo: d.Activo||'', Gama: d.Gama||'', Medidor: d.Medidor||'H',
+    Proximo: proximo, U_Medicion_med: umed, U_Medicion_fecha: d.U_Medicion_fecha||null,
+    Falta: proximo - umed, Estado: d.Estado||null, Principal: d.Principal||false, Aviso: d.Aviso||null
   }).eq('id', d.id);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 async function doDeleteGamaListado(id) {
   const { error } = await _supabase.from('tblGamasListadoPreventivo').delete().eq('id', id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+// ── GAMAS OT ─────────────────────────────────────────────────
+// Columnas reales: id, Activo, Ot, Fecha, Operario, Tiempo, Texto, Estado, Gama, Medicion, n1..n60
+async function getGamasOT(activo) {
+  let q = _supabase.from('tblGamasOT').select('*').order('id', { ascending: false });
+  if(activo) q = q.eq('Activo', activo);
+  const { data, error } = await q;
+  return error ? { ok: false, error: error.message } : { ok: true, data: data || [] };
+}
+async function doPostGamasOT(d) {
+  const row = { Activo: d.Activo||'', Ot: Number(d.Ot)||0, Fecha: d.Fecha||null, Operario: d.Operario||'', Tiempo: Number(d.Tiempo)||0, Texto: d.Texto||'', Estado: d.Estado||false, Gama: d.Gama||'', Medicion: Number(d.Medicion)||0 };
+  for(let i=1;i<=60;i++) row['n'+i] = d['n'+i]||false;
+  const { error } = await _supabase.from('tblGamasOT').insert([row]);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+async function doEditGamasOT(d) {
+  const row = { Activo: d.Activo||'', Ot: Number(d.Ot)||0, Fecha: d.Fecha||null, Operario: d.Operario||'', Tiempo: Number(d.Tiempo)||0, Texto: d.Texto||'', Estado: d.Estado||false, Gama: d.Gama||'', Medicion: Number(d.Medicion)||0 };
+  for(let i=1;i<=60;i++) row['n'+i] = d['n'+i]||false;
+  const { error } = await _supabase.from('tblGamasOT').update(row).eq('id', d.id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+async function doDeleteGamasOT(id) {
+  const { error } = await _supabase.from('tblGamasOT').delete().eq('id', id);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
@@ -1958,6 +2003,7 @@ async function apiFetch(params) {
   if (accion === 'gamasSubgamas') return getGamasDependientes();
   if (accion === 'gamasActivos')  return getGamasActivos();
   if (accion === 'gamasListado')  return getGamasListado();
+  if (accion === 'gamasOT')       return getGamasOT(p.get('activo')||null);
   if (accion === 'peso')          return { ok: false, error: 'Lectura de báscula sólo por puerto serie' };
   return { ok: false, error: 'Acción desconocida: ' + accion };
 }
@@ -1996,6 +2042,9 @@ async function apiPost(payload) {
   if (t === 'postGamaListado')     return doPostGamaListado(payload);
   if (t === 'editGamaListado')     return doEditGamaListado(payload);
   if (t === 'delGamaListado')      return doDeleteGamaListado(payload.id);
+  if (t === 'postGamasOT')         return doPostGamasOT(payload);
+  if (t === 'editGamasOT')         return doEditGamasOT(payload);
+  if (t === 'delGamasOT')          return doDeleteGamasOT(payload.id);
   return doPostOT(payload);
 }
 
