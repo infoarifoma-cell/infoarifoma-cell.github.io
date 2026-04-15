@@ -4814,8 +4814,14 @@ function cerrarOTPrint(){document.getElementById('ot-print-wrap').style.display=
 
 // ── MANTENIMIENTO PREVENTIVO ──────────────────────────────────
 let prevData=[];
-let prevGasoilHoroMap={};   // {activo → horómetro} desde gasoil consumos col C (max)
-let prevGasoilFechaMap={}; // {activo → fecha último registro gasoil}
+let prevGasoilHoroMap={};   // {machine.id → horómetro} desde gasoil sheet col C
+let prevGasoilFechaMap={}; // {machine.id → fecha último registro gasoil}
+// Mapa destino gasoil (como aparece en el sheet) → machine.id
+const GASOIL_DEST_MAP={
+  '966G':'M966G.01','349':'M349.1','725C':'M725.1','MERLO':'M40.9.1',
+  '336':'M336.1','769':'M769C.01','365B':'M365B.01','C32':'MC32.1',
+  'DE22':'DE22','KANGOO':'8590FBV','3833BNX':'3833BNX','PRAMAC':'PRAMAC'
+};
 let customGamas=JSON.parse(localStorage.getItem('customGamas')||'[]');
 
 function getEffectiveGamas(){
@@ -4839,25 +4845,28 @@ async function cargarMantenimientoPreventivo(){
     ]);
     if(!jsonOT.ok)throw new Error(jsonOT.error);
     prevData=jsonOT.data;
-    // Build horómetro map from gasoil consumos columna C (max = horómetro actual)
+    // Build horómetro + fecha maps desde gasoil consumos (col C = MAX = horómetro actual)
     prevGasoilHoroMap={};
     prevGasoilFechaMap={};
-    if(jsonGasoil.ok){
-      if(jsonGasoil.consumos){
-        jsonGasoil.consumos.forEach(c=>{
-          if(c.activo&&c.max!=null&&Number(c.max)>0)
-            prevGasoilHoroMap[c.activo]=Number(c.max);
-        });
-      }
-      // Última fecha por activo (destino) desde historial gasoil
-      if(jsonGasoil.data){
-        jsonGasoil.data.forEach(r=>{
-          const dest=r.destino||r.maquina;
-          if(!dest)return;
-          if(!prevGasoilFechaMap[dest]||r.fecha>prevGasoilFechaMap[dest])
-            prevGasoilFechaMap[dest]=r.fecha;
-        });
-      }
+    if(jsonGasoil.ok&&jsonGasoil.consumos){
+      jsonGasoil.consumos.forEach(c=>{
+        if(!c.activo)return;
+        const machineId=GASOIL_DEST_MAP[c.activo]||null;
+        if(!machineId)return; // ignorar activos sin mapping (DEPOSITO, etc.)
+        const horo=Number(c.max||0);
+        if(horo>0)prevGasoilHoroMap[machineId]=horo;
+      });
+    }
+    // Última fecha por máquina desde historial gasoil
+    if(jsonGasoil.ok&&jsonGasoil.data){
+      jsonGasoil.data.forEach(r=>{
+        const dest=r.destino||r.maquina;
+        if(!dest)return;
+        const machineId=GASOIL_DEST_MAP[dest]||null;
+        if(!machineId)return;
+        if(!prevGasoilFechaMap[machineId]||r.fecha>prevGasoilFechaMap[machineId])
+          prevGasoilFechaMap[machineId]=r.fecha;
+      });
     }
     // Populate machine filter
     const maquinas=[...new Set(MACHINES.map(m=>m.id))].sort();
