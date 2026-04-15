@@ -270,10 +270,13 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .extras-row:last-child{border-bottom:none}
 
 @media print{
-  body>*:not(#albaran-wrap){display:none!important}
+  body>*:not(#albaran-wrap):not(#ot-print-wrap){display:none!important}
   #albaran-wrap{position:fixed;top:0;left:0;width:100%;background:#fff;z-index:9999;display:block!important;padding:0}
   #albaran-btns{display:none!important}
   #albaran-doc{width:100%;padding:8mm;box-shadow:none}
+  #ot-print-wrap{position:fixed;top:0;left:0;width:100%;background:#fff;z-index:9999;display:block!important;padding:0}
+  #ot-print-btns{display:none!important}
+  #ot-print-doc{width:100%;padding:8mm;box-shadow:none}
 }
 </style>
 </head>
@@ -433,6 +436,72 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 </div>
 
+<!-- OT PRINT TEMPLATE -->
+<div id="ot-print-wrap" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.75);z-index:999;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto">
+  <div id="ot-print-doc" style="background:#fff;color:#111;width:210mm;max-width:100%;font-family:Arial,Helvetica,sans-serif;font-size:8pt;padding:12mm;box-sizing:border-box;box-shadow:0 4px 24px rgba(0,0,0,.5)">
+    <!-- Cabecera -->
+    <table style="width:100%;border-collapse:collapse;margin-bottom:6px">
+      <tr>
+        <td style="width:28%;vertical-align:middle;padding-right:10px;border-right:2px solid #444">
+          <img src="logo.png" style="max-height:56px;max-width:100%;width:auto;display:block" onerror="this.style.display='none'">
+          <div style="font-size:8pt;font-weight:700;color:#222;margin-top:3px;line-height:1.3">ARIDOS FONOLÍTICOS<br>DE MASPALOMAS SL</div>
+        </td>
+        <td style="vertical-align:top;padding:0 10px">
+          <div style="font-size:7pt;color:#555">Cantera Mesa de Las Cañadas · Carretera GC500 KM5 · 35107 Juan Grande<br>CIF: B76362706</div>
+        </td>
+        <td style="width:26%;vertical-align:top;text-align:right;padding-left:8px;border-left:2px solid #444">
+          <div style="background:#444;color:#fff;font-weight:900;font-size:12pt;padding:5px 10px;letter-spacing:.05em;display:inline-block;margin-bottom:4px">ORDEN DE TRABAJO</div>
+          <div style="font-size:7.5pt;font-weight:700" id="otp-ref"></div>
+        </td>
+      </tr>
+    </table>
+    <!-- Info OT -->
+    <div style="background:#444;color:#fff;font-weight:700;font-size:8pt;padding:4px 8px;margin-bottom:6px;display:flex;justify-content:space-between">
+      <span id="otp-maquina"></span><span id="otp-fecha"></span>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:7.5pt;margin-bottom:8px">
+      <tr>
+        <td style="border:1px solid #bbb;padding:4px 7px;width:25%;font-weight:700;background:#f0f0f0">Activo</td>
+        <td style="border:1px solid #bbb;padding:4px 7px;width:25%" id="otp-activo"></td>
+        <td style="border:1px solid #bbb;padding:4px 7px;width:25%;font-weight:700;background:#f0f0f0">Gama</td>
+        <td style="border:1px solid #bbb;padding:4px 7px;width:25%" id="otp-gama"></td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #bbb;padding:4px 7px;font-weight:700;background:#f0f0f0">Horómetro</td>
+        <td style="border:1px solid #bbb;padding:4px 7px" id="otp-horas"></td>
+        <td style="border:1px solid #bbb;padding:4px 7px;font-weight:700;background:#f0f0f0">Tipo</td>
+        <td style="border:1px solid #bbb;padding:4px 7px" id="otp-tipo"></td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #bbb;padding:4px 7px;font-weight:700;background:#f0f0f0">Operario</td>
+        <td style="border:1px solid #bbb;padding:4px 7px" id="otp-operario"></td>
+        <td style="border:1px solid #bbb;padding:4px 7px;font-weight:700;background:#f0f0f0">Fabricante</td>
+        <td style="border:1px solid #bbb;padding:4px 7px" id="otp-fabricante"></td>
+      </tr>
+    </table>
+    <!-- Checklist -->
+    <div style="font-size:7.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#444;margin-bottom:4px;border-bottom:2px solid #444;padding-bottom:2px">Puntos de verificación</div>
+    <table style="width:100%;border-collapse:collapse;font-size:7.5pt;margin-bottom:8px" id="otp-checks-table">
+    </table>
+    <!-- Observaciones -->
+    <div style="border:1px solid #bbb;min-height:44px;padding:4px 6px;margin-bottom:8px">
+      <div style="font-size:6.5pt;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.06em;margin-bottom:2px">Observaciones</div>
+      <div id="otp-obs" style="font-size:7.5pt"></div>
+    </div>
+    <!-- Firmas -->
+    <table style="width:100%;border-collapse:collapse;font-size:7pt">
+      <tr>
+        <td style="border:1px solid #bbb;height:48px;padding:3px 6px;vertical-align:top;font-weight:700;text-transform:uppercase;color:#555;width:50%">Operario / Firma</td>
+        <td style="border:1px solid #bbb;border-left:none;height:48px;padding:3px 6px;vertical-align:top;font-weight:700;text-transform:uppercase;color:#555;width:50%">Responsable / Visto bueno</td>
+      </tr>
+    </table>
+  </div>
+  <div id="ot-print-btns" style="display:flex;gap:8px;margin-top:12px;width:210mm;max-width:100%">
+    <button onclick="cerrarOTPrint()" style="flex:1;padding:11px;background:#555;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.88rem">Cerrar</button>
+    <button onclick="window.print()" style="flex:1;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.88rem;font-weight:700">Imprimir</button>
+  </div>
+</div>
+
 <!-- SHELL -->
 <div id="shell">
   <div class="topbar">
@@ -508,6 +577,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <button class="snav-btn" onclick="goPage('historial-ot')" id="snav-historial-ot">
           <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="14" height="12" rx="2"/><path d="M5 7h8M5 10h8M5 13h5"/></svg>Historial OT
         </button>
+        <button class="snav-btn" onclick="goPage('preventivo')" id="snav-preventivo">
+          <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="9" r="7"/><path d="M9 5v4l2.5 2"/><path d="M5 1.5l2 2"/><path d="M13 1.5l-2 2"/></svg>Mant. Preventivo
+        </button>
       </div>
     </div>
 
@@ -547,6 +619,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
             </div>
           </div>
           <div id="inicio-docs-alert" style="display:none;margin-top:16px"></div>
+          <div id="inicio-mant-alert" style="display:none"></div>
         </div>
 
         <div class="page" id="pg-bascula">
@@ -1299,12 +1372,12 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
               <div class="progress-label" id="progLabel">0 / 0 completados</div>
             </div>
             <div class="card"><div class="card-title"><span class="dot"></span>Observaciones</div><textarea class="inp" id="inputObs" placeholder="Incidencias o comentarios..." style="resize:vertical;min-height:70px"></textarea></div>
-            <div class="btn-row"><button class="btn btn-secondary" onclick="goStep3()">← Atrás</button><button class="btn btn-primary" id="btnS4" onclick="goStep5()" disabled>Revisar y enviar →</button></div>
+            <div class="btn-row"><button class="btn btn-secondary" onclick="goStep3()">← Atrás</button><button class="btn btn-secondary" onclick="printOT(false)" style="flex:0 0 auto">🖨 Vacía</button><button class="btn btn-primary" id="btnS4" onclick="goStep5()" disabled>Revisar y enviar →</button></div>
           </div>
           <div id="screen5" class="section hidden">
             <div class="card"><div class="card-title"><span class="dot"></span>Resumen</div><div id="summaryMain"></div></div>
             <div class="card"><div class="card-title"><span class="dot"></span>Checks</div><div id="summaryChecks"></div></div>
-            <div class="btn-row"><button class="btn btn-secondary" onclick="goStep4()">← Atrás</button><button class="btn btn-primary" onclick="submitOT()">✓ Enviar a Google Sheets</button></div>
+            <div class="btn-row"><button class="btn btn-secondary" onclick="goStep4()">← Atrás</button><button class="btn btn-secondary" onclick="printOT(true)" style="flex:0 0 auto">🖨 Rellena</button><button class="btn btn-primary" onclick="submitOT()">✓ Enviar</button></div>
           </div>
           <div id="screenOK" class="success-screen hidden">
             <div class="success-icon">✓</div>
@@ -1374,6 +1447,69 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
             <select class="fsel" id="filt-ot-operario" onchange="filtrarHistorialOT()"><option value="">Todos los operarios</option></select>
           </div>
           <div id="ot-hist-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
+        </div>
+
+        <!-- ══ MANTENIMIENTO PREVENTIVO ══ -->
+        <div class="page" id="pg-preventivo">
+          <!-- Modal editar gama -->
+          <div class="modal-wrap" id="modal-gama">
+            <div class="modal-box" style="max-width:500px">
+              <h3 id="mgama-title">Nueva Gama</h3>
+              <input type="hidden" id="mgama-id">
+              <label>Modelo de máquina</label>
+              <input class="inp" id="mgama-modelo" placeholder="Ej: 966G">
+              <label>Nombre de la gama</label>
+              <input class="inp" id="mgama-nombre" placeholder="Ej: 500 Horas">
+              <label>Intervalo (horas)</label>
+              <input class="inp" type="number" id="mgama-intervalo" placeholder="Ej: 500" min="1">
+              <label>Puntos de verificación (uno por línea)</label>
+              <textarea class="inp" id="mgama-checks" placeholder="Cambio aceite motor&#10;Revisar filtros..." style="resize:vertical;min-height:120px"></textarea>
+              <div class="warn-msg" id="mgama-msg"></div>
+              <div class="modal-btns">
+                <button class="btn-cancel" onclick="cerrarModalGama()">Cancelar</button>
+                <button class="btn-save" onclick="guardarGama()">Guardar</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+            <div class="sec-title" style="margin:0">Mantenimiento Preventivo</div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="abrirModalGama()">+ Gama</button>
+              <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="cargarMantenimientoPreventivo()">&#8635; Actualizar</button>
+            </div>
+          </div>
+
+          <!-- Badges resumen -->
+          <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:#ff4d4d22;font-size:.75rem;color:#ff4d4d;font-weight:700">
+              <span id="prev-cnt-pdte">0</span> Pendientes
+            </div>
+            <div style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:#f5a62322;font-size:.75rem;color:#f5a623;font-weight:700">
+              <span id="prev-cnt-prox">0</span> Próximos (&lt;10%)
+            </div>
+            <div style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:#4caf5022;font-size:.75rem;color:#4caf50;font-weight:700">
+              <span id="prev-cnt-ok">0</span> Correctos
+            </div>
+          </div>
+
+          <!-- Filtros -->
+          <div class="frow" style="margin-bottom:10px">
+            <select class="fsel" id="filt-prev-maquina" onchange="renderMantenimientoPreventivo()">
+              <option value="">Todas las máquinas</option>
+            </select>
+            <select class="fsel" id="filt-prev-estado" onchange="renderMantenimientoPreventivo()">
+              <option value="">Todos los estados</option>
+              <option value="pdte">Pendientes</option>
+              <option value="prox">Próximos</option>
+              <option value="ok">Correctos</option>
+            </select>
+            <label style="display:flex;align-items:center;gap:5px;font-size:.78rem;color:var(--muted);cursor:pointer">
+              <input type="checkbox" id="filt-prev-custom" onchange="renderMantenimientoPreventivo()"> Solo custom
+            </label>
+          </div>
+
+          <div id="prev-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
         </div>
 
       </div>
@@ -1714,7 +1850,7 @@ const DIAS_LAB_2026=[18,18,22,20,20,21,23,21,22,21,21,18];
 const HORAS_DIA_STD=8; // Jornada estándar convenio
 const PRODS=['ARIDO AF-T-0/4-I','ARIDO AG-T-4/12-I','ARIDO AG-T-12/20-I','ARIDO AG-T-20/40-I','ARIDO AG-T-40/70-I','REVUELTO 0/20','REVUELTO 0/10','PIEDRA PARA MURO (UD)','MATERIAL DE RELLENO 0/4'];
 const PROD_CAT={'ARIDO AF-T-0/4-I':'0/4','ARIDO AG-T-4/12-I':'4/12','ARIDO AG-T-12/20-I':'12/20','ARIDO AG-T-20/40-I':'20/40'};
-const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas',produccion:'Producción Planta',camiones:'Camiones',gasoil:'Gasoil',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental'};
+const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas',produccion:'Producción Planta',camiones:'Camiones',gasoil:'Gasoil',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',preventivo:'Mantenimiento Preventivo'};
 
 // ── PIN ──────────────────────────────────────────────────────
 // ── LOGIN SEGURO CON SUPABASE (server-side) ──────────────────
@@ -1831,6 +1967,7 @@ function goPage(id){
   if(id==='editar')renderEditar();
   if(id==='historial-ot')cargarHistorialOT();
   if(id==='documentos')cargarDocumentos();
+  if(id==='preventivo')cargarMantenimientoPreventivo();
   if(id==='inicio')renderInicioDocs();
   if(id==='pedidos')cargarPedidos();
   if(id==='ventas'){if(ventasData.length===0)cargarVentas();else renderVentas();}
@@ -1851,16 +1988,19 @@ function fmtFechaHora(ts){const d=new Date(ts);return d.getUTCFullYear()+'-'+pad
 
 function renderInicioDocs(){
   const el=document.getElementById('inicio-docs-alert');
-  if(!docData.length){el.style.display='none';return;}
-  const rojos=docData.filter(d=>docEstado(d.diasRestantes,d.tiempoAviso)==='rojo').length;
-  const amarillos=docData.filter(d=>docEstado(d.diasRestantes,d.tiempoAviso)==='amarillo').length;
-  if(!rojos&&!amarillos){el.style.display='none';return;}
-  el.style.display='block';
-  el.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;cursor:pointer" onclick="goPage('documentos')">
-    <div style="font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">⚠ Alertas documentales</div>
-    ${rojos?`<div style="color:#ff4d4d;font-size:.82rem;font-weight:700">${rojos} documento${rojos>1?'s':''} vencido${rojos>1?'s':''}</div>`:''}
-    ${amarillos?`<div style="color:#f5a623;font-size:.82rem;font-weight:700">${amarillos} documento${amarillos>1?'s':''} por vencer</div>`:''}
-  </div>`;
+  if(!docData.length){el.style.display='none';}else{
+    const rojos=docData.filter(d=>docEstado(d.diasRestantes,d.tiempoAviso)==='rojo').length;
+    const amarillos=docData.filter(d=>docEstado(d.diasRestantes,d.tiempoAviso)==='amarillo').length;
+    if(!rojos&&!amarillos){el.style.display='none';}else{
+      el.style.display='block';
+      el.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;cursor:pointer" onclick="goPage('documentos')">
+        <div style="font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">⚠ Alertas documentales</div>
+        ${rojos?`<div style="color:#ff4d4d;font-size:.82rem;font-weight:700">${rojos} documento${rojos>1?'s':''} vencido${rojos>1?'s':''}</div>`:''}
+        ${amarillos?`<div style="color:#f5a623;font-size:.82rem;font-weight:700">${amarillos} documento${amarillos>1?'s':''} por vencer</div>`:''}
+      </div>`;
+    }
+  }
+  renderInicioMant();
 }
 
 async function cargarAusencias(){
@@ -1895,6 +2035,8 @@ function initApp(){
   renderWgrid();renderStats();renderVac();renderCal();initOT();
   initBasculaUI();
   cargarInit();
+  // Load OT history in background for reminders
+  apiFetch('?accion=historialOT').then(j=>{if(j.ok){prevData=j.data;renderInicioMant();}}).catch(()=>{});
   goPage('inicio');
   ['filt-w','filt-mes-w','filt-edit'].forEach(id=>{const s=document.getElementById(id);if(!s)return;WORKERS.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;s.appendChild(o);});});
   ['vm-worker','em-worker','bm-worker','lm-worker','xm-worker'].forEach(id=>{const s=document.getElementById(id);if(!s)return;WORKERS.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;s.appendChild(o);});});
@@ -2542,34 +2684,49 @@ async function guardarLinea(){
     numLinea:basCurrentLinea,
   };
 
+  const btn=document.querySelector('#bas-step-3 .btn-pri');
+  if(btn){btn.disabled=true;btn.textContent='Guardando...';}
   try{
     const json=await apiPost(payload);
-    if(json.ok){
-      // Add to session lines
-      basLineasSesion.push({
-        numLinea:basCurrentLinea,
-        matriculacam:basSelCamion.matriculacam,
-        matricularem:basSelCamion.matricularem||'',
-        pesoNeto:neto,
-        productoCod:prodCod,
-        productoNombre:prodNombre,
-      });
-      basCurrentLinea+=10000;
-      // Show albaran
-      mostrarAlbaran(json.id,payload);
-      // Reset for next line - keep client/pedido
-      document.getElementById('bas-paso-1-data',{});
-      renderAlbaranStep3();
-    } else {
-      alert('Error al guardar: '+json.error);
-    }
-  }catch(e){
-    // Save locally anyway
-    basLineasSesion.push({numLinea:basCurrentLinea,matriculacam:basSelCamion.matriculacam,matricularem:basSelCamion.matricularem||'',pesoNeto:neto,productoCod,productoNombre:prodNombre});
+    const savedId=json.ok?json.id:'LOCAL';
+    basLineasSesion.push({
+      numLinea:basCurrentLinea,
+      matriculacam:basSelCamion.matriculacam,
+      matricularem:basSelCamion.matricularem||'',
+      pesoNeto:neto,
+      productoCod:prodCod,
+      productoNombre:prodNombre,
+      _id:savedId,
+      _payload:payload,
+    });
+    if(!json.ok&&json.error)console.warn('Error guardando:',json.error);
     basCurrentLinea+=10000;
-    mostrarAlbaran('LOCAL',payload);
+    // Show inline success without forcing albaran print
+    mostrarExitoLinea(savedId,payload);
     renderAlbaranStep3();
+  }catch(e){
+    basLineasSesion.push({numLinea:basCurrentLinea,matriculacam:basSelCamion.matriculacam,matricularem:basSelCamion.matricularem||'',pesoNeto:neto,productoCod,productoNombre:prodNombre,_id:'LOCAL',_payload:payload});
+    basCurrentLinea+=10000;
+    mostrarExitoLinea('LOCAL',payload);
+    renderAlbaranStep3();
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='Guardar';}
   }
+}
+
+function mostrarExitoLinea(id,payload){
+  // Show compact success banner at top of step3, no forced print
+  let banner=document.getElementById('linea-ok-banner');
+  if(!banner){
+    banner=document.createElement('div');
+    banner.id='linea-ok-banner';
+    banner.style.cssText='background:rgba(107,125,46,.12);border:1px solid rgba(107,125,46,.4);border-radius:8px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:8px';
+    const step3=document.getElementById('bas-step-3');
+    if(step3)step3.insertBefore(banner,step3.firstChild);
+  }
+  const neto=Number(payload.pesoNeto).toLocaleString();
+  banner.innerHTML=`<span style="font-size:.82rem;color:var(--accent2);font-weight:700">✓ Guardado — ${payload.productoNombre} · ${neto} kg</span>`+
+    `<button onclick="mostrarAlbaran(${JSON.stringify(id)},${JSON.stringify(payload).replace(/</g,'\\u003c')})" style="padding:5px 12px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">🖨 Albarán</button>`;
 }
 
 function mostrarAlbaran(id,p){
@@ -4354,6 +4511,220 @@ function renderFacturacion(){
     html+=`</div>`;
   });
   document.getElementById('fact-desglose').innerHTML=html;
+}
+
+// ── OT PRINT ─────────────────────────────────────────────────
+function printOT(filled){
+  if(!selMachine||!selGama)return;
+  const horas=document.getElementById('inputHoras').value||'';
+  const obs=document.getElementById('inputObs')?document.getElementById('inputObs').value:'';
+  const fechaRaw=document.getElementById('inputFecha').value;
+  const fecha=fechaRaw?new Date(fechaRaw).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+  const tipos={preventivo:'Preventivo programado',correctivo:'Correctivo',revision:'Revisión rápida'};
+  const tipo=tipos[document.getElementById('inputTipo').value]||'Preventivo';
+  document.getElementById('otp-ref').textContent='OT — '+new Date().toLocaleDateString('es-ES');
+  document.getElementById('otp-maquina').textContent=selMachine.name+' ('+selMachine.id+')';
+  document.getElementById('otp-fecha').textContent=fecha;
+  document.getElementById('otp-activo').textContent=selMachine.id;
+  document.getElementById('otp-gama').textContent=selGama.nombre+' ('+selGama.intervalo+'h)';
+  document.getElementById('otp-horas').textContent=horas?horas+' h':'';
+  document.getElementById('otp-tipo').textContent=tipo;
+  document.getElementById('otp-operario').textContent='';
+  document.getElementById('otp-fabricante').textContent=selMachine.fabricante;
+  document.getElementById('otp-obs').textContent=filled?obs:'';
+  // Build checks table
+  const tbl=document.getElementById('otp-checks-table');
+  let rows='';
+  selGama.checks.forEach((c,i)=>{
+    const done=filled&&checkStates[i];
+    rows+=`<tr style="background:${i%2===0?'#f9f9f9':'#fff'}">
+      <td style="border:1px solid #ddd;padding:3px 6px;width:60%;font-size:7.5pt">${c}</td>
+      <td style="border:1px solid #ddd;padding:3px 6px;width:20%;text-align:center;font-size:7.5pt;color:${done?'#2e7d32':'#999'}">${filled?(done?'✓ OK':'—'):'□'}</td>
+      <td style="border:1px solid #ddd;padding:3px 6px;width:20%;font-size:7pt;color:#999">Obs.</td>
+    </tr>`;
+  });
+  tbl.innerHTML=`<thead><tr style="background:#444;color:#fff"><th style="padding:3px 6px;border:1px solid #444;text-align:left;width:60%">Punto de verificación</th><th style="padding:3px 6px;border:1px solid #444;width:20%">Estado</th><th style="padding:3px 6px;border:1px solid #444;width:20%">Observación</th></tr></thead><tbody>${rows}</tbody>`;
+  const wrap=document.getElementById('ot-print-wrap');
+  wrap.style.display='flex';
+}
+function cerrarOTPrint(){document.getElementById('ot-print-wrap').style.display='none';}
+
+// ── MANTENIMIENTO PREVENTIVO ──────────────────────────────────
+let prevData=[];
+let customGamas=JSON.parse(localStorage.getItem('customGamas')||'[]');
+
+function getEffectiveGamas(){
+  // Merge hardcoded GAMAS with custom ones (custom overrides by id)
+  const base=[...GAMAS];
+  customGamas.forEach(cg=>{
+    const idx=base.findIndex(g=>g.id===cg.id);
+    if(idx>=0)base[idx]=cg;else base.push(cg);
+  });
+  return base;
+}
+
+async function cargarMantenimientoPreventivo(){
+  const el=document.getElementById('prev-list');
+  el.innerHTML='<div class="tbl"><div class="empty">Cargando...</div></div>';
+  try{
+    const json=await apiFetch('?accion=historialOT');
+    if(!json.ok)throw new Error(json.error);
+    prevData=json.data;
+    // Populate machine filter
+    const maquinas=[...new Set(MACHINES.map(m=>m.id))].sort();
+    const sel=document.getElementById('filt-prev-maquina');
+    sel.innerHTML='<option value="">Todas las máquinas</option>';
+    maquinas.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;sel.appendChild(o);});
+    renderMantenimientoPreventivo();
+  }catch(e){el.innerHTML='<div class="tbl"><div class="empty">Error: '+e.message+'</div></div>';}
+}
+
+function calcMantenimiento(){
+  const gamas=getEffectiveGamas();
+  const result=[];
+  // For each machine, get current horometer (max medicion across all OTs)
+  const machineHoro={};
+  prevData.forEach(r=>{
+    const m=Number(r.medicion)||0;
+    if(!machineHoro[r.activo]||m>machineHoro[r.activo])machineHoro[r.activo]=m;
+  });
+  // For each machine+gama combo
+  MACHINES.forEach(machine=>{
+    const mGamas=gamas.filter(g=>g.modelo===machine.modelo);
+    mGamas.forEach(g=>{
+      // Last OT for this machine+gama
+      const ots=prevData.filter(r=>r.activo===machine.id&&r.gama===g.id).sort((a,b)=>Number(b.medicion)-Number(a.medicion));
+      const lastOT=ots[0];
+      const lastMedicion=lastOT?Number(lastOT.medicion)||0:null;
+      const lastFecha=lastOT?lastOT.fecha:'—';
+      const currentHoro=machineHoro[machine.id]||lastMedicion||0;
+      const proximo=lastMedicion!==null?lastMedicion+g.intervalo:null;
+      const falta=proximo!==null?proximo-currentHoro:null;
+      const isCustom=customGamas.some(cg=>cg.id===g.id);
+      result.push({
+        activo:machine.id,
+        maquina:machine.name,
+        gama:g.id,
+        gamaNombre:g.nombre,
+        intervalo:g.intervalo,
+        proximo,
+        ultima:currentHoro||null,
+        ultimaFecha:lastFecha,
+        falta,
+        estado:falta===null?'sin_datos':falta<=0?'pdte':falta<=g.intervalo*0.1?'prox':'ok',
+        isCustom,
+      });
+    });
+  });
+  return result;
+}
+
+function renderMantenimientoPreventivo(){
+  const el=document.getElementById('prev-list');
+  const fm=document.getElementById('filt-prev-maquina').value;
+  const fe=document.getElementById('filt-prev-estado').value;
+  const fc=document.getElementById('filt-prev-custom').checked;
+  let data=calcMantenimiento();
+  if(fm)data=data.filter(r=>r.activo===fm);
+  if(fe)data=data.filter(r=>r.estado===fe);
+  if(fc)data=data.filter(r=>r.isCustom);
+  // Update counters
+  const allData=calcMantenimiento();
+  document.getElementById('prev-cnt-pdte').textContent=allData.filter(r=>r.estado==='pdte').length;
+  document.getElementById('prev-cnt-prox').textContent=allData.filter(r=>r.estado==='prox').length;
+  document.getElementById('prev-cnt-ok').textContent=allData.filter(r=>r.estado==='ok').length;
+  if(!data.length){el.innerHTML='<div class="tbl"><div class="empty">Sin datos</div></div>';return;}
+  const estadoColor={pdte:'#ff4d4d',prox:'#f5a623',ok:'#4caf50',sin_datos:'#888'};
+  const estadoLabel={pdte:'PDTE',prox:'PRÓXIMO',ok:'CORRECTO',sin_datos:'SIN DATOS'};
+  el.innerHTML='<div class="tbl">'+
+    '<div class="tr th">'+
+      '<div class="tc" style="flex:1">Activo</div>'+
+      '<div class="tc" style="flex:1.5">Gama</div>'+
+      '<div class="tc" style="flex:.4;text-align:center">Med.</div>'+
+      '<div class="tc" style="flex:.7;text-align:right">Próximo</div>'+
+      '<div class="tc" style="flex:.7;text-align:right">Ultima</div>'+
+      '<div class="tc" style="flex:1.2;text-align:center">Ultima fecha</div>'+
+      '<div class="tc" style="flex:.7;text-align:right">Falta</div>'+
+      '<div class="tc" style="flex:.9;text-align:center">Estado</div>'+
+      '<div class="tc" style="flex:.5;text-align:center"></div>'+
+    '</div>'+
+    data.map(r=>{
+      const faltaStyle=r.falta!==null&&r.falta<0?'background:rgba(255,77,77,.15);':'';
+      const faltaColor=r.falta!==null&&r.falta<0?'color:#ff4d4d;font-weight:700':'';
+      return `<div class="tr" style="${faltaStyle}">
+        <div class="tc" style="flex:1;font-family:monospace;font-weight:700;color:var(--accent);font-size:.75rem">${r.activo}</div>
+        <div class="tc" style="flex:1.5;font-size:.75rem">${r.gamaNombre}${r.isCustom?' <span style="font-size:.6rem;color:var(--accent2)">[custom]</span>':''}</div>
+        <div class="tc" style="flex:.4;text-align:center;font-size:.72rem;color:var(--muted)">H</div>
+        <div class="tc" style="flex:.7;text-align:right;font-family:monospace;font-size:.75rem">${r.proximo!==null?r.proximo:'—'}</div>
+        <div class="tc" style="flex:.7;text-align:right;font-family:monospace;font-size:.75rem">${r.ultima!==null?r.ultima:'—'}</div>
+        <div class="tc" style="flex:1.2;text-align:center;font-size:.7rem;color:var(--muted)">${r.ultimaFecha!=='—'?r.ultimaFecha:''}</div>
+        <div class="tc" style="flex:.7;text-align:right;font-family:monospace;font-size:.75rem;${faltaColor}">${r.falta!==null?r.falta:'—'}</div>
+        <div class="tc" style="flex:.9;text-align:center"><span style="font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:4px;background:${estadoColor[r.estado]}22;color:${estadoColor[r.estado]}">${estadoLabel[r.estado]}</span></div>
+        <div class="tc" style="flex:.5;text-align:center"><button class="btn-sm" onclick="abrirModalGama(${JSON.stringify(r.gama).replace(/"/g,'&quot;')})" style="font-size:.62rem;padding:2px 6px">✏</button></div>
+      </div>`;
+    }).join('')+
+  '</div>';
+}
+
+// ── GAMA CRUD ─────────────────────────────────────────────────
+function abrirModalGama(gamaId){
+  document.getElementById('mgama-msg').textContent='';
+  const gamas=getEffectiveGamas();
+  if(gamaId){
+    const g=gamas.find(x=>x.id===gamaId);
+    if(g){
+      document.getElementById('mgama-title').textContent='Editar Gama';
+      document.getElementById('mgama-id').value=g.id;
+      document.getElementById('mgama-modelo').value=g.modelo;
+      document.getElementById('mgama-nombre').value=g.nombre;
+      document.getElementById('mgama-intervalo').value=g.intervalo;
+      document.getElementById('mgama-checks').value=g.checks.join('\n');
+    }
+  }else{
+    document.getElementById('mgama-title').textContent='Nueva Gama';
+    document.getElementById('mgama-id').value='';
+    document.getElementById('mgama-modelo').value='';
+    document.getElementById('mgama-nombre').value='';
+    document.getElementById('mgama-intervalo').value='';
+    document.getElementById('mgama-checks').value='';
+  }
+  document.getElementById('modal-gama').classList.add('open');
+}
+function cerrarModalGama(){document.getElementById('modal-gama').classList.remove('open');}
+function guardarGama(){
+  const modelo=document.getElementById('mgama-modelo').value.trim();
+  const nombre=document.getElementById('mgama-nombre').value.trim();
+  const intervalo=parseInt(document.getElementById('mgama-intervalo').value)||0;
+  const checksRaw=document.getElementById('mgama-checks').value;
+  const checks=checksRaw.split('\n').map(s=>s.trim()).filter(Boolean);
+  if(!modelo||!nombre||!intervalo||!checks.length){
+    document.getElementById('mgama-msg').textContent='Completa todos los campos.';return;
+  }
+  const existingId=document.getElementById('mgama-id').value;
+  const id=existingId||modelo.replace(/\s+/g,'')+'-'+intervalo+'H-'+Date.now();
+  const gama={id,modelo,nombre,intervalo,checks};
+  const idx=customGamas.findIndex(g=>g.id===id);
+  if(idx>=0)customGamas[idx]=gama;else customGamas.push(gama);
+  localStorage.setItem('customGamas',JSON.stringify(customGamas));
+  cerrarModalGama();
+  renderMantenimientoPreventivo();
+}
+
+// ── RECORDATORIOS MANTENIMIENTO EN INICIO ────────────────────
+function renderInicioMant(){
+  const el=document.getElementById('inicio-mant-alert');
+  if(!el)return;
+  if(!prevData.length)return; // No data loaded yet
+  const data=calcMantenimiento();
+  const pdtes=data.filter(r=>r.estado==='pdte').length;
+  const proxs=data.filter(r=>r.estado==='prox').length;
+  if(!pdtes&&!proxs){el.style.display='none';return;}
+  el.style.display='block';
+  el.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;cursor:pointer;margin-top:8px" onclick="goPage('preventivo')">
+    <div style="font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">⚙ Alertas mantenimiento</div>
+    ${pdtes?`<div style="color:#ff4d4d;font-size:.82rem;font-weight:700">${pdtes} gama${pdtes>1?'s':''} pendiente${pdtes>1?'s':''}</div>`:''}
+    ${proxs?`<div style="color:#f5a623;font-size:.82rem;font-weight:700">${proxs} gama${proxs>1?'s':''} próxima${proxs>1?'s':''}</div>`:''}
+  </div>`;
 }
 </script>
 </body>
