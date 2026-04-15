@@ -1654,14 +1654,19 @@ function sheetsFetch(params) {
 
 async function sheetsPost(payload) {
   try {
-    await fetch(SHEETS_API, {
+    const res = await fetch(SHEETS_API, {
       method: 'POST',
-      mode: 'no-cors',
+      mode: 'cors',
+      redirect: 'follow',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(payload)
     });
-  } catch(e) {}
-  return { ok: true, id: Date.now() };
+    if (!res.ok) return { ok: false, error: 'HTTP ' + res.status };
+    const json = await res.json();
+    return json;
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
 }
 
 // ── FICHAJES ────────────────────────────────────────────────
