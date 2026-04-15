@@ -4848,15 +4848,19 @@ async function cargarMantenimientoPreventivo(){
     // Build horómetro + fecha maps desde gasoil consumos (col C = MAX = horómetro actual)
     prevGasoilHoroMap={};
     prevGasoilFechaMap={};
+    console.log('[GASOIL DEBUG] ok=',jsonGasoil.ok,'keys=',jsonGasoil.ok?Object.keys(jsonGasoil):[]);
     if(jsonGasoil.ok&&jsonGasoil.consumos){
+      console.log('[GASOIL DEBUG] consumos[0]=',jsonGasoil.consumos[0]);
+      console.log('[GASOIL DEBUG] consumos activos=',jsonGasoil.consumos.map(c=>c.activo));
       jsonGasoil.consumos.forEach(c=>{
         if(!c.activo)return;
         const machineId=GASOIL_DEST_MAP[c.activo]||null;
-        if(!machineId)return; // ignorar activos sin mapping (DEPOSITO, etc.)
+        if(!machineId){console.log('[GASOIL DEBUG] sin mapping:',c.activo);return;}
         const horo=Number(c.max||0);
         if(horo>0)prevGasoilHoroMap[machineId]=horo;
       });
-    }
+      console.log('[GASOIL DEBUG] prevGasoilHoroMap=',prevGasoilHoroMap);
+    }else{console.log('[GASOIL DEBUG] sin consumos. jsonGasoil=',jsonGasoil);}
     // Última fecha por máquina desde historial gasoil
     if(jsonGasoil.ok&&jsonGasoil.data){
       jsonGasoil.data.forEach(r=>{
