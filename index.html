@@ -1869,9 +1869,13 @@ async function apiFetch(params) {
   if (accion === 'ausencias')   return getAusencias();
   if (accion === 'camiones')    return getCamiones();
   if (accion === 'pedidos')     return getPedidos(dias);
-  if (accion === 'historialOT') return getHistorialOT();
-  if (accion === 'documentos')  return getDocumentos();
-  if (accion === 'peso')        return { ok: false, error: 'Lectura de báscula sólo por puerto serie' };
+  if (accion === 'historialOT')   return getHistorialOT();
+  if (accion === 'documentos')    return getDocumentos();
+  if (accion === 'gamasNormas')   return getGamasNormas();
+  if (accion === 'gamasSubgamas') return getGamasDependientes();
+  if (accion === 'gamasActivos')  return getGamasActivos();
+  if (accion === 'gamasListado')  return getGamasListado();
+  if (accion === 'peso')          return { ok: false, error: 'Lectura de báscula sólo por puerto serie' };
   return { ok: false, error: 'Acción desconocida: ' + accion };
 }
 
@@ -1896,7 +1900,19 @@ async function apiPost(payload) {
   if (t === 'ausencia')        return doPostAusencia(payload);
   if (t === 'editAusencia')    return doEditAusencia(payload);
   if (t === 'delAusencia')     return doDeleteAusencia(payload);
-  if (t === 'editarOT')        return doEditarOT(payload);
+  if (t === 'editarOT')            return doEditarOT(payload);
+  if (t === 'postGamaNorma')       return doPostGamaNorma(payload);
+  if (t === 'editGamaNorma')       return doEditGamaNorma(payload);
+  if (t === 'delGamaNorma')        return doDeleteGamaNorma(payload.id);
+  if (t === 'postGamaSubgama')     return doPostGamaDependiente(payload);
+  if (t === 'editGamaSubgama')     return doEditGamaDependiente(payload);
+  if (t === 'delGamaSubgama')      return doDeleteGamaDependiente(payload.id);
+  if (t === 'postGamaActivo')      return doPostGamaActivo(payload);
+  if (t === 'editGamaActivo')      return doEditGamaActivo(payload);
+  if (t === 'delGamaActivo')       return doDeleteGamaActivo(payload.id);
+  if (t === 'postGamaListado')     return doPostGamaListado(payload);
+  if (t === 'editGamaListado')     return doEditGamaListado(payload);
+  if (t === 'delGamaListado')      return doDeleteGamaListado(payload.id);
   return doPostOT(payload);
 }
 
@@ -4701,7 +4717,7 @@ function renderMantenimientoPreventivo(){
   const el=document.getElementById('prev-list');
   const fm=document.getElementById('filt-prev-maquina').value;
   const fe=document.getElementById('filt-prev-estado').value;
-  const fc=document.getElementById('filt-prev-custom').checked;
+  const fcEl=document.getElementById('filt-prev-custom');const fc=fcEl?fcEl.checked:false;
   let data=calcMantenimiento();
   if(fm)data=data.filter(r=>r.activo===fm);
   if(fe)data=data.filter(r=>r.estado===fe);
