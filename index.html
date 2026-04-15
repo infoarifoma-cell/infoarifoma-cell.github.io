@@ -815,6 +815,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
             <input type="text" class="fsel" id="filt-ped-cli" placeholder="Cliente..." oninput="filtrarPedidos()" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;padding:7px 10px;outline:none">
             <input type="date" class="fsel" id="filt-ped-fecha" onchange="filtrarPedidos()" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;padding:7px 10px;outline:none">
           </div>
+          <div id="pedidos-summary-banner" style="display:none;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:.8rem"></div>
           <div id="pedidos-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
 
           <!-- Modal editar pedido -->
@@ -1027,6 +1028,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
           <div class="frow">
             <input type="text" class="fsel" id="filt-cam" placeholder="Buscar por matrícula, chofer o empresa..." oninput="filtrarCamionesGestion()" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;padding:7px 10px;outline:none">
           </div>
+          <div id="camiones-summary-banner" style="display:none;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:.8rem"></div>
           <div id="camiones-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
         </div>
 
@@ -1447,6 +1449,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
             <select class="fsel" id="filt-ot-maquina" onchange="filtrarHistorialOT()"><option value="">Todas las máquinas</option></select>
             <select class="fsel" id="filt-ot-operario" onchange="filtrarHistorialOT()"><option value="">Todos los operarios</option></select>
           </div>
+          <div id="ot-hist-summary-banner" style="display:none;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:.8rem"></div>
           <div id="ot-hist-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
         </div>
 
@@ -3064,6 +3067,21 @@ function formatFechaHoraPed(fh){
 function renderPedidos(data){
   const el=document.getElementById('pedidos-list');
   if(!data.length){el.innerHTML='<div class="tbl"><div class="empty">Sin resultados</div></div>';return;}
+  // Summary banner
+  const totalNeto=data.reduce((s,r)=>s+Number(r.pesoNeto||0),0);
+  const byProd={};data.forEach(r=>{byProd[r.productoNombre]=(byProd[r.productoNombre]||0)+Number(r.pesoNeto||0);});
+  const bannerEl=document.getElementById('pedidos-summary-banner');
+  if(bannerEl){
+    bannerEl.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">'+
+      '<span style="font-weight:700;color:var(--accent2);font-size:.82rem">'+data.length+' pesadas</span>'+
+      '<span style="color:var(--muted);font-size:.78rem">·</span>'+
+      '<span style="font-weight:700;font-size:.82rem">'+(totalNeto/1000).toFixed(1)+' T neto</span>'+
+      Object.entries(byProd).sort((a,b)=>b[1]-a[1]).map(([p,kg])=>
+        '<span style="background:var(--accent);color:#fff;border-radius:10px;padding:2px 8px;font-size:.72rem">'+p+': '+(kg/1000).toFixed(1)+'T</span>'
+      ).join('')+
+    '</div>';
+    bannerEl.style.display='block';
+  }
   el.innerHTML='<div class="tbl"><div class="tr th">'+
     '<div class="tc" style="flex:.35">#</div>'+
     '<div class="tc" style="flex:.8">Mat.</div>'+
@@ -3276,6 +3294,17 @@ function filtrarCamionesGestion(){
 function renderCamionesGestion(data){
   const el=document.getElementById('camiones-list');
   if(!data.length){el.innerHTML='<div class="tbl"><div class="empty">Sin resultados</div></div>';return;}
+  // Summary banner
+  const bannerEl=document.getElementById('camiones-summary-banner');
+  if(bannerEl){
+    const provs=[...new Set(data.map(c=>c.proveedor).filter(Boolean))];
+    bannerEl.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">'+
+      '<span style="font-weight:700;color:var(--accent2);font-size:.82rem">'+data.length+' camiones</span>'+
+      (provs.length?'<span style="color:var(--muted);font-size:.78rem">·</span><span style="font-size:.78rem">'+provs.length+' proveedores</span>':'')+
+      provs.map(p=>'<span style="background:var(--accent);color:#fff;border-radius:10px;padding:2px 8px;font-size:.72rem">'+p+'</span>').join('')+
+    '</div>';
+    bannerEl.style.display='block';
+  }
   el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:1">Matrícula</div><div class="tc" style="flex:.7">Remolque</div><div class="tc" style="flex:1.2">Chofer</div><div class="tc" style="flex:1">Proveedor</div><div class="tc" style="flex:.7;text-align:right">Tara</div><div class="tc" style="flex:.4"></div></div>'+
   data.map(c=>`<div class="tr"><div class="tc" style="flex:1;font-family:monospace;font-weight:700;color:var(--accent)">${c.matriculacam}</div><div class="tc" style="flex:.7;font-family:monospace">${c.matricularem||'—'}</div><div class="tc" style="flex:1.2">${c.chofer||'—'}</div><div class="tc" style="flex:1;color:var(--muted)">${c.proveedor||'—'}</div><div class="tc" style="flex:.7;text-align:right;font-family:monospace">${Number(c.tara||0).toLocaleString()} kg</div><div class="tc" style="flex:.4;text-align:right"><button class="btn-sm" onclick="openCamModal(${c.id})">Editar</button></div></div>`).join('')+'</div>';
 }
@@ -4063,6 +4092,21 @@ async function cargarHistorialOT(){
 function filtrarHistorialOT(){
   const fm=document.getElementById('filt-ot-maquina').value;const fo=document.getElementById('filt-ot-operario').value;
   let data=otHistData;if(fm)data=data.filter(r=>r.activo===fm);if(fo)data=data.filter(r=>r.operario===fo);
+  // Summary banner
+  const bannerEl=document.getElementById('ot-hist-summary-banner');
+  if(bannerEl&&data.length){
+    const ok=data.filter(r=>r.estado===true||r.estado==='TRUE').length;
+    const pend=data.length-ok;
+    const maquinas=[...new Set(data.map(r=>r.activo))];
+    bannerEl.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">'+
+      '<span style="font-weight:700;color:var(--accent2);font-size:.82rem">'+data.length+' OTs</span>'+
+      '<span style="background:#22c55e;color:#fff;border-radius:10px;padding:2px 8px;font-size:.72rem">OK: '+ok+'</span>'+
+      '<span style="background:#f59e0b;color:#fff;border-radius:10px;padding:2px 8px;font-size:.72rem">Pend: '+pend+'</span>'+
+      '<span style="color:var(--muted);font-size:.78rem">·</span>'+
+      maquinas.map(m=>'<span style="background:var(--accent);color:#fff;border-radius:10px;padding:2px 8px;font-size:.72rem">'+m+': '+data.filter(r=>r.activo===m).length+'</span>').join('')+
+    '</div>';
+    bannerEl.style.display='block';
+  } else if(bannerEl){bannerEl.style.display='none';}
   const el=document.getElementById('ot-hist-list');
   if(!data.length){el.innerHTML='<div class="tbl"><div class="empty">Sin resultados</div></div>';return;}
   el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:.5">OT</div><div class="tc" style="flex:1.2">Máquina</div><div class="tc" style="flex:1">Gama</div><div class="tc" style="flex:.8">Fecha</div><div class="tc" style="flex:.8">Operario</div><div class="tc" style="flex:.4;text-align:center">Estado</div><div class="tc" style="flex:.6"></div></div>'+
