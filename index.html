@@ -3083,6 +3083,7 @@ function renderPedidos(data){
       '<div class="tc" style="flex:.7;text-align:right;gap:4px;display:flex;justify-content:flex-end">'+
         '<button class="btn-sm" title="Albarán" onclick=\'abrirAlbaranPedido('+r.id+')\' style="padding:3px 7px;font-size:.68rem;color:var(--accent);border-color:var(--accent)">🖨</button>'+
         '<button class="btn-sm" title="Editar" onclick=\'editarPedidoModal('+r.id+')\' style="padding:3px 7px;font-size:.68rem">✏</button>'+
+        '<button class="btn-sm" title="Eliminar" onclick=\'eliminarPedido('+r.id+')\' style="padding:3px 7px;font-size:.68rem;color:#e05;border-color:#e05">🗑</button>'+
       '</div>'+
     '</div>').join('')+
   '</div>';
@@ -3091,6 +3092,16 @@ function abrirAlbaranPedido(id){
   const r=pedidosData.find(x=>x.id==id);
   if(!r) return;
   mostrarAlbaran(r.id, r);
+}
+async function eliminarPedido(id){
+  const r=pedidosData.find(x=>x.id==id);
+  if(!r) return;
+  const confirmMsg=`¿Eliminar pedido #${id}?\n${r.matriculacam} · ${r.productoNombre} · ${Number(r.pesoNeto).toLocaleString()} kg\n${r.nombreCliente||'Sin cliente'}`;
+  if(!confirm(confirmMsg)) return;
+  const json=await apiFetch('',{accion:'deletePedido',id});
+  if(!json.ok){alert('Error: '+json.error);return;}
+  pedidosData=pedidosData.filter(x=>x.id!=id);
+  filtrarPedidos();
 }
 function editarPedidoModal(id){
   const r=pedidosData.find(x=>x.id==id);

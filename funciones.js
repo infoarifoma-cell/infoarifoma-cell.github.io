@@ -150,6 +150,11 @@ async function doPostPesada(data) {
   return error ? { ok: false, error: error.message } : { ok: true, id: inserted?.id };
 }
 
+async function doDeletePedido(data) {
+  const { error } = await _supabase.from('tblpedidos').delete().eq('id', data.id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
 async function doEditarPedido(data) {
   const updates = {};
   if (data.matriculacam  !== undefined) updates.matriculacam  = data.matriculacam;
@@ -546,6 +551,7 @@ async function apiPost(payload) {
   if (t === 'delFichaje')      return doDeleteFichaje(payload);
   if (t === 'pesada')          return doPostPesada(payload);
   if (t === 'editarPedido')    return doEditarPedido(payload);
+  if (t === 'deletePedido')    return doDeletePedido(payload);
   if (t === 'nuevoCamion')     return doNuevoCamion(payload);
   if (t === 'editarCamion')    return doEditarCamion(payload);
   if (t === 'gasoil')          return doPostGasoil(payload);
