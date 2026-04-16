@@ -3098,7 +3098,7 @@ async function eliminarPedido(id){
   if(!r) return;
   const confirmMsg=`¿Eliminar pedido #${id}?\n${r.matriculacam} · ${r.productoNombre} · ${Number(r.pesoNeto).toLocaleString()} kg\n${r.nombreCliente||'Sin cliente'}`;
   if(!confirm(confirmMsg)) return;
-  const json=await apiFetch('',{accion:'deletePedido',id});
+  const json=await apiPost({tipo:'deletePedido',id});
   if(!json.ok){alert('Error: '+json.error);return;}
   pedidosData=pedidosData.filter(x=>x.id!=id);
   filtrarPedidos();
