@@ -4696,14 +4696,14 @@ function renderFacturacion(){
     const d=parseFechaFact(r.fechaHora)||parseFechaFact(r.fechaPedido);
     if(!d)return false;
     if(d.getMonth()!==filtMes||d.getFullYear()!==filtAnyo)return false;
-    if(filtCli&&r.nombreCliente!==filtCli)return false;
+    if(filtCli&&(r.nombreCliente||'').trim()!==filtCli.trim())return false;
     return true;
   });
 
   // Agrupar por cliente → proyecto → producto
   const clientes={};
   pedidos.forEach(r=>{
-    const cli=r.nombreCliente||'Sin cliente';
+    const cli=(r.nombreCliente||'Sin cliente').trim();
     const proy=r.proyectoName||r.proyectoCod||'Sin proyecto';
     const prod=r.productoNombre||r.productoCod||'Sin producto';
     const neto=Number(r.pesoNeto)||0;
@@ -4813,7 +4813,7 @@ function renderFacturacion(){
         prodResumen[prod].importe+=info.importe;
       });
     });
-    if(Object.keys(prodResumen).length>1){
+    if(Object.keys(cData.proyectos).length>1){
       html+=`<div style="padding:10px 16px;background:rgba(107,125,46,.06);border-top:2px solid rgba(107,125,46,.3)">
         <div style="font-size:.72rem;font-weight:700;color:var(--accent2);text-transform:uppercase;margin-bottom:8px;letter-spacing:.04em">▸ Total por producto</div>
         <div style="display:flex;padding:4px 0;font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;gap:8px">
