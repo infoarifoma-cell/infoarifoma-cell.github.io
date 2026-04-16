@@ -4802,6 +4802,35 @@ function renderFacturacion(){
       </div>`;
       html+=`</div>`;
     });
+
+    // Resumen total por producto (sumado de todos los proyectos)
+    const prodResumen={};
+    Object.values(cData.proyectos).forEach(pData=>{
+      Object.entries(pData.productos).forEach(([prod,info])=>{
+        if(!prodResumen[prod])prodResumen[prod]={viajes:0,kg:0,importe:0};
+        prodResumen[prod].viajes+=info.viajes;
+        prodResumen[prod].kg+=info.kg;
+        prodResumen[prod].importe+=info.importe;
+      });
+    });
+    if(Object.keys(prodResumen).length>1){
+      html+=`<div style="padding:10px 16px;background:rgba(107,125,46,.06);border-top:2px solid rgba(107,125,46,.3)">
+        <div style="font-size:.72rem;font-weight:700;color:var(--accent2);text-transform:uppercase;margin-bottom:8px;letter-spacing:.04em">▸ Total por producto</div>
+        <div style="display:flex;padding:4px 0;font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;gap:8px">
+          <div style="flex:2">Producto</div><div style="flex:.7;text-align:right">Viajes</div><div style="flex:1;text-align:right">Kg Neto</div><div style="flex:.7;text-align:right">Tn</div><div style="flex:.8"></div><div style="flex:1;text-align:right">Importe</div>
+        </div>`;
+      Object.entries(prodResumen).sort((a,b)=>b[1].kg-a[1].kg).forEach(([prod,info])=>{
+        html+=`<div style="display:flex;padding:5px 0;font-size:.75rem;color:var(--text);gap:8px;border-top:1px solid rgba(107,125,46,.15)">
+          <div style="flex:2;font-weight:600">${prod}</div>
+          <div style="flex:.7;text-align:right;font-family:'DM Mono',monospace">${info.viajes}</div>
+          <div style="flex:1;text-align:right;font-family:'DM Mono',monospace">${info.kg.toLocaleString()}</div>
+          <div style="flex:.7;text-align:right;font-family:'DM Mono',monospace;font-weight:700;color:var(--accent)">${(info.kg/1000).toFixed(2)}</div>
+          <div style="flex:.8"></div>
+          <div style="flex:1;text-align:right;font-family:'DM Mono',monospace;font-weight:700;color:var(--accent2)">${info.importe.toFixed(2)} €</div>
+        </div>`;
+      });
+      html+=`</div>`;
+    }
     html+=`</div>`;
   });
   document.getElementById('fact-desglose').innerHTML=html;
