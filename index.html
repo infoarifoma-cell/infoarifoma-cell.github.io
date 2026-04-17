@@ -4925,38 +4925,52 @@ function exportarExcelCliente(bcIdx) {
       r.proyectoName || r.proyectoCod || '',
       r.productoNombre || r.productoCod || '',
       Number(r.pesoNeto) || 0,
-      tn.toFixed(3),
-      precioTn.toFixed(2),
-      importe.toFixed(2)
+      parseFloat(tn.toFixed(3)),
+      parseFloat(precioTn.toFixed(2)),
+      parseFloat(importe.toFixed(2))
     ];
   });
 
   const totalKg = viajes.reduce((s, r) => s + (Number(r.pesoNeto) || 0), 0);
-  const totalEur = rows.reduce((s, r) => s + parseFloat(r[10]), 0);
+  const totalEur = rows.reduce((s, r) => s + r[10], 0);
   const igic = totalEur * IGIC_PCT / 100;
 
-  // Encabezado
-  const sep = ';';
-  const q = v => `"${String(v).replace(/"/g,'""')}"`;
-  const lineas = [];
-  lineas.push([q('ARIFOMA'), '', '', '', '', '', '', '', '', '', ''].join(sep));
-  lineas.push([q(`Desglose de viajes - ${nomMes} ${anyo}`), '', '', '', '', '', '', '', '', '', ''].join(sep));
-  lineas.push([q(`Cliente: ${cli}`), '', '', '', '', '', '', '', '', '', ''].join(sep));
-  lineas.push([q(`Total viajes: ${viajes.length}  ·  Total Tn: ${(totalKg/1000).toFixed(2)}  ·  Base: ${totalEur.toFixed(2)} €  ·  IGIC (${IGIC_PCT}%): ${igic.toFixed(2)} €  ·  Total: ${(totalEur+igic).toFixed(2)} €`), '', '', '', '', '', '', '', '', '', ''].join(sep));
-  lineas.push('');
-  lineas.push(cols.map(q).join(sep));
-  rows.forEach(r => lineas.push(r.map(q).join(sep)));
-  lineas.push('');
-  lineas.push([q('TOTAL'), '', '', '', '', '', q(totalKg), q((totalKg/1000).toFixed(3)), '', q(totalEur.toFixed(2)), ''].join(sep));
+  const wb = XLSX.utils.book_new();
+  const wsData = [];
 
-  const bom = '\uFEFF';
-  const blob = new Blob([bom + lineas.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${cli} - ${nomMes} ${anyo}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  // Fila 1: ARIFOMA
+  wsData.push(['ARIFOMA', '', '', '', '', '', '', '', '', '', '']);
+  // Fila 2: título
+  wsData.push([`Desglose de viajes · ${nomMes} ${anyo}`, '', '', '', '', '', '', '', '', '', '']);
+  // Fila 3: cliente
+  wsData.push([`Cliente: ${cli}`, '', '', '', '', '', '', '', '', '', '']);
+  // Fila 4: resumen
+  wsData.push([`Viajes: ${viajes.length}`, '', `Tn: ${(totalKg/1000).toFixed(2)}`, '', `Base: ${totalEur.toFixed(2)} €`, '', `IGIC ${IGIC_PCT}%: ${igic.toFixed(2)} €`, '', `Total: ${(totalEur+igic).toFixed(2)} €`, '', '']);
+  // Fila 5: vacía
+  wsData.push([]);
+  // Fila 6: cabecera columnas
+  wsData.push(cols);
+  // Filas datos
+  rows.forEach(r => wsData.push(r));
+  // Fila vacía
+  wsData.push([]);
+  // Totales
+  wsData.push(['TOTAL', '', '', '', '', '', '', totalKg, parseFloat((totalKg/1000).toFixed(3)), '', parseFloat(totalEur.toFixed(2))]);
+
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Anchos de columna
+  ws['!cols'] = [22,12,8,14,16,22,22,12,10,8,12].map(w => ({ wch: w }));
+
+  // Estilos via !merges para cabecera
+  ws['!merges'] = [
+    { s:{r:0,c:0}, e:{r:0,c:10} }, // ARIFOMA
+    { s:{r:1,c:0}, e:{r:1,c:10} }, // título
+    { s:{r:2,c:0}, e:{r:2,c:10} }, // cliente
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, nomMes);
+  XLSX.writeFile(wb, `${cli} - ${nomMes} ${anyo}.xlsx`);
 }
 
 // ── BUSINESS CENTRAL ─────────────────────────────────────────
@@ -5733,5 +5747,6 @@ function printOTHistorial(id){
 }
 </script>
 <script src="https://unpkg.com/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </body>
 </html>

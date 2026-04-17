@@ -2,6 +2,52 @@
 // ARIFOMA · FUNCIONES SUPABASE — versión limpia
 // ============================================================
 
+// ── BUSINESS CENTRAL CONFIG ───────────────────────────────────
+const BC_TENANT_F  = '5bd828f2-1899-48ba-a269-c37733f41806';
+const BC_ENV_F     = 'Sanfbox2_IFR';
+const BC_COMPANY_F = 'ARIFOMA V24.02 R';
+
+async function enviarLineaBCPesada(data) {
+  if (typeof getBCToken !== 'function') return;
+  let token;
+  try { token = await getBCToken(); } catch(e) { console.warn('BC token:', e.message); return; }
+  const base = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT_F}/${BC_ENV_F}/api/v2.0/companies`;
+  const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+  const cJson = await (await fetch(base, { headers })).json();
+  const company = cJson.value.find(c => c.name === BC_COMPANY_F);
+  if (!company) { console.warn('BC: Company no encontrada'); return; }
+  const companyId = company.id;
+
+  const filter = `customerNumber eq '${data.codigoCliente}' and externalDocumentNumber eq '${data.proyectoCod}'`;
+  const ordersJson = await (await fetch(`${base}(${companyId})/salesOrders?$filter=${encodeURIComponent(filter)}&$select=id,number`, { headers })).json();
+  let orderId;
+
+  if (ordersJson.value && ordersJson.value.length > 0) {
+    orderId = ordersJson.value[0].id;
+  } else {
+    const newOrder = await fetch(`${base}(${companyId})/salesOrders`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ customerNumber: data.codigoCliente, externalDocumentNumber: data.proyectoCod })
+    });
+    if (!newOrder.ok) { console.warn('BC crear pedido:', await newOrder.text()); return; }
+    orderId = (await newOrder.json()).id;
+  }
+
+  const lineRes = await fetch(`${base}(${companyId})/salesOrders(${orderId})/salesOrderLines`, {
+    method: 'POST', headers,
+    body: JSON.stringify({
+      lineType: 'Item',
+      lineObjectNumber: data.productoCod,
+      description: `${data.productoNombre} | ${data.proyectoName||data.proyectoCod} | ${(Number(data.pesoNeto)/1000).toFixed(3)} Tn | ${data.matriculacam}`,
+      quantity: parseFloat((Number(data.pesoNeto) / 1000).toFixed(3)),
+      unitPrice: 0
+    })
+  });
+  if (!lineRes.ok) console.warn('BC línea:', await lineRes.text());
+  else console.log('BC línea creada OK');
+}
+
 const SUPABASE_URL = 'https://bnsfgzjqmibsrklllqxb.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJuc2ZnempxbWlic3JrbGxscXhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNzYwNzksImV4cCI6MjA4OTk1MjA3OX0.8mTQHPdO954ICBd1Xam-kKmcA69CMyO2v3x1liFgWyk';
 let _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
