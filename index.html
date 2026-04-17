@@ -3,6 +3,7 @@
 <head>
 <link rel="manifest" href="manifest.json">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -4775,9 +4776,12 @@ function renderFacturacion(){
         <div style="font-family:'Syne',sans-serif;font-size:.92rem;font-weight:700;color:var(--accent)">${cli}</div>
         <div style="font-size:.68rem;color:var(--muted);margin-top:2px">${(cData.totalKg/1000).toFixed(2)} Tn · ${pedidos.filter(r=>r.nombreCliente===cli).length} viajes</div>
       </div>
-      <div style="text-align:right">
-        <div style="font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:700;color:var(--accent2)">${cData.totalEur.toFixed(2)} €</div>
-        <div style="font-size:.65rem;color:var(--muted)">+ ${cIgic.toFixed(2)} € IGIC = ${(cData.totalEur+cIgic).toFixed(2)} €</div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="text-align:right">
+          <div style="font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:700;color:var(--accent2)">${cData.totalEur.toFixed(2)} €</div>
+          <div style="font-size:.65rem;color:var(--muted)">+ ${cIgic.toFixed(2)} € IGIC = ${(cData.totalEur+cIgic).toFixed(2)} €</div>
+        </div>
+        <button onclick="enviarBCCliente(${JSON.stringify(cli)},${JSON.stringify(cData)})" style="background:#0078d4;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">Enviar a BC</button>
       </div>
     </div>`;
 
@@ -4834,6 +4838,101 @@ function renderFacturacion(){
     html+=`</div>`;
   });
   document.getElementById('fact-desglose').innerHTML=html;
+}
+
+// ── BUSINESS CENTRAL ─────────────────────────────────────────
+const BC_TENANT   = '5bd828f2-1899-48ba-a269-c37733f41806';
+const BC_CLIENT   = 'e2a57ff0-8ea7-433d-a2af-7335d3f01847';
+const BC_ENV      = 'Sanfbox2_IFR';
+const BC_COMPANY  = 'ARIFOMA V24.02 R';
+const BC_SCOPE    = `https://api.businesscentral.dynamics.com/.default`;
+
+const msalApp = new msal.PublicClientApplication({
+  auth: {
+    clientId: BC_CLIENT,
+    authority: `https://login.microsoftonline.com/${BC_TENANT}`,
+    redirectUri: window.location.origin + window.location.pathname
+  },
+  cache: { cacheLocation: 'sessionStorage' }
+});
+
+async function getBCToken() {
+  const req = { scopes: [BC_SCOPE] };
+  try {
+    const accounts = msalApp.getAllAccounts();
+    if (accounts.length > 0) {
+      return (await msalApp.acquireTokenSilent({ ...req, account: accounts[0] })).accessToken;
+    }
+  } catch(e) {}
+  return (await msalApp.acquireTokenPopup(req)).accessToken;
+}
+
+async function enviarBCCliente(cli, cData) {
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = 'Conectando...';
+  try {
+    const token = await getBCToken();
+    const base = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/api/v2.0/companies`;
+    const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+    // Obtener ID de la company
+    const cRes = await fetch(base, { headers });
+    const cJson = await cRes.json();
+    const company = cJson.value.find(c => c.name === BC_COMPANY);
+    if (!company) throw new Error('Company no encontrada: ' + BC_COMPANY);
+    const companyId = company.id;
+
+    // Buscar codigoCliente en factData
+    const pedidoCli = factData.find(r => (r.nombreCliente||'').trim() === cli.trim());
+    const customerNo = pedidoCli?.codigoCliente || '';
+
+    // Obtener fecha del filtro activo
+    const mes = parseInt(document.getElementById('fact-mes').value) + 1;
+    const anyo = parseInt(document.getElementById('fact-anyo').value);
+    const invoiceDate = `${anyo}-${String(mes).padStart(2,'0')}-01`;
+
+    btn.textContent = 'Creando factura...';
+
+    // Crear Sales Invoice
+    const invRes = await fetch(`${base}(${companyId})/salesInvoices`, {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        customerNumber: customerNo,
+        invoiceDate,
+        externalDocumentNumber: `APP-${cli.substring(0,10).replace(/\s/g,'-')}-${anyo}${String(mes).padStart(2,'0')}`
+      })
+    });
+    if (!invRes.ok) throw new Error(await invRes.text());
+    const inv = await invRes.json();
+    const invId = inv.id;
+
+    // Crear líneas por proyecto → producto
+    let lineCount = 0;
+    for (const [proy, pData] of Object.entries(cData.proyectos)) {
+      for (const [prod, info] of Object.entries(pData.productos)) {
+        const lineRes = await fetch(`${base}(${companyId})/salesInvoices(${invId})/salesInvoiceLines`, {
+          method: 'POST', headers,
+          body: JSON.stringify({
+            lineType: 'Item',
+            lineObjectNumber: prod,
+            description: `${prod} - ${proy}`,
+            quantity: parseFloat((info.kg / 1000).toFixed(3)),
+            unitPrice: info.precioTn
+          })
+        });
+        if (lineRes.ok) lineCount++;
+      }
+    }
+
+    btn.textContent = '✓ Enviado';
+    btn.style.background = '#2e7d32';
+    alert(`Factura creada en BC para ${cli}\n${lineCount} líneas añadidas.\nNº: ${inv.number||invId}`);
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = 'Enviar a BC';
+    alert('Error al enviar a BC:\n' + e.message);
+  }
 }
 
 // ── OT PRINT ─────────────────────────────────────────────────
