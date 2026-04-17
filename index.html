@@ -1742,7 +1742,56 @@ async function doPostPesada(data) {
     numPedido: data.numPedido, numLinea: data.numLinea,
     fechaHora: new Date().toISOString()
   }]).select('id').single();
-  return error ? { ok: false, error: error.message } : { ok: true, id: inserted?.id };
+  if (error) return { ok: false, error: error.message };
+  // Enviar línea a BC en segundo plano (no bloquea)
+  enviarLineaBCPesada(data).catch(e => console.warn('BC línea:', e.message));
+  return { ok: true, id: inserted?.id };
+}
+
+async function enviarLineaBCPesada(data) {
+  const token = await getBCToken();
+  const base = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/api/v2.0/companies`;
+  const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+  // Obtener company ID
+  const cJson = await (await fetch(base, { headers })).json();
+  const company = cJson.value.find(c => c.name === BC_COMPANY);
+  if (!company) throw new Error('Company no encontrada');
+  const companyId = company.id;
+
+  // Buscar pedido abierto para este cliente+proyecto
+  const filter = `customerNumber eq '${data.codigoCliente}' and externalDocumentNumber eq '${data.proyectoCod}'`;
+  const ordersRes = await fetch(`${base}(${companyId})/salesOrders?$filter=${encodeURIComponent(filter)}&$select=id,number`, { headers });
+  const ordersJson = await ordersRes.json();
+  let orderId;
+
+  if (ordersJson.value && ordersJson.value.length > 0) {
+    orderId = ordersJson.value[0].id;
+  } else {
+    // Crear pedido nuevo
+    const newOrder = await fetch(`${base}(${companyId})/salesOrders`, {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        customerNumber: data.codigoCliente,
+        externalDocumentNumber: data.proyectoCod
+      })
+    });
+    if (!newOrder.ok) throw new Error(await newOrder.text());
+    orderId = (await newOrder.json()).id;
+  }
+
+  // Añadir línea
+  const lineRes = await fetch(`${base}(${companyId})/salesOrders(${orderId})/salesOrderLines`, {
+    method: 'POST', headers,
+    body: JSON.stringify({
+      lineType: 'Item',
+      lineObjectNumber: data.productoCod,
+      description: `${data.productoNombre} - ${data.matriculacam}`,
+      quantity: parseFloat((Number(data.pesoNeto) / 1000).toFixed(3)),
+      unitPrice: 0
+    })
+  });
+  if (!lineRes.ok) throw new Error(await lineRes.text());
 }
 async function doEditarPedido(data) {
   const updates = {};
