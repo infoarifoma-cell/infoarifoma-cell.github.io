@@ -4709,7 +4709,7 @@ function renderFacturacion(){
     const neto=Number(r.pesoNeto)||0;
     if(!clientes[cli])clientes[cli]={proyectos:{},totalKg:0,totalEur:0};
     if(!clientes[cli].proyectos[proy])clientes[cli].proyectos[proy]={productos:{},totalKg:0,totalEur:0};
-    if(!clientes[cli].proyectos[proy].productos[prod])clientes[cli].proyectos[proy].productos[prod]={viajes:0,kg:0};
+    if(!clientes[cli].proyectos[proy].productos[prod])clientes[cli].proyectos[proy].productos[prod]={viajes:0,kg:0,cod:r.productoCod||''};
     clientes[cli].proyectos[proy].productos[prod].viajes++;
     clientes[cli].proyectos[proy].productos[prod].kg+=neto;
   });
@@ -4923,7 +4923,7 @@ async function enviarBCCliente(bcIdx, btn) {
           method: 'POST', headers,
           body: JSON.stringify({
             lineType: 'Item',
-            lineObjectNumber: 'PROD-' + String(prod).padStart(6, '0'),
+            lineObjectNumber: 'PROD-' + String(info.cod).padStart(6, '0'),
             description: `${prod} - ${proy}`,
             quantity: parseFloat((info.kg / 1000).toFixed(3)),
             unitPrice: info.precioTn
