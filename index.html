@@ -4923,7 +4923,7 @@ async function enviarBCCliente(bcIdx, btn) {
           method: 'POST', headers,
           body: JSON.stringify({
             lineType: 'Item',
-            lineObjectNumber: 'PROD-' + String(info.cod).padStart(6, '0'),
+            lineObjectNumber: info.cod,
             description: `${prod} - ${proy}`,
             quantity: parseFloat((info.kg / 1000).toFixed(3)),
             unitPrice: info.precioTn
