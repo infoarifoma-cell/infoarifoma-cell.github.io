@@ -4930,6 +4930,7 @@ async function enviarBCCliente(bcIdx, btn) {
           })
         });
         if (lineRes.ok) lineCount++;
+        else console.error('Línea fallida:', prod, await lineRes.text());
       }
     }
 
