@@ -4767,12 +4767,11 @@ function renderFacturacion(){
     return;
   }
 
-  window._bcClientesData = {};
+  window._bcClientesData = [];
   let html='';
-  Object.entries(clientes).sort((a,b)=>b[1].totalEur-a[1].totalEur).forEach(([cli,cData])=>{
+  Object.entries(clientes).sort((a,b)=>b[1].totalEur-a[1].totalEur).forEach(([cli,cData],bcIdx)=>{
     const cIgic=cData.totalEur*IGIC_PCT/100;
-    const bcKey = encodeURIComponent(cli);
-    window._bcClientesData[bcKey] = { cli, cData };
+    window._bcClientesData[bcIdx] = { cli, cData };
     html+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px;overflow:hidden">`;
     html+=`<div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
       <div>
@@ -4784,7 +4783,7 @@ function renderFacturacion(){
           <div style="font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:700;color:var(--accent2)">${cData.totalEur.toFixed(2)} €</div>
           <div style="font-size:.65rem;color:var(--muted)">+ ${cIgic.toFixed(2)} € IGIC = ${(cData.totalEur+cIgic).toFixed(2)} €</div>
         </div>
-        <button onclick="enviarBCCliente('${bcKey}',this)" style="background:#0078d4;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">Enviar a BC</button>
+        <button onclick="enviarBCCliente(${bcIdx},this)" style="background:#0078d4;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">Enviar a BC</button>
       </div>
     </div>`;
 
@@ -4850,28 +4849,35 @@ const BC_ENV      = 'Sanfbox2_IFR';
 const BC_COMPANY  = 'ARIFOMA V24.02 R';
 const BC_SCOPE    = `https://api.businesscentral.dynamics.com/.default`;
 
-const msalApp = new msal.PublicClientApplication({
-  auth: {
-    clientId: BC_CLIENT,
-    authority: `https://login.microsoftonline.com/${BC_TENANT}`,
-    redirectUri: window.location.origin + window.location.pathname
-  },
-  cache: { cacheLocation: 'sessionStorage' }
-});
-
-async function getBCToken() {
-  const req = { scopes: [BC_SCOPE] };
-  try {
-    const accounts = msalApp.getAllAccounts();
-    if (accounts.length > 0) {
-      return (await msalApp.acquireTokenSilent({ ...req, account: accounts[0] })).accessToken;
-    }
-  } catch(e) {}
-  return (await msalApp.acquireTokenPopup(req)).accessToken;
+let msalApp = null;
+async function getMsalApp() {
+  if (msalApp) return msalApp;
+  msalApp = new msal.PublicClientApplication({
+    auth: {
+      clientId: BC_CLIENT,
+      authority: `https://login.microsoftonline.com/${BC_TENANT}`,
+      redirectUri: window.location.origin + window.location.pathname
+    },
+    cache: { cacheLocation: 'sessionStorage' }
+  });
+  await msalApp.initialize();
+  return msalApp;
 }
 
-async function enviarBCCliente(bcKey, btn) {
-  const { cli, cData } = window._bcClientesData[bcKey];
+async function getBCToken() {
+  const app = await getMsalApp();
+  const req = { scopes: [BC_SCOPE] };
+  try {
+    const accounts = app.getAllAccounts();
+    if (accounts.length > 0) {
+      return (await app.acquireTokenSilent({ ...req, account: accounts[0] })).accessToken;
+    }
+  } catch(e) {}
+  return (await app.acquireTokenPopup(req)).accessToken;
+}
+
+async function enviarBCCliente(bcIdx, btn) {
+  const { cli, cData } = window._bcClientesData[bcIdx];
   btn.disabled = true;
   btn.textContent = 'Conectando...';
   try {
