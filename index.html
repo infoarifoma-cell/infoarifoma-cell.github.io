@@ -4908,7 +4908,7 @@ async function getMsalApp() {
       authority: `https://login.microsoftonline.com/${BC_TENANT}`,
       redirectUri: window.location.origin + window.location.pathname
     },
-    cache: { cacheLocation: 'sessionStorage' }
+    cache: { cacheLocation: 'localStorage' }
   });
   await msalApp.initialize();
   return msalApp;

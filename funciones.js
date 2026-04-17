@@ -147,7 +147,11 @@ async function doPostPesada(data) {
     numLinea:      data.numLinea,
     fechaHora:     new Date().toISOString()
   }]).select('id').single();
-  return error ? { ok: false, error: error.message } : { ok: true, id: inserted?.id };
+  if (error) return { ok: false, error: error.message };
+  if (typeof enviarLineaBCPesada === 'function') {
+    enviarLineaBCPesada(data).catch(e => console.warn('BC línea:', e.message));
+  }
+  return { ok: true, id: inserted?.id };
 }
 
 async function doDeletePedido(data) {
