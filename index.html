@@ -4777,18 +4777,20 @@ function renderFacturacion(){
         <div style="font-family:'Syne',sans-serif;font-size:.92rem;font-weight:700;color:var(--accent)">${cli}</div>
         <div style="font-size:.68rem;color:var(--muted);margin-top:2px">${(cData.totalKg/1000).toFixed(2)} Tn · ${pedidos.filter(r=>r.nombreCliente===cli).length} viajes</div>
       </div>
-      <div style="display:flex;align-items:center;gap:12px">
-        <div style="text-align:right">
-          <div style="font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:700;color:var(--accent2)">${cData.totalEur.toFixed(2)} €</div>
-          <div style="font-size:.65rem;color:var(--muted)">+ ${cIgic.toFixed(2)} € IGIC = ${(cData.totalEur+cIgic).toFixed(2)} €</div>
-        </div>
-        <button onclick="enviarBCCliente(${bcIdx},this)" style="background:#0078d4;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">Enviar a BC</button>
+      <div style="text-align:right">
+        <div style="font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:700;color:var(--accent2)">${cData.totalEur.toFixed(2)} €</div>
+        <div style="font-size:.65rem;color:var(--muted)">+ ${cIgic.toFixed(2)} € IGIC = ${(cData.totalEur+cIgic).toFixed(2)} €</div>
       </div>
     </div>`;
 
-    Object.entries(cData.proyectos).forEach(([proy,pData])=>{
+    Object.entries(cData.proyectos).forEach(([proy,pData],pIdx)=>{
+      const bcPKey = `${bcIdx}_${pIdx}`;
+      window._bcClientesData[bcPKey] = { cli, cData: { proyectos: { [proy]: pData } } };
       html+=`<div style="padding:10px 16px;border-bottom:1px solid var(--border);background:var(--surface2)">
-        <div style="font-size:.78rem;font-weight:700;color:#f5c842;margin-bottom:8px">📍 ${proy}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-size:.78rem;font-weight:700;color:#f5c842">📍 ${proy}</div>
+          <button onclick="enviarBCCliente('${bcPKey}',this)" style="background:#0078d4;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:.68rem;font-weight:700;cursor:pointer">Enviar a BC</button>
+        </div>
         <div style="display:flex;padding:4px 0;font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;gap:8px">
           <div style="flex:2">Producto</div><div style="flex:.7;text-align:right">Viajes</div><div style="flex:1;text-align:right">Kg Neto</div><div style="flex:.7;text-align:right">Tn</div><div style="flex:.8;text-align:right">€/Tn</div><div style="flex:1;text-align:right">Importe</div>
         </div>`;
