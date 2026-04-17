@@ -3,7 +3,6 @@
 <head>
 <link rel="manifest" href="manifest.json">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -4852,7 +4851,7 @@ const BC_SCOPE    = `https://api.businesscentral.dynamics.com/.default`;
 let msalApp = null;
 async function getMsalApp() {
   if (msalApp) return msalApp;
-  msalApp = new msal.PublicClientApplication({
+  msalApp = new msal.browser.PublicClientApplication({
     auth: {
       clientId: BC_CLIENT,
       authority: `https://login.microsoftonline.com/${BC_TENANT}`,
@@ -5613,5 +5612,6 @@ function printOTHistorial(id){
   document.getElementById('ot-print-wrap').style.display='flex';
 }
 </script>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
 </body>
 </html>
