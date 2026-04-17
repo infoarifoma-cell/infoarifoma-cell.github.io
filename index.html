@@ -1786,11 +1786,9 @@ async function enviarLineaBCPesada(data) {
     body: JSON.stringify({
       lineType: 'Item',
       lineObjectNumber: data.productoCod,
-      description: `${data.productoNombre} - ${data.matriculacam}`,
+      description: `${data.productoNombre} | ${data.proyectoName||data.proyectoCod} | ${(Number(data.pesoNeto)/1000).toFixed(3)} Tn | ${data.matriculacam}`,
       quantity: parseFloat((Number(data.pesoNeto) / 1000).toFixed(3)),
-      unitPrice: 0,
-      netWeight: parseFloat((Number(data.pesoNeto) / 1000).toFixed(3)),
-      grossWeight: parseFloat((Number(data.pesoBruto) / 1000).toFixed(3))
+      unitPrice: 0
     })
   });
   if (!lineRes.ok) throw new Error(await lineRes.text());
@@ -4910,7 +4908,9 @@ function exportarExcelCliente(bcIdx) {
     return (r.nombreCliente || '').trim() === cli.trim();
   }).sort((a, b) => new Date(a.fechaHora) - new Date(b.fechaHora));
 
-  const cols = ['Fecha/Hora','Matrícula Cam.','Chofer','Proyecto','Producto','Kg Neto','Tn','€/Tn','Importe'];
+  const nomMes = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][mes];
+
+  const cols = ['Fecha/Hora','Nº Pedido','Línea','Matrícula Cam.','Chofer','Proyecto','Producto','Kg Neto','Tn','€/Tn','Importe'];
   const rows = viajes.map(r => {
     const fecha = r.fechaHora ? new Date(r.fechaHora).toLocaleString('es-ES') : '';
     const tn = Number(r.pesoNeto) / 1000;
@@ -4918,6 +4918,8 @@ function exportarExcelCliente(bcIdx) {
     const importe = tn * precioTn;
     return [
       fecha,
+      r.numPedido || '',
+      r.numLinea || '',
       r.matriculacam || '',
       r.chofer || '',
       r.proyectoName || r.proyectoCod || '',
@@ -4929,18 +4931,28 @@ function exportarExcelCliente(bcIdx) {
     ];
   });
 
-  // Totales
   const totalKg = viajes.reduce((s, r) => s + (Number(r.pesoNeto) || 0), 0);
-  const totalEur = rows.reduce((s, r) => s + parseFloat(r[8]), 0);
-  rows.push(['', '', '', '', 'TOTAL', totalKg, (totalKg/1000).toFixed(3), '', totalEur.toFixed(2)]);
+  const totalEur = rows.reduce((s, r) => s + parseFloat(r[10]), 0);
+  const igic = totalEur * IGIC_PCT / 100;
 
-  // Generar CSV con separador ;
-  const csv = [cols, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(';')).join('\r\n');
+  // Encabezado
+  const sep = ';';
+  const q = v => `"${String(v).replace(/"/g,'""')}"`;
+  const lineas = [];
+  lineas.push([q('ARIFOMA'), '', '', '', '', '', '', '', '', '', ''].join(sep));
+  lineas.push([q(`Desglose de viajes - ${nomMes} ${anyo}`), '', '', '', '', '', '', '', '', '', ''].join(sep));
+  lineas.push([q(`Cliente: ${cli}`), '', '', '', '', '', '', '', '', '', ''].join(sep));
+  lineas.push([q(`Total viajes: ${viajes.length}  ·  Total Tn: ${(totalKg/1000).toFixed(2)}  ·  Base: ${totalEur.toFixed(2)} €  ·  IGIC (${IGIC_PCT}%): ${igic.toFixed(2)} €  ·  Total: ${(totalEur+igic).toFixed(2)} €`), '', '', '', '', '', '', '', '', '', ''].join(sep));
+  lineas.push('');
+  lineas.push(cols.map(q).join(sep));
+  rows.forEach(r => lineas.push(r.map(q).join(sep)));
+  lineas.push('');
+  lineas.push([q('TOTAL'), '', '', '', '', '', q(totalKg), q((totalKg/1000).toFixed(3)), '', q(totalEur.toFixed(2)), ''].join(sep));
+
   const bom = '\uFEFF';
-  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+  const blob = new Blob([bom + lineas.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const nomMes = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][mes];
   a.href = url;
   a.download = `${cli} - ${nomMes} ${anyo}.csv`;
   a.click();
