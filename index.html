@@ -1788,7 +1788,9 @@ async function enviarLineaBCPesada(data) {
       lineObjectNumber: data.productoCod,
       description: `${data.productoNombre} - ${data.matriculacam}`,
       quantity: parseFloat((Number(data.pesoNeto) / 1000).toFixed(3)),
-      unitPrice: 0
+      unitPrice: 0,
+      netWeight: parseFloat((Number(data.pesoNeto) / 1000).toFixed(3)),
+      grossWeight: parseFloat((Number(data.pesoBruto) / 1000).toFixed(3))
     })
   });
   if (!lineRes.ok) throw new Error(await lineRes.text());
@@ -4826,9 +4828,12 @@ function renderFacturacion(){
         <div style="font-family:'Syne',sans-serif;font-size:.92rem;font-weight:700;color:var(--accent)">${cli}</div>
         <div style="font-size:.68rem;color:var(--muted);margin-top:2px">${(cData.totalKg/1000).toFixed(2)} Tn · ${pedidos.filter(r=>r.nombreCliente===cli).length} viajes</div>
       </div>
-      <div style="text-align:right">
-        <div style="font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:700;color:var(--accent2)">${cData.totalEur.toFixed(2)} €</div>
-        <div style="font-size:.65rem;color:var(--muted)">+ ${cIgic.toFixed(2)} € IGIC = ${(cData.totalEur+cIgic).toFixed(2)} €</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="text-align:right">
+          <div style="font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:700;color:var(--accent2)">${cData.totalEur.toFixed(2)} €</div>
+          <div style="font-size:.65rem;color:var(--muted)">+ ${cIgic.toFixed(2)} € IGIC = ${(cData.totalEur+cIgic).toFixed(2)} €</div>
+        </div>
+        <button onclick="exportarExcelCliente(${bcIdx})" style="background:#217346;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">📥 Excel</button>
       </div>
     </div>`;
 
@@ -4890,6 +4895,56 @@ function renderFacturacion(){
     html+=`</div>`;
   });
   document.getElementById('fact-desglose').innerHTML=html;
+}
+
+// ── EXPORTAR EXCEL ───────────────────────────────────────────
+function exportarExcelCliente(bcIdx) {
+  const { cli } = window._bcClientesData[bcIdx];
+  const mes = parseInt(document.getElementById('fact-mes').value);
+  const anyo = parseInt(document.getElementById('fact-anyo').value);
+
+  const viajes = factData.filter(r => {
+    const d = parseFechaFact(r.fechaHora) || parseFechaFact(r.fechaPedido);
+    if (!d) return false;
+    if (d.getMonth() !== mes || d.getFullYear() !== anyo) return false;
+    return (r.nombreCliente || '').trim() === cli.trim();
+  }).sort((a, b) => new Date(a.fechaHora) - new Date(b.fechaHora));
+
+  const cols = ['Fecha/Hora','Matrícula Cam.','Chofer','Proyecto','Producto','Kg Neto','Tn','€/Tn','Importe'];
+  const rows = viajes.map(r => {
+    const fecha = r.fechaHora ? new Date(r.fechaHora).toLocaleString('es-ES') : '';
+    const tn = Number(r.pesoNeto) / 1000;
+    const precioTn = getPrecioTn(cli, r.productoNombre || r.productoCod || '');
+    const importe = tn * precioTn;
+    return [
+      fecha,
+      r.matriculacam || '',
+      r.chofer || '',
+      r.proyectoName || r.proyectoCod || '',
+      r.productoNombre || r.productoCod || '',
+      Number(r.pesoNeto) || 0,
+      tn.toFixed(3),
+      precioTn.toFixed(2),
+      importe.toFixed(2)
+    ];
+  });
+
+  // Totales
+  const totalKg = viajes.reduce((s, r) => s + (Number(r.pesoNeto) || 0), 0);
+  const totalEur = rows.reduce((s, r) => s + parseFloat(r[8]), 0);
+  rows.push(['', '', '', '', 'TOTAL', totalKg, (totalKg/1000).toFixed(3), '', totalEur.toFixed(2)]);
+
+  // Generar CSV con separador ;
+  const csv = [cols, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(';')).join('\r\n');
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const nomMes = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][mes];
+  a.href = url;
+  a.download = `${cli} - ${nomMes} ${anyo}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ── BUSINESS CENTRAL ─────────────────────────────────────────
