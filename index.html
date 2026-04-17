@@ -1636,7 +1636,7 @@ function _initAuthClient(token) {
 }
 
 // ── GOOGLE SHEETS (para Producción y Gasoil) ────────────────
-const SHEETS_API = 'https://script.google.com/macros/s/AKfycbxLh9COgVkXu7n8_jsazx9Z4b9P426Ly3yKQE2mvD9ug6UeLD4bw92YPQQBZtrul3E/exec';
+const SHEETS_API = 'https://script.google.com/macros/s/AKfycby8wdhYwyJ8orCBuJ8SnTYTgwjp2QPOptHfeiShoSL8GDt_QZF2WGYoXi8HQPXc9duj/exec';
 
 function sheetsFetch(params) {
   return new Promise((resolve, reject) => {
@@ -4896,10 +4896,11 @@ function renderFacturacion(){
 }
 
 // ── EXPORTAR EXCEL ───────────────────────────────────────────
-function exportarExcelCliente(bcIdx) {
+async function exportarExcelCliente(bcIdx) {
   const { cli } = window._bcClientesData[bcIdx];
   const mes = parseInt(document.getElementById('fact-mes').value);
   const anyo = parseInt(document.getElementById('fact-anyo').value);
+  const nomMes = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][mes];
 
   const viajes = factData.filter(r => {
     const d = parseFechaFact(r.fechaHora) || parseFechaFact(r.fechaPedido);
@@ -4908,69 +4909,131 @@ function exportarExcelCliente(bcIdx) {
     return (r.nombreCliente || '').trim() === cli.trim();
   }).sort((a, b) => new Date(a.fechaHora) - new Date(b.fechaHora));
 
-  const nomMes = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][mes];
+  const totalKg = viajes.reduce((s, r) => s + (Number(r.pesoNeto) || 0), 0);
+  const totalEur = viajes.reduce((s, r) => {
+    const tn = Number(r.pesoNeto) / 1000;
+    return s + tn * getPrecioTn(cli, r.productoNombre || r.productoCod || '');
+  }, 0);
+  const igic = totalEur * IGIC_PCT / 100;
 
-  const cols = ['Fecha/Hora','Nº Pedido','Línea','Matrícula Cam.','Chofer','Proyecto','Producto','Kg Neto','Tn','€/Tn','Importe'];
-  const rows = viajes.map(r => {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'ARIFOMA';
+  const ws = wb.addWorksheet(nomMes);
+
+  // Anchos
+  ws.columns = [
+    {width:22},{width:13},{width:8},{width:15},{width:18},
+    {width:24},{width:24},{width:13},{width:10},{width:9},{width:14}
+  ];
+
+  const VERDE  = '3D5A10';
+  const VERDE2 = '6B7D2E';
+  const GRIS   = 'F0F0EC';
+  const GRIS2  = 'E0E0D8';
+  const BLANCO = 'FFFFFF';
+
+  const centerBold = (size, color='FFFFFF') => ({
+    font: { bold:true, size, color:{argb:'FF'+color}, name:'Calibri' },
+    alignment: { horizontal:'center', vertical:'middle' },
+    fill: { type:'pattern', pattern:'solid', fgColor:{argb:'FF'+VERDE} }
+  });
+
+  // Fila 1 — ARIFOMA
+  ws.mergeCells('A1:K1');
+  const r1 = ws.getRow(1); r1.height = 36;
+  Object.assign(ws.getCell('A1'), { value: 'ARIFOMA', ...centerBold(20) });
+
+  // Fila 2 — título
+  ws.mergeCells('A2:K2');
+  const r2 = ws.getRow(2); r2.height = 22;
+  Object.assign(ws.getCell('A2'), {
+    value: `Desglose de viajes · ${nomMes} ${anyo}`,
+    font: { bold:true, size:12, color:{argb:'FF'+BLANCO}, name:'Calibri' },
+    alignment: { horizontal:'center', vertical:'middle' },
+    fill: { type:'pattern', pattern:'solid', fgColor:{argb:'FF'+VERDE2} }
+  });
+
+  // Fila 3 — cliente
+  ws.mergeCells('A3:K3');
+  const r3 = ws.getRow(3); r3.height = 20;
+  Object.assign(ws.getCell('A3'), {
+    value: `Cliente: ${cli}`,
+    font: { bold:true, size:11, color:{argb:'FF333333'}, name:'Calibri' },
+    alignment: { horizontal:'center', vertical:'middle' },
+    fill: { type:'pattern', pattern:'solid', fgColor:{argb:'FF'+GRIS} }
+  });
+
+  // Fila 4 — resumen
+  ws.mergeCells('A4:K4');
+  const r4 = ws.getRow(4); r4.height = 18;
+  Object.assign(ws.getCell('A4'), {
+    value: `Viajes: ${viajes.length}   ·   Tn: ${(totalKg/1000).toFixed(2)}   ·   Base: ${totalEur.toFixed(2)} €   ·   IGIC ${IGIC_PCT}%: ${igic.toFixed(2)} €   ·   Total: ${(totalEur+igic).toFixed(2)} €`,
+    font: { size:10, color:{argb:'FF555555'}, name:'Calibri' },
+    alignment: { horizontal:'center', vertical:'middle' },
+    fill: { type:'pattern', pattern:'solid', fgColor:{argb:'FF'+GRIS2} }
+  });
+
+  // Fila 5 vacía
+  ws.addRow([]);
+
+  // Fila 6 — cabecera columnas
+  const hdrRow = ws.addRow(['Fecha/Hora','Nº Pedido','Línea','Matrícula','Chofer','Proyecto','Producto','Kg Neto','Tn','€/Tn','Importe']);
+  hdrRow.height = 18;
+  hdrRow.eachCell(cell => {
+    cell.font = { bold:true, size:10, color:{argb:'FF'+BLANCO}, name:'Calibri' };
+    cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FF'+VERDE} };
+    cell.alignment = { horizontal:'center', vertical:'middle' };
+    cell.border = { bottom:{ style:'thin', color:{argb:'FFAAAAAA'} } };
+  });
+
+  // Filas datos
+  viajes.forEach((r, i) => {
     const fecha = r.fechaHora ? new Date(r.fechaHora).toLocaleString('es-ES') : '';
     const tn = Number(r.pesoNeto) / 1000;
     const precioTn = getPrecioTn(cli, r.productoNombre || r.productoCod || '');
     const importe = tn * precioTn;
-    return [
-      fecha,
-      r.numPedido || '',
-      r.numLinea || '',
-      r.matriculacam || '',
-      r.chofer || '',
-      r.proyectoName || r.proyectoCod || '',
-      r.productoNombre || r.productoCod || '',
-      Number(r.pesoNeto) || 0,
-      parseFloat(tn.toFixed(3)),
-      parseFloat(precioTn.toFixed(2)),
-      parseFloat(importe.toFixed(2))
-    ];
+    const dataRow = ws.addRow([
+      fecha, r.numPedido||'', r.numLinea||'', r.matriculacam||'', r.chofer||'',
+      r.proyectoName||r.proyectoCod||'', r.productoNombre||r.productoCod||'',
+      Number(r.pesoNeto)||0, parseFloat(tn.toFixed(3)),
+      parseFloat(precioTn.toFixed(2)), parseFloat(importe.toFixed(2))
+    ]);
+    dataRow.height = 16;
+    const bg = i % 2 === 0 ? 'FFFFFFFF' : 'FFF7F7F2';
+    dataRow.eachCell(cell => {
+      cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:bg} };
+      cell.font = { size:9, name:'Calibri' };
+      cell.alignment = { vertical:'middle' };
+    });
+    // Números alineados derecha
+    [8,9,10,11].forEach(col => {
+      dataRow.getCell(col).alignment = { horizontal:'right', vertical:'middle' };
+    });
   });
 
-  const totalKg = viajes.reduce((s, r) => s + (Number(r.pesoNeto) || 0), 0);
-  const totalEur = rows.reduce((s, r) => s + r[10], 0);
-  const igic = totalEur * IGIC_PCT / 100;
-
-  const wb = XLSX.utils.book_new();
-  const wsData = [];
-
-  // Fila 1: ARIFOMA
-  wsData.push(['ARIFOMA', '', '', '', '', '', '', '', '', '', '']);
-  // Fila 2: título
-  wsData.push([`Desglose de viajes · ${nomMes} ${anyo}`, '', '', '', '', '', '', '', '', '', '']);
-  // Fila 3: cliente
-  wsData.push([`Cliente: ${cli}`, '', '', '', '', '', '', '', '', '', '']);
-  // Fila 4: resumen
-  wsData.push([`Viajes: ${viajes.length}`, '', `Tn: ${(totalKg/1000).toFixed(2)}`, '', `Base: ${totalEur.toFixed(2)} €`, '', `IGIC ${IGIC_PCT}%: ${igic.toFixed(2)} €`, '', `Total: ${(totalEur+igic).toFixed(2)} €`, '', '']);
-  // Fila 5: vacía
-  wsData.push([]);
-  // Fila 6: cabecera columnas
-  wsData.push(cols);
-  // Filas datos
-  rows.forEach(r => wsData.push(r));
   // Fila vacía
-  wsData.push([]);
-  // Totales
-  wsData.push(['TOTAL', '', '', '', '', '', '', totalKg, parseFloat((totalKg/1000).toFixed(3)), '', parseFloat(totalEur.toFixed(2))]);
+  ws.addRow([]);
 
-  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  // Fila TOTAL
+  const totRow = ws.addRow(['TOTAL','','','','','','', totalKg, parseFloat((totalKg/1000).toFixed(3)),'', parseFloat(totalEur.toFixed(2))]);
+  totRow.height = 18;
+  totRow.eachCell(cell => {
+    cell.font = { bold:true, size:10, color:{argb:'FF'+BLANCO}, name:'Calibri' };
+    cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FF'+VERDE2} };
+    cell.alignment = { vertical:'middle' };
+  });
+  totRow.getCell(1).alignment = { horizontal:'center', vertical:'middle' };
+  [8,9,11].forEach(col => totRow.getCell(col).alignment = { horizontal:'right', vertical:'middle' });
 
-  // Anchos de columna
-  ws['!cols'] = [22,12,8,14,16,22,22,12,10,8,12].map(w => ({ wch: w }));
-
-  // Estilos via !merges para cabecera
-  ws['!merges'] = [
-    { s:{r:0,c:0}, e:{r:0,c:10} }, // ARIFOMA
-    { s:{r:1,c:0}, e:{r:1,c:10} }, // título
-    { s:{r:2,c:0}, e:{r:2,c:10} }, // cliente
-  ];
-
-  XLSX.utils.book_append_sheet(wb, ws, nomMes);
-  XLSX.writeFile(wb, `${cli} - ${nomMes} ${anyo}.xlsx`);
+  // Descargar
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${cli} - ${nomMes} ${anyo}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ── BUSINESS CENTRAL ─────────────────────────────────────────
@@ -5747,6 +5810,6 @@ function printOTHistorial(id){
 }
 </script>
 <script src="https://unpkg.com/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 </body>
 </html>
