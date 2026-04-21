@@ -3,6 +3,7 @@
 <head>
 <link rel="manifest" href="manifest.json">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="funciones.js"></script>
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1638,18 +1639,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 // ============================================================
 // ARIFOMA · CAPA DE API — SUPABASE
 // ============================================================
-const SUPABASE_URL = 'https://bnsfgzjqmibsrklllqxb.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJuc2ZnempxbWlic3JrbGxscXhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNzYwNzksImV4cCI6MjA4OTk1MjA3OX0.8mTQHPdO954ICBd1Xam-kKmcA69CMyO2v3x1liFgWyk';
-let _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-let _sessionToken = null;
-
-// Recrear cliente Supabase con token de sesión en headers
-function _initAuthClient(token) {
-  _sessionToken = token;
-  _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-    global: { headers: { 'x-session-token': token } }
-  });
-}
+// _supabase, SUPABASE_URL, SUPABASE_KEY, _initAuthClient definidos en funciones.js
 
 // ── GOOGLE SHEETS (para Producción y Gasoil) ────────────────
 const SHEETS_API = 'https://script.google.com/macros/s/AKfycbwOzSEPtvl7pHWbgoFZitDhw8DeyXu2iYSFFxfy-mCoDzzztLrfgSzB4DozXP69QOAg/exec';
@@ -2980,20 +2970,34 @@ function renderAlbaranStep3(){
   renderLineasAlbaran();
 }
 
+async function eliminarLineaSesion(idx){
+  const l=basLineasSesion[idx];
+  if(!l)return;
+  if(!confirm('¿Eliminar línea '+l.numLinea+' · '+l.matriculacam+' · '+Number(l.pesoNeto).toLocaleString()+' kg?'))return;
+  // Borrar de Supabase si tiene ID real
+  if(l._id&&l._id!=='LOCAL'){
+    try{ await _supabase.from('tblpedidos').delete().eq('id',l._id); }catch(e){ console.warn('Error borrando línea:',e); }
+  }
+  basLineasSesion.splice(idx,1);
+  renderLineasAlbaran();
+}
+
 function renderLineasAlbaran(){
   const el=document.getElementById('alb-lineas-list');
   if(!basLineasSesion.length){
     el.innerHTML='<div style="padding:14px;text-align:center;font-size:.78rem;color:var(--muted)">Sin líneas aún</div>';
     return;
   }
-  el.innerHTML=basLineasSesion.map(l=>`
-    <div style="display:flex;gap:8px;padding:7px 10px;border-bottom:1px solid var(--border);font-size:.75rem;color:var(--text)">
-      <div style="flex:.6;font-family:monospace">${l.numLinea}</div>
+  el.innerHTML=basLineasSesion.map((l,i)=>`
+    <div style="display:flex;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border);font-size:.82rem;color:var(--text);align-items:center">
+      <div style="flex:.6;font-family:monospace;color:var(--muted)">${l.numLinea}</div>
       <div style="flex:1;font-family:monospace;font-weight:700;color:var(--accent)">${l.matriculacam}</div>
       <div style="flex:.8;font-family:monospace">${l.matricularem||'—'}</div>
-      <div style="flex:1;text-align:right;font-family:monospace">${Number(l.pesoNeto).toLocaleString()}</div>
-      <div style="flex:1;font-size:.68rem;color:var(--muted)">${l.productoCod||''}</div>
-      <div style="flex:1.5;font-size:.68rem">${l.productoNombre||''}</div>
+      <div style="flex:1;text-align:right;font-family:monospace;font-weight:700">${Number(l.pesoNeto).toLocaleString()}</div>
+      <div style="flex:1.5;font-size:.75rem">${l.productoNombre||''}</div>
+      <div style="flex:.5;text-align:right">
+        <button onclick="eliminarLineaSesion(${i})" style="background:transparent;border:1.5px solid #e05;color:#e05;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:.8rem;font-weight:700" title="Eliminar línea">✕</button>
+      </div>
     </div>`).join('');
 }
 
@@ -3094,7 +3098,46 @@ function mostrarExitoLinea(id,payload){
     `<button onclick="mostrarAlbaranUltimaLinea()" style="padding:5px 12px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">🖨 Albarán</button>`;
 }
 function mostrarAlbaranUltimaLinea(){
-  if(_lastSavedId!==null&&_lastSavedPayload)mostrarAlbaran(_lastSavedId,_lastSavedPayload);
+  if(_lastSavedId===null||!_lastSavedPayload)return;
+  // Mostrar albarán inmediatamente sin esperar BC
+  const p=_lastSavedPayload;
+  const id=_lastSavedId;
+  const now=new Date();
+  const fecha=pad(now.getDate())+'/'+pad(now.getMonth()+1)+'/'+now.getFullYear()+' '+pad(now.getHours())+':'+pad(now.getMinutes());
+  document.getElementById('alb-num').textContent='PEDV'+now.getFullYear()+'-'+String(id).padStart(6,'0')+'/'+String(p.numLinea||0).padStart(5,'0');
+  document.getElementById('alb-fecha').textContent=fecha;
+  document.getElementById('alb-mat').textContent=p.matriculacam||'—';
+  document.getElementById('alb-rem').textContent=p.matricularem||'—';
+  document.getElementById('alb-tara-hdr').textContent=Number(p.tara).toLocaleString();
+  document.getElementById('alb-chofer').textContent=(p.chofer||'—').toUpperCase();
+  document.getElementById('alb-cli-cod').textContent=p.codigoCliente?'COD.CLIENTE: '+p.codigoCliente:'';
+  document.getElementById('alb-cliente').textContent=p.nombreCliente||'—';
+  document.getElementById('alb-cif').textContent='';
+  document.getElementById('alb-dir1').textContent='';
+  document.getElementById('alb-dir2').textContent='';
+  document.getElementById('alb-obra-cod').textContent=p.codigoProyecto?'COD.OBRA: '+p.codigoProyecto:'';
+  document.getElementById('alb-obra').textContent=p.proyectoName?'OBRA: '+p.proyectoName:'—';
+  document.getElementById('alb-linea').textContent=p.numLinea||'—';
+  document.getElementById('alb-cod-prod').textContent=p.productoCod||'—';
+  document.getElementById('alb-producto').textContent=p.productoNombre||'—';
+  document.getElementById('alb-bruto').textContent=Number(p.pesoBruto).toLocaleString();
+  document.getElementById('alb-neto').textContent=Number(p.pesoNeto).toLocaleString();
+  const nombre=(p.productoNombre||'').toUpperCase();
+  const esCE=/\b(0\/4|4\/12|12\/20)\b/.test(nombre);
+  const ceImg=document.getElementById('alb-ce-img');
+  if(ceImg)ceImg.style.display=esCE?'inline':'none';
+  const aw=document.getElementById('albaran-wrap');
+  aw.style.display='flex';
+  aw.classList.add('print-active');
+  // BC en segundo plano
+  if(p.codigoCliente){
+    _cargarDatosFiscalesBC(p.codigoCliente).then(d=>{
+      if(!d)return;
+      document.getElementById('alb-cif').textContent=d.cif?'CIF: '+d.cif:'';
+      document.getElementById('alb-dir1').textContent=d.dir1?'DIRECCIÓN: '+d.dir1:'';
+      document.getElementById('alb-dir2').textContent=d.dir2||'';
+    });
+  }
 }
 
 // Cache datos fiscales clientes BC (codigo → {cif, dir1, dir2})
