@@ -104,7 +104,7 @@ async function getFichajes() {
 async function doPostEntrada(data) {
   const { error } = await _supabase.from('tblFichaje').insert([{
     empleado:    data.empleado,
-    fecha:       data.fecha    || new Date().toLocaleDateString('es-ES'),
+    fecha:       data.fecha    || new Date().toISOString().slice(0,10),
     entrada:     data.entrada  || new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
     tipoTrabajo: data.tipoTrabajo || 'JORNADA',
     fentrada:    data.fentrada || new Date().toISOString()
