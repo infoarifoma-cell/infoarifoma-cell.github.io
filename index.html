@@ -1732,16 +1732,13 @@ async function doPostPesada(data) {
     proyectoName: data.proyectoName, proyectoCod: data.proyectoCod,
     numPedido: data.numPedido, numLinea: data.numLinea,
     idproyecto: data.proyectoCod || null,
+    numalbarancalle: (data.numPedido && data.numLinea) ? `${data.numPedido}/${data.numLinea}` : null,
     fechaHora: new Date().toISOString()
   }]).select('id').single();
   if (error) return { ok: false, error: error.message };
   const pedidoId = inserted?.id;
-  // Enviar línea a BC en segundo plano y guardar numalbarancalle
-  enviarLineaBCPesada(data).then(async numAlb => {
-    if(numAlb && pedidoId) {
-      await _supabase.from('tblpedidos').update({ numalbarancalle: numAlb }).eq('id', pedidoId);
-    }
-  }).catch(e => console.warn('BC línea:', e.message));
+  // Enviar línea a BC en segundo plano
+  enviarLineaBCPesada(data).catch(e => console.warn('BC línea:', e.message));
   return { ok: true, id: pedidoId };
 }
 
