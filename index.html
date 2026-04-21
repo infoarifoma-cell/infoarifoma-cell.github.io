@@ -326,8 +326,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <table style="width:100%;border-collapse:collapse;margin-bottom:4px">
       <tr>
         <!-- Logo -->
-        <td style="width:22%;vertical-align:middle;padding-right:8px">
-          <img src="logov2.png" style="max-height:72px;max-width:100%;width:auto;display:block" onerror="this.style.display='none'">
+        <td style="width:18%;vertical-align:middle;padding-right:10px">
+          <img src="logov2.png" style="height:80px;width:auto;display:block" onerror="this.style.display='none'">
         </td>
         <!-- Empresa + datos fiscales + centro trabajo -->
         <td style="vertical-align:top;padding:0 8px">
@@ -714,42 +714,42 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
           <!-- PASO 2: CLIENTE -->
           <div id="bas-step-2" style="display:none">
             <div class="card">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-                <div style="font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;color:var(--accent2)">CLIENTE</div>
-                <button class="btn-sec" style="font-size:.72rem;padding:5px 12px;background:var(--accent);color:#fff;border:none;font-weight:700" onclick="crearCabeceraPedido()" id="bas-btn-nueva-cab">+ Nueva cabecera</button>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+                <div style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:700;color:var(--accent2)">CLIENTE</div>
+                <button class="btn-sec" style="font-size:.95rem;padding:12px 18px;background:var(--accent);color:#fff;border:none;font-weight:700;border-radius:8px" onclick="crearCabeceraPedido()" id="bas-btn-nueva-cab">+ Nueva cabecera</button>
               </div>
 
               <!-- Pedidos de hoy -->
-              <div style="margin-bottom:12px">
-                <div class="label">Pedidos de hoy</div>
-                <div id="bas-pedidos-hoy-list" style="max-height:200px;overflow-y:auto">
-                  <div style="color:var(--muted);font-size:.78rem;padding:8px 0">Cargando...</div>
+              <div style="margin-bottom:16px">
+                <div class="label" style="font-size:.85rem;margin-bottom:8px">Pedidos de hoy</div>
+                <div id="bas-pedidos-hoy-list" style="max-height:260px;overflow-y:auto">
+                  <div style="color:var(--muted);font-size:1rem;padding:10px 0">Cargando...</div>
                 </div>
               </div>
 
               <!-- Separador -->
-              <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
-                <div class="label">O selecciona cliente para nuevo pedido:</div>
+              <div style="border-top:2px solid var(--border);padding-top:16px;margin-top:4px">
+                <div class="label" style="font-size:.85rem;margin-bottom:8px">O selecciona cliente para nuevo pedido:</div>
                 <div style="position:relative">
-                  <div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;cursor:pointer;font-size:.9rem;color:var(--text);display:flex;align-items:center;justify-content:space-between" onclick="toggleCliDropdown()" id="bas-cli-display">
+                  <div style="background:var(--surface2);border:2px solid var(--border);border-radius:10px;padding:16px 18px;cursor:pointer;font-size:1.15rem;color:var(--text);display:flex;align-items:center;justify-content:space-between;min-height:56px" onclick="toggleCliDropdown()" id="bas-cli-display">
                     <span id="bas-cli-text" style="color:var(--muted)">Seleccionar cliente...</span>
-                    <span style="color:var(--muted)">▼</span>
+                    <span style="color:var(--muted);font-size:1.2rem">▼</span>
                   </div>
-                  <div id="bas-cli-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1.5px solid var(--border);border-radius:8px;max-height:200px;overflow-y:auto;z-index:50;margin-top:2px">
-                    <div style="padding:8px"><input type="text" class="inp" id="bas-cli-search" placeholder="Buscar..." oninput="filtrarClientes()" style="font-size:.82rem"></div>
+                  <div id="bas-cli-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);border:2px solid var(--border);border-radius:10px;max-height:280px;overflow-y:auto;z-index:50;margin-top:4px">
+                    <div style="padding:10px"><input type="text" class="inp" id="bas-cli-search" placeholder="Buscar..." oninput="filtrarClientes()" style="font-size:1.1rem;padding:14px"></div>
                     <div id="bas-cli-list"></div>
                   </div>
                 </div>
-                <input type="date" class="inp" id="bas-fecha-pedido" style="margin-top:8px">
+                <input type="date" class="inp" id="bas-fecha-pedido" style="margin-top:12px;font-size:1.15rem;padding:14px">
               </div>
 
-              <div id="bas-pedido-generado" style="display:none;background:rgba(107,125,46,.08);border:1px solid rgba(107,125,46,.3);border-radius:8px;padding:10px 14px;font-family:'DM Mono',monospace;font-size:.82rem;color:var(--accent2);margin-top:10px">
-                Pedido: <span id="bas-num-pedido" style="font-weight:700"></span> <span id="bas-pedido-estado" style="font-size:.72rem;color:var(--muted)"></span>
+              <div id="bas-pedido-generado" style="display:none;background:rgba(107,125,46,.08);border:1px solid rgba(107,125,46,.3);border-radius:10px;padding:14px 18px;font-family:'DM Mono',monospace;font-size:1rem;color:var(--accent2);margin-top:14px">
+                Pedido: <span id="bas-num-pedido" style="font-weight:700;font-size:1.1rem"></span> <span id="bas-pedido-estado" style="font-size:.85rem;color:var(--muted)"></span>
               </div>
             </div>
-            <div style="display:flex;gap:8px">
-              <button class="btn-sec" onclick="basGoStep(1)">← Atrás</button>
-              <button class="btn-pri" style="flex:1" id="bas-btn-s2" onclick="basGoStep(3)" disabled>Continuar →</button>
+            <div style="display:flex;gap:10px;margin-top:4px">
+              <button class="btn-sec" style="font-size:1.1rem;padding:18px 24px" onclick="basGoStep(1)">← Atrás</button>
+              <button class="btn-pri" style="flex:1;font-size:1.2rem;padding:18px" id="bas-btn-s2" onclick="basGoStep(3)" disabled>Continuar →</button>
             </div>
           </div>
 
@@ -3074,16 +3074,16 @@ async function _cargarDatosFiscalesBC(codigoCliente){
       if(!company)return null;
       window._bcCompanyId=company.id;
     }
-    const url=`${base}(${window._bcCompanyId})/customers?$filter=number eq '${codigoCliente}'&$select=number,taxRegistrationNumber,addressLine1,addressLine2,city,postCode`;
+    const url=`${base}(${window._bcCompanyId})/customers?$filter=number eq '${codigoCliente}'`;
     const res=await fetch(url,{headers});
     if(!res.ok)return null;
     const json=await res.json();
     const c=(json.value||[])[0];
     if(!c)return null;
     const datos={
-      cif:c.taxRegistrationNumber||'',
-      dir1:c.addressLine1||'',
-      dir2:[c.postCode,c.city].filter(Boolean).join(' ')
+      cif:c.taxRegistrationNumber||c.vatRegistrationNo||c.taxLiable||'',
+      dir1:c.addressLine1||c.address||'',
+      dir2:[c.postCode||c.postalCode,c.city].filter(Boolean).join(' ')
     };
     _bcClienteCache[codigoCliente]=datos;
     return datos;
