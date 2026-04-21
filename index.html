@@ -272,11 +272,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
 @media print{
   body>*{display:none!important}
-  #albaran-wrap[style*="flex"],#ot-print-wrap[style*="flex"]{display:block!important}
-  #albaran-wrap[style*="flex"]{position:fixed;top:0;left:0;width:100%;background:#fff;z-index:9999;padding:0}
+  #albaran-wrap.print-active{display:block!important;position:fixed;top:0;left:0;width:100%;background:#fff;z-index:9999;padding:0}
   #albaran-btns{display:none!important}
   #albaran-doc{width:100%;padding:8mm;box-shadow:none}
-  #ot-print-wrap[style*="flex"]{position:fixed;top:0;left:0;width:100%;background:#fff;z-index:9999;padding:0}
+  #ot-print-wrap.print-active{display:block!important;position:fixed;top:0;left:0;width:100%;background:#fff;z-index:9999;padding:0}
   #ot-print-btns{display:none!important}
   #ot-print-doc{width:100%;padding:8mm;box-shadow:none}
 }
@@ -3087,9 +3086,15 @@ function mostrarAlbaran(id,p){
   const esCE=/\b(0\/4|4\/12|12\/20)\b/.test(nombre);
   const ceImg=document.getElementById('alb-ce-img');
   if(ceImg)ceImg.style.display=esCE?'inline':'none';
-  document.getElementById('albaran-wrap').style.display='flex';
+  const aw=document.getElementById('albaran-wrap');
+  aw.style.display='flex';
+  aw.classList.add('print-active');
 }
-function cerrarAlbaran(){document.getElementById('albaran-wrap').style.display='none';}
+function cerrarAlbaran(){
+  const aw=document.getElementById('albaran-wrap');
+  aw.style.display='none';
+  aw.classList.remove('print-active');
+}
 
 
 
@@ -5200,8 +5205,13 @@ function printOT(filled){
   tbl.innerHTML=`<thead><tr style="background:#444;color:#fff"><th style="padding:3px 6px;border:1px solid #444;text-align:left;width:60%">Punto de verificación</th><th style="padding:3px 6px;border:1px solid #444;width:20%">Estado</th><th style="padding:3px 6px;border:1px solid #444;width:20%">Observación</th></tr></thead><tbody>${rows}</tbody>`;
   const wrap=document.getElementById('ot-print-wrap');
   wrap.style.display='flex';
+  wrap.classList.add('print-active');
 }
-function cerrarOTPrint(){document.getElementById('ot-print-wrap').style.display='none';}
+function cerrarOTPrint(){
+  const wrap=document.getElementById('ot-print-wrap');
+  wrap.style.display='none';
+  wrap.classList.remove('print-active');
+}
 
 // ── MANTENIMIENTO PREVENTIVO ──────────────────────────────────
 let prevData=[];
