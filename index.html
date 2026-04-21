@@ -2976,8 +2976,9 @@ async function eliminarLineaSesion(idx){
   if(!l)return;
   if(!confirm('¿Eliminar línea '+l.numLinea+' · '+l.matriculacam+' · '+Number(l.pesoNeto).toLocaleString()+' kg?'))return;
   // Borrar de Supabase si tiene ID real
-  if(l._id&&l._id!=='LOCAL'){
-    try{ await _supabase.from('tblpedidos').delete().eq('id',l._id); }catch(e){ console.warn('Error borrando línea:',e); }
+  const lid=l._id;
+  if(lid&&lid!=='LOCAL'&&lid!=='null'&&!isNaN(Number(lid))){
+    try{ await _supabase.from('tblpedidos').delete().eq('id',Number(lid)); }catch(e){ console.warn('Error borrando línea:',e); }
   }
   basLineasSesion.splice(idx,1);
   renderLineasAlbaran();
