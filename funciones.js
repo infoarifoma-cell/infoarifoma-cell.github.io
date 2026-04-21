@@ -203,7 +203,9 @@ async function doPostPesada(data) {
 }
 
 async function doDeletePedido(data) {
-  const { error } = await _supabase.from('tblpedidos').delete().eq('id', data.id);
+  const id=Number(data.id);
+  if(!id||isNaN(id))return{ok:false,error:'ID inválido'};
+  const { error } = await _supabase.from('tblpedidos').delete().eq('id', id);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 

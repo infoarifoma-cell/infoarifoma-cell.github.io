@@ -3056,7 +3056,7 @@ async function guardarLinea(){
   if(btn){btn.disabled=true;btn.textContent='Guardando...';}
   try{
     const json=await apiPost(payload);
-    const savedId=json.ok?json.id:'LOCAL';
+    const savedId=(json.ok&&json.id!=null)?json.id:'LOCAL';
     basLineasSesion.push({
       numLinea:basCurrentLinea,
       matriculacam:basSelCamion.matriculacam,
@@ -3100,7 +3100,8 @@ function mostrarExitoLinea(id,payload){
     `<button onclick="mostrarAlbaranUltimaLinea()" style="padding:5px 12px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">🖨 Albarán</button>`;
 }
 function mostrarAlbaranUltimaLinea(){
-  if(_lastSavedId===null||!_lastSavedPayload)return;
+  try{
+  if(_lastSavedId===null||!_lastSavedPayload){alert('Sin datos guardados aún');return;}
   // Mostrar albarán inmediatamente sin esperar BC
   const p=_lastSavedPayload;
   const id=_lastSavedId;
@@ -3140,6 +3141,7 @@ function mostrarAlbaranUltimaLinea(){
       document.getElementById('alb-dir2').textContent=d.dir2||'';
     });
   }
+  }catch(e){alert('Error albarán: '+e.message);console.error(e);}
 }
 
 // Cache datos fiscales clientes BC (codigo → {cif, dir1, dir2})
@@ -3303,11 +3305,12 @@ function abrirAlbaranPedido(id){
   mostrarAlbaran(r.id, r);
 }
 async function eliminarPedido(id){
+  if(!id||id==='null'||id==='LOCAL')return;
   const r=pedidosData.find(x=>x.id==id);
   if(!r) return;
   const confirmMsg=`¿Eliminar pedido #${id}?\n${r.matriculacam} · ${r.productoNombre} · ${Number(r.pesoNeto).toLocaleString()} kg\n${r.nombreCliente||'Sin cliente'}`;
   if(!confirm(confirmMsg)) return;
-  const json=await apiPost({tipo:'deletePedido',id});
+  const json=await apiPost({tipo:'deletePedido',id:Number(id)});
   if(!json.ok){alert('Error: '+json.error);return;}
   pedidosData=pedidosData.filter(x=>x.id!=id);
   filtrarPedidos();
