@@ -424,27 +424,11 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       </tbody>
     </table>
 
-    <!-- OBSERVACIONES -->
-    <div style="border:1px solid #bbb;min-height:52px;margin-bottom:8px;padding:3px 6px">
-      <div style="font-size:6.5pt;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.06em;margin-bottom:2px"></div>
+    <!-- LOGOS CE + ANEFA -->
+    <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:8px">
+      <img id="alb-ce-img" src="ce.png" style="height:36px;width:auto;display:none" onerror="this.style.display='none'">
+      <img src="ANEFA.png" style="height:36px;width:auto" onerror="this.style.display='none'" title="ANEFA">
     </div>
-
-    <!-- FIRMAS + LOGOS -->
-    <table style="width:100%;border-collapse:collapse;font-size:7.5pt">
-      <tr>
-        <td style="width:26%;border:1px solid #bbb;height:56px;padding:3px 6px;vertical-align:top;font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:7pt;color:#444">PLANTA:</td>
-        <td style="width:26%;border:1px solid #bbb;border-left:none;height:56px;padding:3px 6px;vertical-align:top;font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:7pt;color:#444">CLIENTE:</td>
-        <td style="width:26%;border:1px solid #bbb;border-left:none;height:56px;padding:3px 6px;vertical-align:top;font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:7pt;color:#444">TRANSPORTISTA:</td>
-        <!-- Logos CE + ANEFA -->
-        <td style="width:22%;border:1px solid #bbb;border-left:none;height:56px;padding:4px 8px;vertical-align:middle;text-align:center">
-          <div id="alb-ce-logo" style="display:inline-flex;align-items:center;gap:10px;justify-content:center">
-            <!-- CE se muestra solo si producto es 0/4 4/12 12/20 -->
-            <img id="alb-ce-img" src="ce.png" style="height:36px;width:auto;display:none" onerror="this.style.display='none'">
-            <img src="ANEFA.png" style="height:36px;width:auto" onerror="this.style.display='none'" title="ANEFA">
-          </div>
-        </td>
-      </tr>
-    </table>
 
   </div>
 
@@ -1747,12 +1731,18 @@ async function doPostPesada(data) {
     pesoBruto: data.pesoBruto, pesoNeto: data.pesoNeto,
     proyectoName: data.proyectoName, proyectoCod: data.proyectoCod,
     numPedido: data.numPedido, numLinea: data.numLinea,
+    idproyecto: data.proyectoCod || null,
     fechaHora: new Date().toISOString()
   }]).select('id').single();
   if (error) return { ok: false, error: error.message };
-  // Enviar línea a BC en segundo plano (no bloquea)
-  enviarLineaBCPesada(data).catch(e => console.warn('BC línea:', e.message));
-  return { ok: true, id: inserted?.id };
+  const pedidoId = inserted?.id;
+  // Enviar línea a BC en segundo plano y guardar numalbarancalle
+  enviarLineaBCPesada(data).then(async numAlb => {
+    if(numAlb && pedidoId) {
+      await _supabase.from('tblpedidos').update({ numalbarancalle: numAlb }).eq('id', pedidoId);
+    }
+  }).catch(e => console.warn('BC línea:', e.message));
+  return { ok: true, id: pedidoId };
 }
 
 async function enviarLineaBCPesada(data) {
@@ -1799,6 +1789,11 @@ async function enviarLineaBCPesada(data) {
     })
   });
   if (!lineRes.ok) throw new Error(await lineRes.text());
+  const lineJson = await lineRes.json();
+  // numalbarancalle = documentNumber/lineSequenceNumber (ej: PEDV26-000879/30000)
+  const docNum = lineJson.documentNumber || '';
+  const lineSeq = lineJson.sequence || lineJson.lineSequenceNumber || lineJson.lineNumber || '';
+  return docNum && lineSeq ? `${docNum}/${lineSeq}` : docNum || null;
 }
 async function doEditarPedido(data) {
   const updates = {};
