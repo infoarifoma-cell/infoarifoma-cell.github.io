@@ -115,24 +115,19 @@ async function doPostEntrada(data) {
 
 async function doEditSalida(data) {
   // Buscar la última entrada abierta (sin salida) del empleado
-  const { data: registro, error: searchError } = await _supabase
+  const { data: registros } = await _supabase
     .from('tblFichaje')
     .select('id')
     .eq('empleado', data.empleado)
     .is('salida', null)
     .order('fentrada', { ascending: false })
-    .limit(1)
-    .single();
+    .limit(1);
 
-  if (searchError || !registro) {
-    // Fallback: crear registro nuevo si no existe entrada abierta
-    const { error: insErr } = await _supabase.from('tblFichaje').insert([{
-      empleado:  data.empleado,
-      salida:    data.salida,
-      fsalida:   data.fsalida || new Date().toISOString(),
-      tiempodia: data.tiempodia
-    }]);
-    return insErr ? { ok: false, error: insErr.message } : { ok: true };
+  const registro = registros && registros.length ? registros[0] : null;
+
+  if (!registro || !registro.id) {
+    console.warn('doEditSalida: no hay entrada abierta para', data.empleado);
+    return { ok: false, error: 'No hay entrada abierta' };
   }
 
   const { error: updateErr } = await _supabase
