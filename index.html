@@ -2115,6 +2115,7 @@ async function apiPost(payload) {
   if (t === 'editFichaje')     return doEditFichaje(payload);
   if (t === 'delFichaje')      return doDeleteFichaje(payload);
   if (t === 'pesada')          return doPostPesada(payload);
+  if (t === 'deletePedido')    return doDeletePedido(payload);
   if (t === 'editarPedido')    return doEditarPedido(payload);
   if (t === 'nuevoCamion')     return doNuevoCamion(payload);
   if (t === 'editarCamion')    return doEditarCamion(payload);
