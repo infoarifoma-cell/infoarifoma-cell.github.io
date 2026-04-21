@@ -5125,7 +5125,7 @@ async function getMsalApp() {
     auth: {
       clientId: BC_CLIENT,
       authority: `https://login.microsoftonline.com/${BC_TENANT}`,
-      redirectUri: window.location.origin + window.location.pathname
+      redirectUri: window.location.origin + '/'
     },
     cache: { cacheLocation: 'localStorage' }
   });
