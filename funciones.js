@@ -109,7 +109,8 @@ async function doPostEntrada(data) {
     tipoTrabajo: data.tipoTrabajo || 'JORNADA',
     fentrada:    data.fentrada || new Date().toISOString()
   }]);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  if(error){ console.error('doPostEntrada error:', JSON.stringify(error)); return { ok: false, error: error.message }; }
+  return { ok: true };
 }
 
 async function doEditSalida(data) {
