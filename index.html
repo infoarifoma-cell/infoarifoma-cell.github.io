@@ -2762,46 +2762,86 @@ function basGoStep(n){
 async function cargarPedidosHoy(){
   const listEl=document.getElementById('bas-pedidos-hoy-list');
   if(!listEl)return;
-  listEl.innerHTML='<div style="color:var(--muted);font-size:.78rem;padding:8px 0">Cargando...</div>';
-  try{
-    const json=await apiFetch('?accion=pedidos&dias=2');
-    if(!json.ok)throw new Error(json.error);
-    const hoy=dateStr(new Date());
-    // Get unique pedidos for today
-    const seen=new Set();
-    const pedidosHoy=[];
+  listEl.innerHTML='<div style="color:var(--muted);font-size:1rem;padding:8px 0">Cargando...</div>';
+
+  // Cargar pedidos BC abiertos en paralelo con Supabase
+  const hoy=dateStr(new Date());
+  const [json, bcPedidos] = await Promise.all([
+    apiFetch('?accion=pedidos&dias=2').catch(()=>({ok:false,data:[]})),
+    _cargarPedidosAbiertosBC().catch(()=>[])
+  ]);
+
+  // Pedidos de Supabase de hoy
+  const seen=new Set();
+  const pedidosHoy=[];
+  if(json.ok){
     json.data.forEach(r=>{
       if(!r.numPedido||seen.has(r.numPedido))return;
       const d=parseFechaHoraObj(r.fechaHora)||parseFechaHoraObj(r.fechaPedido);
       if(d&&dateStr(d)===hoy){
         seen.add(r.numPedido);
         const numLineas=json.data.filter(x=>x.numPedido===r.numPedido).length;
-        pedidosHoy.push({numPedido:r.numPedido,nombreCliente:r.nombreCliente,numLineas,fechaHora:r.fechaHora});
+        pedidosHoy.push({numPedido:r.numPedido,nombreCliente:r.nombreCliente,numLineas,fuente:'local'});
       }
     });
-    if(!pedidosHoy.length){
-      listEl.innerHTML='<div style="color:var(--muted);font-size:.78rem;padding:8px 0">Sin pedidos hoy — crea una nueva cabecera</div>';
-      return;
-    }
-    listEl.innerHTML='';
-    pedidosHoy.forEach(p=>{
-      const div=document.createElement('div');
-      div.style.cssText='background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:6px;cursor:pointer;transition:border-color .2s';
-      div.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <div style="font-family:'DM Mono',monospace;font-weight:700;color:var(--accent)">${p.numPedido}</div>
-          <div style="font-size:.75rem;color:var(--muted);margin-top:2px">${p.nombreCliente} · ${p.numLineas} líneas</div>
-        </div>
-        <div style="font-size:.68rem;color:var(--accent2);font-weight:700">Abierto</div>
-      </div>`;
-      div.onmouseover=()=>div.style.borderColor='var(--accent)';
-      div.onmouseout=()=>div.style.borderColor='var(--border)';
-      div.onclick=()=>seleccionarPedidoExistente(p.numPedido, p.nombreCliente, json.data);
-      listEl.appendChild(div);
-    });
-  }catch(e){
-    listEl.innerHTML='<div style="color:var(--muted);font-size:.78rem;padding:8px 0">Error cargando pedidos</div>';
   }
+
+  // Pedidos BC abiertos (no duplicar si ya está en Supabase)
+  bcPedidos.forEach(p=>{
+    if(!seen.has(p.numPedido)){
+      seen.add(p.numPedido);
+      pedidosHoy.push(p);
+    }
+  });
+
+  if(!pedidosHoy.length){
+    listEl.innerHTML='<div style="color:var(--muted);font-size:1rem;padding:8px 0">Sin pedidos hoy — crea una nueva cabecera</div>';
+    return;
+  }
+  listEl.innerHTML='';
+  pedidosHoy.forEach(p=>{
+    const div=document.createElement('div');
+    div.style.cssText='background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:8px;cursor:pointer;transition:border-color .2s';
+    const esBC=p.fuente==='bc';
+    div.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-family:'DM Mono',monospace;font-weight:700;font-size:1.1rem;color:var(--accent)">${p.numPedido}</div>
+        <div style="font-size:.92rem;color:var(--muted);margin-top:3px">${p.nombreCliente}${p.numLineas?' · '+p.numLineas+' líneas':''}</div>
+      </div>
+      <div style="font-size:.78rem;font-weight:700;color:${esBC?'#1a5faa':'var(--accent2)'}>${esBC?'BC Abierto':'Abierto'}</div>
+    </div>`;
+    div.onmouseover=()=>div.style.borderColor='var(--accent)';
+    div.onmouseout=()=>div.style.borderColor='var(--border)';
+    div.onclick=()=>seleccionarPedidoExistente(p.numPedido, p.nombreCliente, json.ok?json.data:[]);
+    listEl.appendChild(div);
+  });
+}
+
+async function _cargarPedidosAbiertosBC(){
+  try{
+    if(typeof getBCToken!=='function')return[];
+    const token=await getBCToken();
+    const base=`https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/api/v2.0/companies`;
+    const headers={'Authorization':`Bearer ${token}`};
+    if(!window._bcCompanyId){
+      const cJson=await(await fetch(base,{headers})).json();
+      const company=(cJson.value||[]).find(c=>c.name===BC_COMPANY);
+      if(!company)return[];
+      window._bcCompanyId=company.id;
+    }
+    const hoy=new Date().toISOString().slice(0,10);
+    const filter=`status eq 'Open' and orderDate eq ${hoy}`;
+    const url=`${base}(${window._bcCompanyId})/salesOrders?$filter=${encodeURIComponent(filter)}&$select=number,customerName,orderDate,status&$orderby=number desc`;
+    const res=await fetch(url,{headers});
+    if(!res.ok)return[];
+    const json=await res.json();
+    return(json.value||[]).map(o=>({
+      numPedido:o.number,
+      nombreCliente:o.customerName||'',
+      numLineas:0,
+      fuente:'bc'
+    }));
+  }catch(e){console.warn('BC pedidos abiertos:',e.message);return[];}
 }
 
 function seleccionarPedidoExistente(numPedido, nombreCliente, allData){
