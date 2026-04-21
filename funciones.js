@@ -309,13 +309,14 @@ async function doAddProduccion(data) {
 // ── GASOIL ───────────────────────────────────────────────────
 
 async function getGasoil() {
-  const { data, error } = await _supabase
-    .from('GASOIL')
-    .select('*')
-    .order('fecha', { ascending: false });
-  if (error) return { ok: false, error: error.message };
+  const [gasoilRes, horoRes] = await Promise.all([
+    _supabase.from('GASOIL').select('*').order('fecha', { ascending: false }),
+    _supabase.from('horometros').select('*')
+  ]);
+  if (gasoilRes.error) return { ok: false, error: gasoilRes.error.message };
 
-  // Calcular stock acumulado por movimientos
+  const data = gasoilRes.data || [];
+  // Stock
   let dep1 = 0, dep2 = 0;
   data.forEach(m => {
     const litros = Number(m.litros) || 0;
@@ -325,7 +326,13 @@ async function getGasoil() {
     if (m.origen  === 'DEP2') dep2 -= litros;
   });
 
-  return { ok: true, data, dep1, dep2 };
+  // Horómetros desde tabla horometros (sincronizada desde Sheet)
+  const consumos = (horoRes.data || []).map(r => ({
+    activo: r.activo,
+    max:    r.horometro
+  }));
+
+  return { ok: true, data, dep1, dep2, consumos };
 }
 
 async function doPostGasoil(data) {

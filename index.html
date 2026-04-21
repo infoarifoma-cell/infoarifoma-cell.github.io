@@ -1643,7 +1643,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 // _supabase, SUPABASE_URL, SUPABASE_KEY, _initAuthClient definidos en funciones.js
 
 // ── GOOGLE SHEETS (para Producción y Gasoil) ────────────────
-const SHEETS_API = 'https://script.google.com/macros/s/AKfycbwOzSEPtvl7pHWbgoFZitDhw8DeyXu2iYSFFxfy-mCoDzzztLrfgSzB4DozXP69QOAg/exec';
+const SHEETS_API = 'https://script.google.com/macros/s/AKfycbwPIIgZCg03i4aJN8HIxKf20P5IPc-j3HOkoHmt2Jx0-vqiWrmq4Gz2WZmZvyopYJlv/exec';
 
 function sheetsFetch(params) {
   return new Promise((resolve, reject) => {
@@ -2078,10 +2078,13 @@ async function apiFetch(params) {
   const p = new URLSearchParams(params.replace(/^\?/,''));
   const accion = p.get('accion') || '';
 
-  // ── Producción y Gasoil → Google Sheets ──
-  if (accion === 'produccion' || accion === 'gasoil') {
-    return sheetsFetch(params);
+  // ── Producción y Gasoil → Supabase ──
+  if (accion === 'produccion') {
+    const mes  = parseInt(p.get('mes'))  || 0;
+    const anyo = parseInt(p.get('anyo')) || new Date().getFullYear();
+    return getProduccion(mes, anyo);
   }
+  if (accion === 'gasoil') return getGasoil();
 
   // ── Todo lo demás → Supabase ──
   const dias = parseInt(p.get('dias')) || 90;
