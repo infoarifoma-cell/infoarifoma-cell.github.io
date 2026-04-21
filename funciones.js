@@ -196,9 +196,10 @@ async function doPostPesada(data) {
     fechaHora:     new Date().toISOString()
   }]).select('id').single();
   if (error) return { ok: false, error: error.message };
-  if (typeof enviarLineaBCPesada === 'function') {
-    enviarLineaBCPesada(data).catch(e => console.warn('BC línea:', e.message));
-  }
+  // BC desvinculado temporalmente
+  // if (typeof enviarLineaBCPesada === 'function') {
+  //   enviarLineaBCPesada(data).catch(e => console.warn('BC línea:', e.message));
+  // }
   return { ok: true, id: inserted?.id };
 }
 
