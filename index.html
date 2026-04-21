@@ -3718,7 +3718,8 @@ function ficharWorker(nombre){
   saveFst();renderWcard(nombre);renderStats();
 }
 async function enviarEntrada(nombre,tsE){
-  const payload={tipo:'fichajeEntrada',empleado:nombre.toUpperCase(),fecha:fmtFecha(tsE),entrada:fmtHM(tsE),fentrada:fmtFechaHora(tsE)};
+  const _d=new Date(tsE);const _fecha=_d.getFullYear()+'-'+pad(_d.getMonth()+1)+'-'+pad(_d.getDate());
+  const payload={tipo:'fichajeEntrada',empleado:nombre.toUpperCase(),fecha:_fecha,entrada:fmtHM(tsE),fentrada:fmtFechaHora(tsE)};
   try{await apiPost(payload);}catch(e){}
 }
 async function enviarSalida(nombre,tsE,tsS,ms){
