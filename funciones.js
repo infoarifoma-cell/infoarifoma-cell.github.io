@@ -4,8 +4,8 @@
 
 // ── BUSINESS CENTRAL CONFIG ───────────────────────────────────
 const BC_TENANT_F  = '5bd828f2-1899-48ba-a269-c37733f41806';
-const BC_ENV_F     = 'Sanfbox2_IFR';
-const BC_COMPANY_F = 'ARIFOMA V24.02 R';
+const BC_ENV_F     = 'Production';
+const BC_COMPANY_F = 'ARIFOMA 25P.V06';
 
 async function enviarLineaBCPesada(data) {
   if (typeof getBCToken !== 'function') return;
@@ -34,18 +34,20 @@ async function enviarLineaBCPesada(data) {
     orderId = (await newOrder.json()).id;
   }
 
+  const lineBody = {
+    lineType: 'Item',
+    lineObjectNumber: data.productoCod,
+    description: `${data.productoNombre} | ${data.proyectoName||data.proyectoCod} | ${(Number(data.pesoNeto)/1000).toFixed(3)} Tn | ${data.matriculacam}`,
+    quantity: parseFloat((Number(data.pesoNeto) / 1000).toFixed(3))
+  };
   const lineRes = await fetch(`${base}(${companyId})/salesOrders(${orderId})/salesOrderLines`, {
     method: 'POST', headers,
-    body: JSON.stringify({
-      lineType: 'Item',
-      lineObjectNumber: data.productoCod,
-      description: `${data.productoNombre} | ${data.proyectoName||data.proyectoCod} | ${(Number(data.pesoNeto)/1000).toFixed(3)} Tn | ${data.matriculacam}`,
-      quantity: parseFloat((Number(data.pesoNeto) / 1000).toFixed(3)),
-      unitPrice: 0
-    })
+    body: JSON.stringify(lineBody)
   });
-  if (!lineRes.ok) console.warn('BC línea:', await lineRes.text());
-  else console.log('BC línea creada OK');
+  if (!lineRes.ok) {
+    const errText = await lineRes.text();
+    console.warn('BC línea 400 detalle:', errText);
+  } else console.log('BC línea creada OK');
 }
 
 const SUPABASE_URL = 'https://bnsfgzjqmibsrklllqxb.supabase.co';
