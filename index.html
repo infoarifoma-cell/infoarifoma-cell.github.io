@@ -3786,7 +3786,9 @@ function renderWgrid(){
   document.getElementById('wgrid').innerHTML=WORKERS.map(n=>`<div class="wcard" id="wc-${n}"><div class="wname">${n}</div><div class="wst">Sin fichar</div><div class="wtime"></div><button class="wbtn" onclick="ficharWorker('${n}')">Registrar entrada</button></div>`).join('');
 }
 function renderResumenCards(){
-  document.getElementById('res-grid').innerHTML=WORKERS.map(n=>{
+  const resGrid=document.getElementById('res-grid');
+  if(!resGrid)return;
+  resGrid.innerHTML=WORKERS.map(n=>{
     const w=fst.workers[n];const liveMs=w.working?(Date.now()-w.entradaTs):0;const total=w.totalMs+liveMs;
     const rw=fst.registros.filter(r=>r.nombre===n);
     return `<div class="res-card"><div class="res-name">${w.working?'<span class="res-on"></span>':''}${n}</div><div class="res-row"><span class="res-lbl">Horas hoy</span><span class="res-val">${fmtDur(total)}</span></div><div class="res-row"><span class="res-lbl">Entradas</span><span class="res-val">${rw.filter(r=>r.tipo==='entrada').length}</span></div><div class="res-row"><span class="res-lbl">Salidas</span><span class="res-val">${rw.filter(r=>r.tipo==='salida').length}</span></div><div class="res-row"><span class="res-lbl">Estado</span><span class="res-val">${w.working?'Trabajando':'Fuera'}</span></div></div>`;
@@ -4362,7 +4364,7 @@ function renderGasoilStock(){
 function renderGasoilHistorial(){
   const filtTipo=(document.getElementById('gasoil-filt-tipo')||{}).value||'';
   const filtOrigen=(document.getElementById('gasoil-filt-origen')||{}).value||'';
-  let filtered=[...gasoilData].reverse();
+  let filtered=[...gasoilData];
   if(filtTipo)filtered=filtered.filter(r=>String(r.tipo||'').toUpperCase().includes(filtTipo));
   if(filtOrigen)filtered=filtered.filter(r=>String(r.origen||'').toUpperCase().includes(filtOrigen.toUpperCase()));
   const el=document.getElementById('gasoil-hist-list');
@@ -4610,7 +4612,11 @@ function renderProduccion(anyo){
     <div style="border-top:1px solid var(--accent);margin-top:6px;padding-top:6px;display:flex;justify-content:space-between;font-weight:700"><span>Total horas planta</span><span style="font-family:'DM Mono',monospace;color:var(--accent2)">${totalHoras.toFixed(0)} h</span></div>`;
 
   // Consumos gasoil del año
-  renderProdGasoil(anyo);
+  if(typeof gasoilData==='undefined'||!gasoilData||!gasoilData.length){
+    cargarGasoil().then(()=>renderProdGasoil(anyo));
+  } else {
+    renderProdGasoil(anyo);
+  }
 
   // Porcentajes fabricación y ventas
   renderPctFabricacion(anyo);
@@ -4690,10 +4696,19 @@ function renderProdGasoil(anyo){
     total+=Number(r.litros)||0;
   });
   if(!total){el.innerHTML='<div style="font-size:.75rem;color:var(--muted)">Sin consumos este año</div>';return;}
-  el.innerHTML=Object.entries(consumos).sort((a,b)=>b[1]-a[1]).map(([dest,l])=>
-    `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.06);font-size:.75rem">
-      <span>${dest}</span><span style="font-family:'DM Mono',monospace;font-weight:700">${l.toFixed(0)} L</span></div>`
-  ).join('')+`<div style="display:flex;justify-content:space-between;padding:6px 0;font-weight:700;border-top:1px solid var(--accent);margin-top:4px;font-size:.78rem">
+
+  // L/H de C32 y PRAMAC desde GASOIL_CONSUMOS
+  const lhMap={};
+  if(typeof gasoilConsumos!=='undefined'&&gasoilConsumos.length){
+    gasoilConsumos.forEach(c=>{ lhMap[String(c.activo||'').toUpperCase()]=Number(c.lh)||0; });
+  }
+
+  el.innerHTML=Object.entries(consumos).sort((a,b)=>b[1]-a[1]).map(([dest,l])=>{
+    const lh=lhMap[dest.toUpperCase()];
+    const lhStr=lh?`<span style="color:var(--muted);font-size:.7rem;margin-left:6px">${lh} L/H</span>`:'';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.06);font-size:.75rem">
+      <span>${dest}${lhStr}</span><span style="font-family:'DM Mono',monospace;font-weight:700">${l.toFixed(0)} L</span></div>`;
+  }).join('')+`<div style="display:flex;justify-content:space-between;padding:6px 0;font-weight:700;border-top:1px solid var(--accent);margin-top:4px;font-size:.78rem">
     <span>Total</span><span style="font-family:'DM Mono',monospace;color:var(--accent2)">${total.toFixed(0)} L</span></div>`;
 }
 
