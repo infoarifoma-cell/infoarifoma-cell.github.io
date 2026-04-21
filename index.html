@@ -4914,6 +4914,7 @@ function parseFechaFact(fh){
   const s=String(fh);
   if(s.includes('T')){return new Date(s);}
   if(s.includes('/')){const p=s.split(' ')[0].split('/');if(p.length>=3){const yy=parseInt(p[2])<100?2000+parseInt(p[2]):parseInt(p[2]);return new Date(yy,parseInt(p[1])-1,parseInt(p[0]));}}
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)){const p=s.split('-');return new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2]));}
   return null;
 }
 
