@@ -309,21 +309,20 @@ async function doAddProduccion(data) {
 // ── GASOIL ───────────────────────────────────────────────────
 
 async function getGasoil() {
-  const [gasoilRes, horoRes] = await Promise.all([
+  const [gasoilRes, horoRes, stockRes] = await Promise.all([
     _supabase.from('GASOIL').select('*').order('fecha', { ascending: false }),
-    _supabase.from('horometros').select('*')
+    _supabase.from('horometros').select('*'),
+    _supabase.from('GASOIL_STOCK').select('*')
   ]);
   if (gasoilRes.error) return { ok: false, error: gasoilRes.error.message };
 
   const data = gasoilRes.data || [];
-  // Stock
+
+  // Stock desde GASOIL_STOCK (sincronizado desde Sheet)
   let dep1 = 0, dep2 = 0;
-  data.forEach(m => {
-    const litros = Number(m.litros) || 0;
-    if (m.destino === 'DEP1') dep1 += litros;
-    if (m.origen  === 'DEP1') dep1 -= litros;
-    if (m.destino === 'DEP2') dep2 += litros;
-    if (m.origen  === 'DEP2') dep2 -= litros;
+  (stockRes.data || []).forEach(r => {
+    if (r.deposito === 'DEP1') dep1 = Number(r.stock) || 0;
+    if (r.deposito === 'DEP2') dep2 = Number(r.stock) || 0;
   });
 
   // Horómetros desde tabla horometros (sincronizada desde Sheet)
