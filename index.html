@@ -1055,12 +1055,16 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
           <div class="modal-wrap" id="activos-modal">
             <div class="modal-box" style="max-width:380px">
               <h3 id="activos-modal-title">Editar activo</h3>
-              <input type="hidden" id="act-id">
-              <label>ID / Matrícula</label><input type="text" class="inp inp-mono" id="act-code" placeholder="Ej: M769C.01" style="text-transform:uppercase">
-              <label>Nombre</label><input type="text" class="inp" id="act-name" placeholder="Ej: Dumper Rígido 769C">
-              <label>Tipo</label><input type="text" class="inp" id="act-tipo" placeholder="Ej: DUMPER RIGIDO">
+              <input type="hidden" id="act-dbid">
+              <label>Código / Matrícula</label><input type="text" class="inp inp-mono" id="act-code" placeholder="Ej: M769C.01" style="text-transform:uppercase">
+              <label>Nombre / Descripción</label><input type="text" class="inp" id="act-name" placeholder="Ej: Dumper Rígido 769C">
+              <label>N.º de Serie</label><input type="text" class="inp inp-mono" id="act-nserie" placeholder="N.º serie">
+              <label>Tipo</label><input type="text" class="inp" id="act-tipo" placeholder="Ej: DUMPER RIGIDO" style="text-transform:uppercase">
               <label>Modelo</label><input type="text" class="inp" id="act-modelo" placeholder="Ej: 769C">
-              <label>Fabricante</label><input type="text" class="inp" id="act-fab" placeholder="Ej: CATERPILLAR">
+              <label>Fabricante</label><input type="text" class="inp" id="act-fab" placeholder="Ej: CATERPILLAR" style="text-transform:uppercase">
+              <label>Proveedor</label><input type="text" class="inp" id="act-prov" placeholder="Empresa proveedora">
+              <label>Precio/hora (€)</label><input type="text" class="inp inp-mono" id="act-phora" placeholder="Ej: 60">
+              <label>Precio/tonelada (€)</label><input type="text" class="inp inp-mono" id="act-ptonelada" placeholder="Ej: 2,5">
               <div class="modal-btns">
                 <button class="btn-cancel" onclick="closeActivosModal()">Cancelar</button>
                 <button class="btn-save" onclick="saveActivo()">Guardar</button>
@@ -1072,6 +1076,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
             <div class="sec-title" style="margin:0">Activos / Maquinaria</div>
             <div style="display:flex;gap:8px">
+              <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="cargarActivos()">&#8635; Actualizar</button>
               <button class="btn-pri" style="font-size:.72rem;padding:6px 14px" onclick="openActivosModal(null)">+ Añadir</button>
             </div>
           </div>
@@ -3603,8 +3608,22 @@ async function saveCamion(){
 }
 
 // ── ACTIVOS ───────────────────────────────────────────────────
-let activosData=[...MACHINES]; // local copy, editable this session
+let activosData=[];
 let activosFiltroTipo='TODOS';
+
+async function cargarActivos(){
+  const el=document.getElementById('activos-list');
+  if(el)el.innerHTML='<div class="tbl"><div class="empty">Cargando...</div></div>';
+  try{
+    const {data,error}=await _supabase.from('tblactivos').select('*').order('Codigo');
+    if(error)throw new Error(error.message);
+    activosData=data||[];
+    buildActivosFiltros();
+    filtrarActivos();
+  }catch(e){
+    if(el)el.innerHTML='<div class="tbl"><div class="empty">Error: '+e.message+'</div></div>';
+  }
+}
 
 function activosTab(tab){
   ['maquinas','consumos'].forEach(t=>{
@@ -3617,11 +3636,14 @@ function activosTab(tab){
 }
 
 function initActivos(){
-  // build tipo filter tabs
+  cargarActivos();
+}
+
+function buildActivosFiltros(){
   const ft=document.getElementById('activos-filter-tabs');
   if(!ft)return;
   ft.innerHTML='';
-  const tipos=['TODOS',...new Set(activosData.map(m=>m.tipo))];
+  const tipos=['TODOS',...new Set(activosData.map(m=>m.tipoactivo).filter(Boolean))];
   tipos.forEach(t=>{
     const d=document.createElement('div');
     d.className='filter-tab'+(t==='TODOS'?' active':'');
@@ -3635,14 +3657,19 @@ function initActivos(){
     };
     ft.appendChild(d);
   });
-  filtrarActivos();
+  activosFiltroTipo='TODOS';
 }
 
 function filtrarActivos(){
   const q=(document.getElementById('filt-activos').value||'').toLowerCase();
-  let list=activosData;
-  if(activosFiltroTipo!=='TODOS')list=list.filter(m=>m.tipo===activosFiltroTipo);
-  if(q)list=list.filter(m=>m.id.toLowerCase().includes(q)||m.name.toLowerCase().includes(q)||(m.fabricante||'').toLowerCase().includes(q));
+  let list=activosData.filter(m=>m.Codigo); // skip blank rows
+  if(activosFiltroTipo!=='TODOS')list=list.filter(m=>m.tipoactivo===activosFiltroTipo);
+  if(q)list=list.filter(m=>
+    (m.Codigo||'').toLowerCase().includes(q)||
+    (m.Activo||'').toLowerCase().includes(q)||
+    (m.fabricante||'').toLowerCase().includes(q)||
+    (m.proveedor||'').toLowerCase().includes(q)
+  );
   renderActivos(list);
 }
 
@@ -3650,13 +3677,21 @@ function renderActivos(data){
   const el=document.getElementById('activos-list');
   if(!data.length){el.innerHTML='<div class="tbl"><div class="empty">Sin resultados</div></div>';return;}
   el.innerHTML='<div class="tbl">'+
-    '<div class="tr th"><div class="tc" style="flex:.7">ID</div><div class="tc" style="flex:1.4">Nombre</div><div class="tc" style="flex:1">Tipo</div><div class="tc" style="flex:.8">Fabricante</div><div class="tc" style="flex:.5;text-align:right"></div></div>'+
+    '<div class="tr th">'+
+      '<div class="tc" style="flex:.7">Código</div>'+
+      '<div class="tc" style="flex:1.3">Tipo</div>'+
+      '<div class="tc" style="flex:.8">Fabricante</div>'+
+      '<div class="tc" style="flex:1">Proveedor</div>'+
+      '<div class="tc" style="flex:.5;text-align:right">€/h</div>'+
+      '<div class="tc" style="flex:.4"></div>'+
+    '</div>'+
     data.map(m=>'<div class="tr">'+
-      '<div class="tc" style="flex:.7;font-family:monospace;font-weight:700;color:var(--accent)">'+m.id+'</div>'+
-      '<div class="tc" style="flex:1.4">'+m.name+'</div>'+
-      '<div class="tc" style="flex:1;font-size:.78rem;color:var(--muted);text-transform:uppercase">'+m.tipo+'</div>'+
-      '<div class="tc" style="flex:.8;color:var(--muted)">'+m.fabricante+'</div>'+
-      '<div class="tc" style="flex:.5;text-align:right"><button class="btn-sm" onclick="openActivosModal(\''+m.id+'\')">Editar</button></div>'+
+      '<div class="tc" style="flex:.7;font-family:monospace;font-weight:700;color:var(--accent)">'+(m.Codigo||'—')+'</div>'+
+      '<div class="tc" style="flex:1.3;font-size:.8rem;text-transform:uppercase;color:var(--text)">'+(m.tipoactivo||'—')+'</div>'+
+      '<div class="tc" style="flex:.8;color:var(--muted)">'+(m.fabricante||'—')+'</div>'+
+      '<div class="tc" style="flex:1;color:var(--muted);font-size:.8rem">'+(m.proveedor||'—')+'</div>'+
+      '<div class="tc" style="flex:.5;font-family:monospace;text-align:right">'+(m.phora||'—')+'</div>'+
+      '<div class="tc" style="flex:.4;text-align:right"><button class="btn-sm" onclick="openActivosModal('+m.id+')">Editar</button></div>'+
     '</div>').join('')+
   '</div>';
 }
@@ -3668,49 +3703,77 @@ function renderActivosConsumos(){
   if(!data.length){
     el.innerHTML='<div class="tbl"><div class="empty">Sin datos — abre Gasoil y pulsa Actualizar primero</div></div>';return;
   }
-  const rows=data.map(c=>'<div class="tr">'+
-    '<div class="tc" style="flex:1.2;font-weight:700;color:var(--text)">'+(c.activo||'—')+'</div>'+
-    '<div class="tc" style="flex:.9;font-family:monospace;color:var(--accent);text-align:right">'+Number(c.litros||0).toLocaleString()+' L</div>'+
-    '<div class="tc" style="flex:.7;font-family:monospace;color:var(--muted);text-align:right">Máx '+Number(c.max||0).toLocaleString()+'</div>'+
-    '<div class="tc" style="flex:.7;font-family:monospace;color:var(--muted);text-align:right">Mín '+Number(c.min||0).toLocaleString()+'</div>'+
-    '<div class="tc" style="flex:.5;font-family:monospace;color:var(--accent2);text-align:right">'+(c.lh||0)+' L/H</div>'+
-  '</div>').join('');
+  // enrich with phora from activosData
+  const phoraMap={};
+  activosData.forEach(m=>{if(m.Codigo&&m.phora)phoraMap[m.Codigo.toUpperCase()]=m.phora;});
+  const rows=data.map(c=>{
+    const ph=phoraMap[String(c.activo||'').toUpperCase()]||'—';
+    return '<div class="tr">'+
+      '<div class="tc" style="flex:1.1;font-weight:700;color:var(--text)">'+(c.activo||'—')+'</div>'+
+      '<div class="tc" style="flex:.9;font-family:monospace;color:var(--accent);text-align:right">'+Number(c.litros||0).toLocaleString()+' L</div>'+
+      '<div class="tc" style="flex:.65;font-family:monospace;color:var(--muted);text-align:right">'+Number(c.max||0).toLocaleString()+'</div>'+
+      '<div class="tc" style="flex:.65;font-family:monospace;color:var(--muted);text-align:right">'+Number(c.min||0).toLocaleString()+'</div>'+
+      '<div class="tc" style="flex:.55;font-family:monospace;color:var(--accent2);text-align:right">'+(c.lh||0)+' L/H</div>'+
+      '<div class="tc" style="flex:.5;font-family:monospace;color:var(--muted);text-align:right">'+ph+' €/h</div>'+
+    '</div>';
+  }).join('');
   el.innerHTML='<div class="tbl">'+
-    '<div class="tr th"><div class="tc" style="flex:1.2">Activo</div><div class="tc" style="flex:.9;text-align:right">Total</div><div class="tc" style="flex:.7;text-align:right">Máx/reg</div><div class="tc" style="flex:.7;text-align:right">Mín/reg</div><div class="tc" style="flex:.5;text-align:right">L/H</div></div>'+
-    rows+'</div>';
+    '<div class="tr th">'+
+      '<div class="tc" style="flex:1.1">Activo</div>'+
+      '<div class="tc" style="flex:.9;text-align:right">Total L</div>'+
+      '<div class="tc" style="flex:.65;text-align:right">Máx</div>'+
+      '<div class="tc" style="flex:.65;text-align:right">Mín</div>'+
+      '<div class="tc" style="flex:.55;text-align:right">L/H</div>'+
+      '<div class="tc" style="flex:.5;text-align:right">€/h</div>'+
+    '</div>'+rows+'</div>';
 }
 
-function openActivosModal(id){
+function openActivosModal(dbid){
   const modal=document.getElementById('activos-modal');
-  document.getElementById('activos-modal-title').textContent=id?'Editar activo':'Nuevo activo';
-  document.getElementById('act-id').value=id||'';
-  if(id){
-    const m=activosData.find(x=>x.id===id);if(!m)return;
-    document.getElementById('act-code').value=m.id||'';
-    document.getElementById('act-name').value=m.name||'';
-    document.getElementById('act-tipo').value=m.tipo||'';
+  document.getElementById('activos-modal-title').textContent=dbid?'Editar activo':'Nuevo activo';
+  document.getElementById('act-dbid').value=dbid||'';
+  if(dbid){
+    const m=activosData.find(x=>x.id==dbid);if(!m)return;
+    document.getElementById('act-code').value=m.Codigo||'';
+    document.getElementById('act-name').value=m.Activo||'';
+    document.getElementById('act-nserie').value=m.N_Serie||'';
+    document.getElementById('act-tipo').value=m.tipoactivo||'';
     document.getElementById('act-modelo').value=m.modelo||'';
     document.getElementById('act-fab').value=m.fabricante||'';
+    document.getElementById('act-prov').value=m.proveedor||'';
+    document.getElementById('act-phora').value=m.phora||'';
+    document.getElementById('act-ptonelada').value=m.ptonelada||'';
   }else{
-    ['act-code','act-name','act-tipo','act-modelo','act-fab'].forEach(i=>{document.getElementById(i).value='';});
+    ['act-code','act-name','act-nserie','act-tipo','act-modelo','act-fab','act-prov','act-phora','act-ptonelada'].forEach(i=>{document.getElementById(i).value='';});
   }
   modal.classList.add('open');
 }
 function closeActivosModal(){document.getElementById('activos-modal').classList.remove('open');}
-function saveActivo(){
-  const oldId=document.getElementById('act-id').value;
-  const newId=document.getElementById('act-code').value.trim().toUpperCase();
-  if(!newId){alert('El ID no puede estar vacío');return;}
-  const updated={id:newId,name:document.getElementById('act-name').value.trim(),tipo:document.getElementById('act-tipo').value.trim().toUpperCase(),modelo:document.getElementById('act-modelo').value.trim(),fabricante:document.getElementById('act-fab').value.trim().toUpperCase()};
-  if(oldId){
-    const idx=activosData.findIndex(x=>x.id===oldId);
-    if(idx>=0)activosData[idx]=updated;
-  }else{
-    if(activosData.find(x=>x.id===newId)){alert('Ya existe un activo con ese ID');return;}
-    activosData.push(updated);
-  }
-  closeActivosModal();
-  initActivos();
+async function saveActivo(){
+  const dbid=document.getElementById('act-dbid').value;
+  const payload={
+    Codigo:document.getElementById('act-code').value.trim().toUpperCase()||null,
+    Activo:document.getElementById('act-name').value.trim()||null,
+    N_Serie:document.getElementById('act-nserie').value.trim()||null,
+    tipoactivo:document.getElementById('act-tipo').value.trim().toUpperCase()||null,
+    modelo:document.getElementById('act-modelo').value.trim()||null,
+    fabricante:document.getElementById('act-fab').value.trim().toUpperCase()||null,
+    proveedor:document.getElementById('act-prov').value.trim()||null,
+    phora:document.getElementById('act-phora').value.trim()||null,
+    ptonelada:document.getElementById('act-ptonelada').value.trim()||null,
+  };
+  if(!payload.Codigo){alert('El Código no puede estar vacío');return;}
+  try{
+    let error;
+    if(dbid){
+      ({error}=await _supabase.from('tblactivos').update(payload).eq('id',dbid));
+    }else{
+      ({error}=await _supabase.from('tblactivos').insert([payload]));
+    }
+    if(error)throw new Error(error.message);
+    closeActivosModal();
+    cargarActivos();
+  }catch(e){alert('Error al guardar: '+e.message);}
 }
 
 // ── FICHAJE ───────────────────────────────────────────────────
