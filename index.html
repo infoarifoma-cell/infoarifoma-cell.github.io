@@ -563,6 +563,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
             <path d="M6 6v4"/>
           </svg>Gasoil
         </button>
+        <button class="snav-btn" onclick="goPage('activos')" id="snav-activos">
+          <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="10" width="4" height="6" rx="1"/><rect x="7" y="6" width="4" height="10" rx="1"/><rect x="12" y="2" width="4" height="14" rx="1"/></svg>Activos
+        </button>
         <div class="snav-divider"></div>
         <div class="sidebar-section">Control horario</div>
         <button class="snav-btn" onclick="goPage('fichaje')" id="snav-fichaje">
@@ -1043,6 +1046,57 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
             <input type="text" class="fsel" id="filt-cam" placeholder="Buscar por matrícula, chofer o empresa..." oninput="filtrarCamionesGestion()" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;padding:7px 10px;outline:none">
           </div>
           <div id="camiones-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
+        </div>
+
+        <!-- ══ ACTIVOS ══ -->
+        <div class="page" id="pg-activos">
+
+          <!-- Modal editar activo -->
+          <div class="modal-wrap" id="activos-modal">
+            <div class="modal-box" style="max-width:380px">
+              <h3 id="activos-modal-title">Editar activo</h3>
+              <input type="hidden" id="act-id">
+              <label>ID / Matrícula</label><input type="text" class="inp inp-mono" id="act-code" placeholder="Ej: M769C.01" style="text-transform:uppercase">
+              <label>Nombre</label><input type="text" class="inp" id="act-name" placeholder="Ej: Dumper Rígido 769C">
+              <label>Tipo</label><input type="text" class="inp" id="act-tipo" placeholder="Ej: DUMPER RIGIDO">
+              <label>Modelo</label><input type="text" class="inp" id="act-modelo" placeholder="Ej: 769C">
+              <label>Fabricante</label><input type="text" class="inp" id="act-fab" placeholder="Ej: CATERPILLAR">
+              <div class="modal-btns">
+                <button class="btn-cancel" onclick="closeActivosModal()">Cancelar</button>
+                <button class="btn-save" onclick="saveActivo()">Guardar</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Header -->
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+            <div class="sec-title" style="margin:0">Activos / Maquinaria</div>
+            <div style="display:flex;gap:8px">
+              <button class="btn-pri" style="font-size:.72rem;padding:6px 14px" onclick="openActivosModal(null)">+ Añadir</button>
+            </div>
+          </div>
+
+          <!-- Tabs -->
+          <div style="display:flex;gap:6px;margin-bottom:16px;background:var(--surface2);border-radius:10px;padding:4px">
+            <button id="atab-btn-maquinas" onclick="activosTab('maquinas')" style="flex:1;padding:9px 6px;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.85rem;font-weight:600;cursor:pointer;background:var(--accent);color:#fff">Máquinas</button>
+            <button id="atab-btn-consumos" onclick="activosTab('consumos')" style="flex:1;padding:9px 6px;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.85rem;font-weight:600;cursor:pointer;background:transparent;color:var(--muted)">Consumos gasoil</button>
+          </div>
+
+          <!-- Filtro tipo -->
+          <div id="atab-maquinas">
+            <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap" id="activos-filter-tabs"></div>
+            <div class="frow" style="margin-bottom:10px">
+              <input type="text" class="fsel" id="filt-activos" placeholder="Buscar por ID, nombre o fabricante..." oninput="filtrarActivos()" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;padding:7px 10px;outline:none">
+            </div>
+            <div id="activos-list"></div>
+          </div>
+
+          <!-- Consumos gasoil por activo -->
+          <div id="atab-consumos" style="display:none">
+            <div style="font-size:.75rem;color:var(--muted);margin-bottom:10px">Consumos acumulados del año por máquina (fuente: registros Gasoil).</div>
+            <div id="activos-consumos-list"><div class="tbl"><div class="empty">Cargando datos de gasoil...</div></div></div>
+          </div>
+
         </div>
 
         <!-- ══ GASOIL ══ -->
@@ -2290,6 +2344,7 @@ function goPage(id){
   if(id==='pedidos')cargarPedidos();
   if(id==='ventas'){if(ventasData.length===0)cargarVentas();else renderVentas();}
   if(id==='camiones')cargarCamiones();
+  if(id==='activos')initActivos();
   if(id==='gasoil')cargarGasoil();
   if(id==='produccion')initProduccion();
   if(id==='facturacion')initFacturacion();
@@ -3545,6 +3600,117 @@ async function saveCamion(){
     if(json.ok){closeCamModal();cargarCamiones();}
     else alert('Error: '+json.error);
   }catch(e){alert('Error de conexión');}
+}
+
+// ── ACTIVOS ───────────────────────────────────────────────────
+let activosData=[...MACHINES]; // local copy, editable this session
+let activosFiltroTipo='TODOS';
+
+function activosTab(tab){
+  ['maquinas','consumos'].forEach(t=>{
+    document.getElementById('atab-'+t).style.display=t===tab?'block':'none';
+    const btn=document.getElementById('atab-btn-'+t);
+    btn.style.background=t===tab?'var(--accent)':'transparent';
+    btn.style.color=t===tab?'#fff':'var(--muted)';
+  });
+  if(tab==='consumos')renderActivosConsumos();
+}
+
+function initActivos(){
+  // build tipo filter tabs
+  const ft=document.getElementById('activos-filter-tabs');
+  if(!ft)return;
+  ft.innerHTML='';
+  const tipos=['TODOS',...new Set(activosData.map(m=>m.tipo))];
+  tipos.forEach(t=>{
+    const d=document.createElement('div');
+    d.className='filter-tab'+(t==='TODOS'?' active':'');
+    d.textContent=t==='TODOS'?'Todos':t.charAt(0)+t.slice(1).toLowerCase();
+    d.dataset.tipo=t;
+    d.onclick=()=>{
+      activosFiltroTipo=t;
+      document.querySelectorAll('#activos-filter-tabs .filter-tab').forEach(x=>x.classList.remove('active'));
+      d.classList.add('active');
+      filtrarActivos();
+    };
+    ft.appendChild(d);
+  });
+  filtrarActivos();
+}
+
+function filtrarActivos(){
+  const q=(document.getElementById('filt-activos').value||'').toLowerCase();
+  let list=activosData;
+  if(activosFiltroTipo!=='TODOS')list=list.filter(m=>m.tipo===activosFiltroTipo);
+  if(q)list=list.filter(m=>m.id.toLowerCase().includes(q)||m.name.toLowerCase().includes(q)||(m.fabricante||'').toLowerCase().includes(q));
+  renderActivos(list);
+}
+
+function renderActivos(data){
+  const el=document.getElementById('activos-list');
+  if(!data.length){el.innerHTML='<div class="tbl"><div class="empty">Sin resultados</div></div>';return;}
+  el.innerHTML='<div class="tbl">'+
+    '<div class="tr th"><div class="tc" style="flex:.7">ID</div><div class="tc" style="flex:1.4">Nombre</div><div class="tc" style="flex:1">Tipo</div><div class="tc" style="flex:.8">Fabricante</div><div class="tc" style="flex:.5;text-align:right"></div></div>'+
+    data.map(m=>'<div class="tr">'+
+      '<div class="tc" style="flex:.7;font-family:monospace;font-weight:700;color:var(--accent)">'+m.id+'</div>'+
+      '<div class="tc" style="flex:1.4">'+m.name+'</div>'+
+      '<div class="tc" style="flex:1;font-size:.78rem;color:var(--muted);text-transform:uppercase">'+m.tipo+'</div>'+
+      '<div class="tc" style="flex:.8;color:var(--muted)">'+m.fabricante+'</div>'+
+      '<div class="tc" style="flex:.5;text-align:right"><button class="btn-sm" onclick="openActivosModal(\''+m.id+'\')">Editar</button></div>'+
+    '</div>').join('')+
+  '</div>';
+}
+
+function renderActivosConsumos(){
+  const el=document.getElementById('activos-consumos-list');
+  if(!el)return;
+  const data=typeof gasoilConsumos!=='undefined'?gasoilConsumos:[];
+  if(!data.length){
+    el.innerHTML='<div class="tbl"><div class="empty">Sin datos — abre Gasoil y pulsa Actualizar primero</div></div>';return;
+  }
+  const rows=data.map(c=>'<div class="tr">'+
+    '<div class="tc" style="flex:1.2;font-weight:700;color:var(--text)">'+(c.activo||'—')+'</div>'+
+    '<div class="tc" style="flex:.9;font-family:monospace;color:var(--accent);text-align:right">'+Number(c.litros||0).toLocaleString()+' L</div>'+
+    '<div class="tc" style="flex:.7;font-family:monospace;color:var(--muted);text-align:right">Máx '+Number(c.max||0).toLocaleString()+'</div>'+
+    '<div class="tc" style="flex:.7;font-family:monospace;color:var(--muted);text-align:right">Mín '+Number(c.min||0).toLocaleString()+'</div>'+
+    '<div class="tc" style="flex:.5;font-family:monospace;color:var(--accent2);text-align:right">'+(c.lh||0)+' L/H</div>'+
+  '</div>').join('');
+  el.innerHTML='<div class="tbl">'+
+    '<div class="tr th"><div class="tc" style="flex:1.2">Activo</div><div class="tc" style="flex:.9;text-align:right">Total</div><div class="tc" style="flex:.7;text-align:right">Máx/reg</div><div class="tc" style="flex:.7;text-align:right">Mín/reg</div><div class="tc" style="flex:.5;text-align:right">L/H</div></div>'+
+    rows+'</div>';
+}
+
+function openActivosModal(id){
+  const modal=document.getElementById('activos-modal');
+  document.getElementById('activos-modal-title').textContent=id?'Editar activo':'Nuevo activo';
+  document.getElementById('act-id').value=id||'';
+  if(id){
+    const m=activosData.find(x=>x.id===id);if(!m)return;
+    document.getElementById('act-code').value=m.id||'';
+    document.getElementById('act-name').value=m.name||'';
+    document.getElementById('act-tipo').value=m.tipo||'';
+    document.getElementById('act-modelo').value=m.modelo||'';
+    document.getElementById('act-fab').value=m.fabricante||'';
+  }else{
+    ['act-code','act-name','act-tipo','act-modelo','act-fab'].forEach(i=>{document.getElementById(i).value='';});
+  }
+  modal.classList.add('open');
+}
+function closeActivosModal(){document.getElementById('activos-modal').classList.remove('open');}
+function saveActivo(){
+  const oldId=document.getElementById('act-id').value;
+  const newId=document.getElementById('act-code').value.trim().toUpperCase();
+  if(!newId){alert('El ID no puede estar vacío');return;}
+  const updated={id:newId,name:document.getElementById('act-name').value.trim(),tipo:document.getElementById('act-tipo').value.trim().toUpperCase(),modelo:document.getElementById('act-modelo').value.trim(),fabricante:document.getElementById('act-fab').value.trim().toUpperCase()};
+  if(oldId){
+    const idx=activosData.findIndex(x=>x.id===oldId);
+    if(idx>=0)activosData[idx]=updated;
+  }else{
+    if(activosData.find(x=>x.id===newId)){alert('Ya existe un activo con ese ID');return;}
+    activosData.push(updated);
+  }
+  closeActivosModal();
+  initActivos();
 }
 
 // ── FICHAJE ───────────────────────────────────────────────────
