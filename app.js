@@ -880,17 +880,17 @@ async function initBasculaCamiones(){
 async function initBascula(){initBasculaUI();await initBasculaCamiones();}
 
 let camFavoritos=new Set(JSON.parse(localStorage.getItem('camFavoritos')||'[]'));
-function toggleFav(mat,e){
+function toggleFav(id,e){
   e.stopPropagation();
-  if(camFavoritos.has(mat))camFavoritos.delete(mat);else camFavoritos.add(mat);
+  if(camFavoritos.has(id))camFavoritos.delete(id);else camFavoritos.add(id);
   localStorage.setItem('camFavoritos',JSON.stringify([...camFavoritos]));
   basCamBuscar();
 }
 function camCard(c){
-  const sel=basSelCamion&&basSelCamion.matriculacam===c.matriculacam;
-  const fav=camFavoritos.has(c.matriculacam);
-  return `<div class="mat-btn${sel?' selected':''}" onclick="basSeleccionarCamion('${c.matriculacam}')" style="position:relative">
-    <span onclick="toggleFav('${c.matriculacam}',event)" style="position:absolute;top:4px;right:4px;font-size:.75rem;cursor:pointer;opacity:${fav?1:.3}" title="Favorito">${fav?'★':'☆'}</span>
+  const sel=basSelCamion&&basSelCamion.id===c.id;
+  const fav=camFavoritos.has(c.id);
+  return `<div class="mat-btn${sel?' selected':''}" onclick="basSeleccionarCamion('${c.id}')" style="position:relative">
+    <span onclick="toggleFav('${c.id}',event)" style="position:absolute;top:4px;right:4px;font-size:.75rem;cursor:pointer;opacity:${fav?1:.3}" title="Favorito">${fav?'★':'☆'}</span>
     ${c.matriculacam}
     <span class="mat-sub">${c.chofer||''}</span>
     <span class="mat-sub" style="color:var(--muted);font-size:.58rem">${c.proveedor||''}</span>
@@ -903,8 +903,8 @@ function renderCamGrid(lista){
     grid.innerHTML=lista.map(camCard).join('');
     return;
   }
-  const favs=lista.filter(c=>camFavoritos.has(c.matriculacam));
-  const resto=lista.filter(c=>!camFavoritos.has(c.matriculacam));
+  const favs=lista.filter(c=>camFavoritos.has(c.id));
+  const resto=lista.filter(c=>!camFavoritos.has(c.id));
   grid.innerHTML=
     (favs.length?`<div style="grid-column:1/-1;font-size:.62rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.07em;padding:2px 0 4px">★ Favoritos</div>${favs.map(camCard).join('')}`:'')
     +(resto.length?`<div style="grid-column:1/-1;font-size:.62rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;padding:6px 0 4px">Todos</div>${resto.map(camCard).join('')}`:'');
@@ -916,8 +916,8 @@ function basCamBuscar(){
   renderCamGrid(filtered);
 }
 
-function basSeleccionarCamion(mat){
-  const c=camionesData.find(x=>x.matriculacam===mat);if(!c)return;
+function basSeleccionarCamion(id){
+  const c=camionesData.find(x=>x.id==id);if(!c)return;
   basSelCamion=c;
   renderCamGrid(camionesData.filter(x=>{
     const q=document.getElementById('bas-cam-buscar').value.toUpperCase();
