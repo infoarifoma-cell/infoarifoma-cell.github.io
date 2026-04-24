@@ -193,11 +193,12 @@ async function getCamiones() {
   return error ? { ok: false, error: error.message } : { ok: true, data };
 }
 async function doNuevoCamion(data) {
-  const { error } = await _supabase.from('tblcamiones').insert([data]);
+  const { tipo, ...payload } = data;
+  const { error } = await _supabase.from('tblcamiones').insert([payload]);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 async function doEditarCamion(data) {
-  const { id, ...updates } = data;
+  const { id, tipo, ...updates } = data;
   const { error } = await _supabase.from('tblcamiones').update(updates).eq('id', id);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
