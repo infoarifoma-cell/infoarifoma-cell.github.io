@@ -93,13 +93,9 @@ async function cerrarSesion() {
 }
 
 // ── GOOGLE AUTH ──────────────────────────────────────────────
-const GOOGLE_ALLOWED_EMAILS = [
-  'infoarifoma@gmail.com',
-  'mantenimiento@grpsite.com'
-];
-
 async function googleLogin() {
   try {
+    document.getElementById('login-loading').style.display = 'block';
     const { data, error } = await _supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -108,11 +104,13 @@ async function googleLogin() {
     });
     if (error) {
       console.error('Google login error:', error.message);
-      alert('Error en login Google: ' + error.message);
+      document.getElementById('login-error').textContent = 'Error: ' + error.message;
+      document.getElementById('login-loading').style.display = 'none';
     }
   } catch(e) {
     console.error('Google login exception:', e.message);
-    alert('Excepción Google login: ' + e.message);
+    document.getElementById('login-error').textContent = 'Excepción: ' + e.message;
+    document.getElementById('login-loading').style.display = 'none';
   }
 }
 
@@ -122,24 +120,32 @@ async function checkGoogleSession() {
   if (session && session.user) {
     const email = session.user.email;
 
-    // Validar si email está en lista blanca
-    if (!GOOGLE_ALLOWED_EMAILS.includes(email)) {
-      alert('Email no autorizado: ' + email);
+    // Buscar usuario en tblUsuarios por email
+    const { data: usuarios, error: searchError } = await _supabase
+      .from('tblUsuarios')
+      .select('id, nombre, rol, activo')
+      .eq('email', email)
+      .single();
+
+    if (searchError || !usuarios || !usuarios.activo) {
+      document.getElementById('login-error').textContent = 'Usuario no encontrado o inactivo: ' + email;
       await _supabase.auth.signOut();
-      location.reload();
+      setTimeout(() => location.reload(), 2000);
       return;
     }
 
-    // Usuario válido
+    // Usuario válido y activo
     loginUser = {
-      id: session.user.id,
-      nombre: session.user.user_metadata?.name || email,
+      id: usuarios.id,
+      nombre: usuarios.nombre,
       email: email,
-      rol: 'admin',
+      rol: usuarios.rol,
       provider: 'google'
     };
     _initAuthClient(session.access_token);
+
     // Cargar shell
+    document.getElementById('login-loading').style.display = 'block';
     const r = await fetch('_shell.html?v=' + Date.now());
     const html = await r.text();
     const ph = document.getElementById('shell-placeholder');
