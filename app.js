@@ -703,12 +703,12 @@ async function cargarInit(){
   }
 }
 
-function initApp(){
+async function initApp(){
   loadFst();
   WORKERS.forEach(n=>recalcWorker(n));
   renderWgrid();renderStats();renderVac();renderCal();initOT();
   initBasculaUI();
-  cargarInit();
+  await cargarInit();
   // Load OT history in background for reminders
   apiFetch('?accion=historialOT').then(j=>{if(j.ok){prevData=j.data;renderInicioMant();}}).catch(()=>{});
   goPage('inicio');
