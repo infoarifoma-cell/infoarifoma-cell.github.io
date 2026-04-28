@@ -622,32 +622,7 @@ async function checkPin(){
   }
 }
 
-async function cargarUsuariosLogin(){
-  const loading=document.getElementById('login-loading');
-  const sel=document.getElementById('login-user-sel');
-  loading.style.display='block';
-  try{
-    // Solo obtiene nombre+rol via RPC seguro (nunca PIN ni hash)
-    const {data,error}=await _supabase.rpc('obtener_usuarios');
-    if(error)throw new Error(error.message);
-    loginUsuarios=data||[];
-    sel.innerHTML='<option value="">Seleccionar usuario...</option>';
-    loginUsuarios.forEach(u=>{
-      const o=document.createElement('option');
-      o.value=u.id;
-      o.textContent=u.nombre+(u.rol?' ('+u.rol+')':'');
-      sel.appendChild(o);
-    });
-  }catch(e){
-    sel.innerHTML='<option value="">Error cargando usuarios</option>';
-    console.warn('Error cargando usuarios:',e);
-  }finally{
-    loading.style.display='none';
-  }
-}
-
-// Cargar usuarios al iniciar la página
-document.addEventListener('DOMContentLoaded',cargarUsuariosLogin);
+// Función removida: cargarUsuariosLogin (migrado a Google OAuth)
 
 // ── SHELL ─────────────────────────────────────────────────────
 let menuOpen=false;
