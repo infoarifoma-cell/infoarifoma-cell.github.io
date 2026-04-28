@@ -52,9 +52,6 @@ async function enviarLineaBCPesada(data) {
 
 const SUPABASE_URL = 'https://bnsfgzjqmibsrklllqxb.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJuc2ZnempxbWlic3JrbGxscXhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNzYwNzksImV4cCI6MjA4OTk1MjA3OX0.8mTQHPdO954ICBd1Xam-kKmcA69CMyO2v3x1liFgWyk';
-
-// Secret key solo para Apps Script (server-side)
-const SUPABASE_SECRET_KEY = 'sb_secret_53gcPnzQtRVsPczjMo-ODg_HMS5d8BU';
 let _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let _sessionToken = null;
 
@@ -92,6 +89,55 @@ async function cerrarSesion() {
   _sessionToken = null;
   _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 }
+
+// ── GOOGLE AUTH ──────────────────────────────────────────────
+async function googleLogin() {
+  try {
+    const { data, error } = await _supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin + window.location.pathname
+      }
+    });
+    if (error) {
+      console.error('Google login error:', error.message);
+      alert('Error en login Google: ' + error.message);
+    }
+  } catch(e) {
+    console.error('Google login exception:', e.message);
+    alert('Excepción Google login: ' + e.message);
+  }
+}
+
+// Verificar si hay sesión Google al cargar
+async function checkGoogleSession() {
+  const { data: { session } } = await _supabase.auth.getSession();
+  if (session && session.user) {
+    // Usuario autenticado con Google
+    loginUser = {
+      id: session.user.id,
+      nombre: session.user.user_metadata?.name || session.user.email,
+      email: session.user.email,
+      rol: 'admin', // o el que corresponda
+      provider: 'google'
+    };
+    _initAuthClient(session.access_token);
+    // Cargar shell
+    const r = await fetch('_shell.html?v=' + Date.now());
+    const html = await r.text();
+    const ph = document.getElementById('shell-placeholder');
+    if (ph) {
+      ph.innerHTML = html;
+      document.getElementById('pinScreen').style.display = 'none';
+      document.getElementById('shell').style.display = 'flex';
+    }
+  }
+}
+
+// Ejecutar al cargar página
+window.addEventListener('load', () => {
+  setTimeout(checkGoogleSession, 500);
+});
 
 // ── FICHAJES ─────────────────────────────────────────────────
 
