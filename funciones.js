@@ -119,14 +119,21 @@ async function checkGoogleSession() {
     const email = session.user.email;
 
     // Buscar usuario en tblUsuarios por email
-    const { data: usuarios, error: searchError } = await _supabase
+    const { data: usuariosArr, error: searchError } = await _supabase
       .from('tblUsuarios')
       .select('id, nombre, rol, activo')
-      .eq('email', email)
-      .single();
+      .eq('email', email);
 
-    if (searchError || !usuarios || !usuarios.activo) {
-      document.getElementById('login-error').textContent = 'Usuario no encontrado o inactivo: ' + email;
+    if (searchError || !usuariosArr || usuariosArr.length === 0) {
+      document.getElementById('login-error').textContent = 'Usuario no encontrado: ' + email;
+      await _supabase.auth.signOut();
+      setTimeout(() => location.reload(), 2000);
+      return;
+    }
+
+    const usuarios = usuariosArr[0];
+    if (!usuarios.activo) {
+      document.getElementById('login-error').textContent = 'Usuario inactivo: ' + email;
       await _supabase.auth.signOut();
       setTimeout(() => location.reload(), 2000);
       return;
