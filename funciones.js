@@ -52,7 +52,9 @@ async function enviarLineaBCPesada(data) {
 
 const SUPABASE_URL = 'https://bnsfgzjqmibsrklllqxb.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJuc2ZnempxbWlic3JrbGxscXhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNzYwNzksImV4cCI6MjA4OTk1MjA3OX0.8mTQHPdO954ICBd1Xam-kKmcA69CMyO2v3x1liFgWyk';
-let _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  global: { headers: { 'Role': 'anon' } }
+});
 let _sessionToken = null;
 
 // Recrear cliente Supabase con token de sesión en headers
@@ -91,6 +93,11 @@ async function cerrarSesion() {
 }
 
 // ── GOOGLE AUTH ──────────────────────────────────────────────
+const GOOGLE_ALLOWED_EMAILS = [
+  'infoarifoma@gmail.com',
+  'mantenimiento@grpsite.com'
+];
+
 async function googleLogin() {
   try {
     const { data, error } = await _supabase.auth.signInWithOAuth({
@@ -113,12 +120,22 @@ async function googleLogin() {
 async function checkGoogleSession() {
   const { data: { session } } = await _supabase.auth.getSession();
   if (session && session.user) {
-    // Usuario autenticado con Google
+    const email = session.user.email;
+
+    // Validar si email está en lista blanca
+    if (!GOOGLE_ALLOWED_EMAILS.includes(email)) {
+      alert('Email no autorizado: ' + email);
+      await _supabase.auth.signOut();
+      location.reload();
+      return;
+    }
+
+    // Usuario válido
     loginUser = {
       id: session.user.id,
-      nombre: session.user.user_metadata?.name || session.user.email,
-      email: session.user.email,
-      rol: 'admin', // o el que corresponda
+      nombre: session.user.user_metadata?.name || email,
+      email: email,
+      rol: 'admin',
       provider: 'google'
     };
     _initAuthClient(session.access_token);
