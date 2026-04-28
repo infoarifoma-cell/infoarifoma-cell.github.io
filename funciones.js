@@ -52,6 +52,9 @@ async function enviarLineaBCPesada(data) {
 
 const SUPABASE_URL = 'https://bnsfgzjqmibsrklllqxb.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJuc2ZnempxbWlic3JrbGxscXhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNzYwNzksImV4cCI6MjA4OTk1MjA3OX0.8mTQHPdO954ICBd1Xam-kKmcA69CMyO2v3x1liFgWyk';
+
+// Secret key solo para Apps Script (server-side)
+const SUPABASE_SECRET_KEY = 'sb_secret_53gcPnzQtRVsPczjMo-ODg_HMS5d8BU';
 let _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let _sessionToken = null;
 
