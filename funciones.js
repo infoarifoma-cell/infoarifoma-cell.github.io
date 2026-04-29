@@ -59,7 +59,7 @@ let _sessionToken = null;
 function _initAuthClient(token) {
   _sessionToken = token;
   _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-    global: { headers: { 'x-session-token': token } }
+    global: { headers: { 'Authorization': `Bearer ${token}` } }
   });
 }
 
@@ -152,12 +152,14 @@ async function checkGoogleSession() {
     // Cargar shell
     document.getElementById('login-loading').style.display = 'block';
     const r = await fetch('_shell.html?v=' + Date.now());
+    if (!r.ok) throw new Error('HTTP ' + r.status + ' loading shell');
     const html = await r.text();
     const ph = document.getElementById('shell-placeholder');
     if (ph) {
       ph.innerHTML = html;
       document.getElementById('pinScreen').style.display = 'none';
       document.getElementById('shell').style.display = 'flex';
+      setTimeout(() => initApp(), 50);
     }
   }
 }
