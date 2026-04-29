@@ -290,14 +290,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .extras-row:last-child{border-bottom:none}
 
 @media print{
-  body>*{display:none!important}
-  #shell{display:flex!important}
-  #albaran-wrap.print-active{display:flex!important;position:fixed;top:0;left:0;width:100%;background:#fff;z-index:9999;padding:0}
-  #albaran-btns{display:none!important}
-  #albaran-doc{width:100%;padding:8mm;box-shadow:none}
-  #ot-print-wrap.print-active{display:flex!important;position:fixed;top:0;left:0;width:100%;background:#fff;z-index:9999;padding:0}
-  #ot-print-btns{display:none!important}
-  #ot-print-doc{width:100%;padding:8mm;box-shadow:none}
+  body>*{display:none!important;}
+  #shell{display:flex!important;}
+  #albaran-wrap.print-active{display:flex!important;position:absolute;top:0;left:0;width:100%;background:#fff;z-index:9999;padding:0;}
+  #albaran-btns{display:none!important;}
+  #albaran-doc{width:100%;padding:0;box-shadow:none;min-height:auto;}
+  #ot-print-wrap.print-active{display:flex!important;position:absolute;top:0;left:0;width:100%;background:#fff;z-index:9999;padding:0;}
+  #ot-print-btns{display:none!important;}
+  #ot-print-doc{width:100%;padding:0;box-shadow:none;}
 }
 </style>
 </head>
