@@ -291,13 +291,15 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
 @media print{
   body>*{display:none!important;}
-  #shell{display:flex!important;}
-  #albaran-wrap.print-active{display:flex!important;position:absolute;top:0;left:0;width:100%;background:#fff;z-index:9999;padding:0;}
+  #shell{display:block!important;}
+  #albaran-wrap.print-active{display:block!important;}
+  #albaran-wrap.print-active *{display:inherit;}
   #albaran-btns{display:none!important;}
-  #albaran-doc{width:100%;padding:0;box-shadow:none;min-height:auto;}
-  #ot-print-wrap.print-active{display:flex!important;position:absolute;top:0;left:0;width:100%;background:#fff;z-index:9999;padding:0;}
+  #albaran-doc{width:100%;padding:0;box-shadow:none;margin:0;}
+  #ot-print-wrap.print-active{display:block!important;}
+  #ot-print-wrap.print-active *{display:inherit;}
   #ot-print-btns{display:none!important;}
-  #ot-print-doc{width:100%;padding:0;box-shadow:none;}
+  #ot-print-doc{width:100%;padding:0;box-shadow:none;margin:0;}
 }
 </style>
 </head>
