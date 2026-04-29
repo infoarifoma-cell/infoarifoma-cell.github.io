@@ -1575,15 +1575,15 @@ async function mostrarAlbaran(id,p){
   const aw=document.getElementById('albaran-wrap');
   aw.style.display='flex';
   aw.classList.add('print-active');
-  // Cargar datos fiscales BC en segundo plano
-  if(p.codigoCliente){
+  // Cargar datos fiscales BC en segundo plano (deshabilitado por error MSAL)
+  /*if(p.codigoCliente){
     _cargarDatosFiscalesBC(p.codigoCliente).then(d=>{
       if(!d)return;
       document.getElementById('alb-cif').textContent=d.cif?'CIF: '+d.cif:'';
       document.getElementById('alb-dir1').textContent=d.dir1?'DIRECCIÓN: '+d.dir1:'';
       document.getElementById('alb-dir2').textContent=d.dir2||'';
     });
-  }
+  }*/
 }
 function cerrarAlbaran(){
   const aw=document.getElementById('albaran-wrap');
