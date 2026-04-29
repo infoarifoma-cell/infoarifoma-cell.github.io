@@ -704,6 +704,7 @@ async function cargarInit(){
 }
 
 async function initApp(){
+  initStylePanel();
   loadFst();
   WORKERS.forEach(n=>recalcWorker(n));
   renderWgrid();renderStats();renderVac();renderCal();initOT();

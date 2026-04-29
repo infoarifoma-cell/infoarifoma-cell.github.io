@@ -29,9 +29,9 @@
 <style>
   
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap');
-:root{--bg:#f0f0ec;--surface:#ffffff;--surface2:#f5f5f0;--border:#c8c8b8;--accent:#6b7d2e;--accent2:#5a6b25;--danger:#c0392b;--text:#1a1a1a;--muted:#707070;--radius:12px;--topbar-bg:#1a1a1a;}
+:root{--bg:#f0f0ec;--surface:#ffffff;--surface2:#f5f5f0;--border:#c8c8b8;--accent:#6b7d2e;--accent2:#5a6b25;--danger:#c0392b;--text:#1a1a1a;--muted:#707070;--radius:12px;--topbar-bg:#1a1a1a;--font-base:19px;}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;font-size:19px}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;font-size:var(--font-base)}
 .pin-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--border);background:transparent;transition:all .2s}
 .pin-dot.filled{background:var(--accent);border-color:var(--accent)}
 .pin-dot.error{background:var(--danger);border-color:var(--danger)}
@@ -317,6 +317,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
 
 <script src="app.js"></script>
+<script src="admin-styles.js"></script>
 <script src="https://unpkg.com/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 </body>
