@@ -1573,13 +1573,11 @@ async function mostrarAlbaran(id,p){
   if(ceImg)ceImg.style.display=esCE?'inline':'none';
   // Mostrar albarán
   const aw=document.getElementById('albaran-wrap');
-  console.log('mostrarAlbaran: aw=', aw);
   if(aw) {
     aw.style.display='flex';
+    aw.style.position='fixed';
     aw.classList.add('print-active');
-    console.log('albarán mostrado, display=', aw.style.display);
-  } else {
-    console.error('albarán-wrap no encontrado en DOM');
+    setTimeout(()=>window.print(),100);
   }
   // Cargar datos fiscales BC en segundo plano (deshabilitado por error MSAL)
   /*if(p.codigoCliente){
