@@ -78,9 +78,11 @@ function openStylePanel() {
   const modal = document.getElementById('style-panel-wrap');
   if (!modal) return console.error('style-panel-wrap no encontrado');
 
-  // Renderizar valores actuales
+  // Renderizar valores actuales ANTES de abrir
   renderStyleInputs();
-  modal.classList.add('open');
+  setTimeout(() => {
+    modal.classList.add('open');
+  }, 0);
 }
 
 // Cerrar modal
@@ -110,29 +112,46 @@ function renderStyleInputs() {
 
   // Font size
   const fontBaseInput = document.getElementById('style-font-base');
-  if (fontBaseInput) {
+  const fontBaseDisplay = document.getElementById('style-font-base-display');
+  if (fontBaseInput && fontBaseDisplay) {
     const val = getStyleValue('--font-base');
     const px = parseInt(val);
     fontBaseInput.value = px;
-    fontBaseInput.oninput = function() {
-      applyStyleVar('--font-base', this.value + 'px');
-      document.getElementById('style-font-base-display').textContent = this.value + 'px';
-    };
-    document.getElementById('style-font-base-display').textContent = val;
+    fontBaseDisplay.textContent = val;
+
+    // Remover handler anterior si existe
+    fontBaseInput.removeEventListener('input', fontBaseSizeHandler);
+    // Agregar nuevo handler
+    fontBaseInput.addEventListener('input', fontBaseSizeHandler);
   }
 
   // Border radius
   const radiusInput = document.getElementById('style-radius');
-  if (radiusInput) {
+  const radiusDisplay = document.getElementById('style-radius-display');
+  if (radiusInput && radiusDisplay) {
     const val = getStyleValue('--radius');
     const px = parseInt(val);
     radiusInput.value = px;
-    radiusInput.oninput = function() {
-      applyStyleVar('--radius', this.value + 'px');
-      document.getElementById('style-radius-display').textContent = this.value + 'px';
-    };
-    document.getElementById('style-radius-display').textContent = val;
+    radiusDisplay.textContent = val;
+
+    // Remover handler anterior si existe
+    radiusInput.removeEventListener('input', radiusSizeHandler);
+    // Agregar nuevo handler
+    radiusInput.addEventListener('input', radiusSizeHandler);
   }
+}
+
+// Handlers para sliders (funciones nombradas para poder removerlas)
+function fontBaseSizeHandler(e) {
+  const val = e.target.value + 'px';
+  applyStyleVar('--font-base', val);
+  document.getElementById('style-font-base-display').textContent = val;
+}
+
+function radiusSizeHandler(e) {
+  const val = e.target.value + 'px';
+  applyStyleVar('--radius', val);
+  document.getElementById('style-radius-display').textContent = val;
 }
 
 // Resetear a valores por defecto
