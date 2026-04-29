@@ -50,7 +50,11 @@ function initStylePanel() {
 // Aplicar un CSS var al documento y guardar
 function applyStyleVar(name, value) {
   document.documentElement.style.setProperty(name, value);
-  saveCurrentStyles();
+  // Guardar inmediatamente este cambio específico
+  const saved = localStorage.getItem(STYLE_KEY);
+  const styles = saved ? JSON.parse(saved) : {};
+  styles[name] = value;
+  localStorage.setItem(STYLE_KEY, JSON.stringify(styles));
 }
 
 // Guardar todos los estilos actuales en localStorage
