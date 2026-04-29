@@ -3907,7 +3907,9 @@ function printOT(filled){
   tbl.innerHTML=`<thead><tr style="background:#444;color:#fff"><th style="padding:3px 6px;border:1px solid #444;text-align:left;width:60%">Punto de verificación</th><th style="padding:3px 6px;border:1px solid #444;width:20%">Estado</th><th style="padding:3px 6px;border:1px solid #444;width:20%">Observación</th></tr></thead><tbody>${rows}</tbody>`;
   const wrap=document.getElementById('ot-print-wrap');
   wrap.style.display='flex';
+  wrap.style.position='fixed';
   wrap.classList.add('print-active');
+  setTimeout(()=>window.print(),100);
 }
 function cerrarOTPrint(){
   const wrap=document.getElementById('ot-print-wrap');
@@ -4545,5 +4547,8 @@ function printOTHistorial(id){
   });
   if(!rows)rows='<tr><td colspan="3" style="padding:6px;font-size:7.5pt;color:#999">Sin puntos de verificación registrados</td></tr>';
   tbl.innerHTML=`<thead><tr style="background:#444;color:#fff"><th style="padding:3px 6px;border:1px solid #444;text-align:left;width:60%">Punto de verificación</th><th style="padding:3px 6px;border:1px solid #444;width:20%">Estado</th><th style="padding:3px 6px;border:1px solid #444;width:20%">Observación</th></tr></thead><tbody>${rows}</tbody>`;
-  document.getElementById('ot-print-wrap').style.display='flex';
+  const wrap=document.getElementById('ot-print-wrap');
+  wrap.style.display='flex';
+  wrap.style.position='fixed';
+  setTimeout(()=>window.print(),100);
 }
