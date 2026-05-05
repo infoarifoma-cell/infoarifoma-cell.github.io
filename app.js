@@ -1899,34 +1899,46 @@ function renderTablaVentasDetalle(data){
     tbody.innerHTML='<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--muted)">'+
       (fechaFiltro?'Sin pesadas en esta fecha':'Sin pesadas este mes')+
     '</td></tr>';
-    document.getElementById('total-bruto').textContent='—';
-    document.getElementById('total-neto').textContent='—';
+    document.getElementById('ventas-resumen-materiales').innerHTML='<div style="padding:16px;text-align:center;color:var(--muted)">Sin materiales</div>';
     document.getElementById('total-toneladas').textContent='—';
     return;
   }
 
-  let totalBruto=0,totalNeto=0;
+  let totalNeto=0;
+  const materiales={};
+
   tbody.innerHTML=filtered.map(r=>{
     const d=parseFechaHoraObj(r.fechaHora);
     const fecha=d?pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear():'—';
     const hora=d?pad(d.getHours())+':'+pad(d.getMinutes()):'—';
     const bruto=Number(r.pesoBruto||0);
     const neto=Number(r.pesoNeto||0);
-    totalBruto+=bruto;
+    const material=r.productoNombre||'Sin material';
+
     totalNeto+=neto;
+    if(!materiales[material])materiales[material]=0;
+    materiales[material]+=neto;
+
     return '<tr style="border-bottom:1px solid var(--border);cursor:pointer" onmouseover="this.style.background=\'var(--surface2)\'" onmouseout="this.style.background=\'transparent\'">'+
       '<td style="padding:8px 12px;color:var(--text);font-family:monospace">'+fecha+'</td>'+
       '<td style="padding:8px 12px;color:var(--text);font-family:monospace">'+hora+'</td>'+
       '<td style="padding:8px 12px;color:var(--accent);font-family:monospace;font-weight:600">'+r.matriculacam+'</td>'+
       '<td style="padding:8px 12px;text-align:right;color:var(--text);font-family:monospace">'+bruto.toLocaleString('es-ES')+'</td>'+
       '<td style="padding:8px 12px;text-align:right;color:var(--accent2);font-family:monospace;font-weight:600">'+neto.toLocaleString('es-ES')+'</td>'+
-      '<td style="padding:8px 12px;color:var(--text)">'+r.productoNombre+'</td>'+
+      '<td style="padding:8px 12px;color:var(--text)">'+material+'</td>'+
       '<td style="padding:8px 12px;color:var(--text)">'+r.nombreCliente||'—'+'</td>'+
     '</tr>';
   }).join('');
 
-  document.getElementById('total-bruto').textContent=totalBruto.toLocaleString('es-ES');
-  document.getElementById('total-neto').textContent=totalNeto.toLocaleString('es-ES');
+  const resumenEl=document.getElementById('ventas-resumen-materiales');
+  const materialesHtml=Object.entries(materiales).map(([mat,neto])=>{
+    return '<div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">'+
+      '<span style="color:var(--text);font-size:.9rem">'+mat+'</span>'+
+      '<span style="color:var(--accent);font-family:\'DM Mono\',monospace;font-weight:700;font-size:.95rem">'+kgToT(neto)+' T</span>'+
+    '</div>';
+  }).join('');
+  resumenEl.innerHTML=materialesHtml||'<div style="padding:16px;text-align:center;color:var(--muted)">Sin materiales</div>';
+
   document.getElementById('total-toneladas').textContent=kgToT(totalNeto);
 }
 
