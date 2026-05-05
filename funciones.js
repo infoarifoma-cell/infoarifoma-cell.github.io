@@ -320,6 +320,13 @@ async function doEditarCamion(data) {
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
+async function doEliminarCamion(data) {
+  const id = Number(data.id);
+  if (!id || isNaN(id)) return { ok: false, error: 'ID inválido' };
+  const { error } = await _supabase.from('tblcamiones').delete().eq('id', id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
 // ── PRODUCCIÓN ───────────────────────────────────────────────
 
 async function getProduccion(mes, anyo) {

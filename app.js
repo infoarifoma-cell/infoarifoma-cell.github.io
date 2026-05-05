@@ -496,6 +496,7 @@ async function apiPost(payload) {
   if (t === 'editarPedido')    return doEditarPedido(payload);
   if (t === 'nuevoCamion')     return doNuevoCamion(payload);
   if (t === 'editarCamion')    return doEditarCamion(payload);
+  if (t === 'eliminarCamion')  return doEliminarCamion(payload);
   if (t === 'ausencia')        return doPostAusencia(payload);
   if (t === 'editAusencia')    return doEditAusencia(payload);
   if (t === 'delAusencia')     return doDeleteAusencia(payload);
@@ -1975,6 +1976,7 @@ function openCamModal(id){
   camEditingId=id;
   const modal=document.getElementById('cam-modal');
   document.getElementById('cam-modal-title').textContent=id?'Editar camión':'Nuevo camión';
+  const delBtn=document.getElementById('cm-del-btn');
   if(id){
     const c=camGestData.find(x=>x.id==id);if(!c)return;
     document.getElementById('cm-mat').value=c.matriculacam||'';
@@ -1983,8 +1985,10 @@ function openCamModal(id){
     document.getElementById('cm-chofer').value=c.chofer||'';
     document.getElementById('cm-prov').value=c.proveedor||'';
     document.getElementById('cm-tel').value=c.telefono||'';
+    delBtn.style.display='block';
   } else {
     ['cm-mat','cm-rem','cm-tara','cm-chofer','cm-prov','cm-tel'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
+    delBtn.style.display='none';
   }
   modal.classList.add('open');
 }
@@ -2013,6 +2017,20 @@ async function saveCamion(){
         payload.id=Math.max(...camGestData.map(c=>c.id||0),0)+1;
         camGestData.push(payload);
       }
+      filtrarCamionesGestion();
+    }
+    else alert('Error: '+json.error);
+  }catch(e){alert('Error de conexión');}
+}
+async function eliminarCamion(){
+  if(!camEditingId)return;
+  if(!confirm('¿Eliminar este camión de la base de datos?'))return;
+  const payload={tipo:'eliminarCamion',id:camEditingId};
+  try{
+    const json=await apiPost(payload);
+    if(json.ok){
+      closeCamModal();
+      camGestData=camGestData.filter(x=>x.id!=camEditingId);
       filtrarCamionesGestion();
     }
     else alert('Error: '+json.error);
