@@ -3526,13 +3526,11 @@ function initFacturacion(){
     // Rellenar select clientes
     const sel=document.getElementById('fact-cliente');
     sel.innerHTML='<option value="">Todos los clientes</option>'+CLIENTES.map(c=>`<option value="${c.nombre}">${c.nombre}</option>`).join('');
-    // Rellenar años
-    const aSel=document.getElementById('fact-anyo');
-    const cy=new Date().getFullYear();
-    aSel.innerHTML='';
-    for(let y=cy;y>=cy-3;y--){const o=document.createElement('option');o.value=y;o.textContent=y;aSel.appendChild(o);}
-    // Mes actual
-    document.getElementById('fact-mes').value=new Date().getMonth();
+    // Inicializar fechas: desde primer día mes actual, hasta hoy
+    const hoy=new Date();
+    const primerDia=new Date(hoy.getFullYear(),hoy.getMonth(),1);
+    document.getElementById('fact-fecha-desde').value=primerDia.getFullYear()+'-'+pad(primerDia.getMonth()+1)+'-'+pad(primerDia.getDate());
+    document.getElementById('fact-fecha-hasta').value=hoy.getFullYear()+'-'+pad(hoy.getMonth()+1)+'-'+pad(hoy.getDate());
     factInited=true;
   }
   if(factData.length===0) cargarFacturacion();
@@ -3563,14 +3561,25 @@ function parseFechaFact(fh){
 
 function renderFacturacion(){
   const filtCli=document.getElementById('fact-cliente').value;
-  const filtMes=parseInt(document.getElementById('fact-mes').value);
-  const filtAnyo=parseInt(document.getElementById('fact-anyo').value);
+  const fechaDesdeStr=document.getElementById('fact-fecha-desde').value;
+  const fechaHastaStr=document.getElementById('fact-fecha-hasta').value;
 
-  // Filtrar pedidos por mes/año
+  let fechaDesde=null,fechaHasta=null;
+  if(fechaDesdeStr){
+    const [y,m,d]=fechaDesdeStr.split('-');
+    fechaDesde=new Date(parseInt(y),parseInt(m)-1,parseInt(d),0,0,0);
+  }
+  if(fechaHastaStr){
+    const [y,m,d]=fechaHastaStr.split('-');
+    fechaHasta=new Date(parseInt(y),parseInt(m)-1,parseInt(d),23,59,59);
+  }
+
+  // Filtrar pedidos por intervalo fecha
   const pedidos=factData.filter(r=>{
     const d=parseFechaFact(r.fechaHora)||parseFechaFact(r.fechaPedido);
     if(!d)return false;
-    if(d.getMonth()!==filtMes||d.getFullYear()!==filtAnyo)return false;
+    if(fechaDesde&&d<fechaDesde)return false;
+    if(fechaHasta&&d>fechaHasta)return false;
     if(filtCli&&(r.nombreCliente||'').trim()!==filtCli.trim())return false;
     return true;
   });
