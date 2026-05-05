@@ -1910,7 +1910,7 @@ function renderTablaVentasDetalle(data){
   tbody.innerHTML=filtered.map(r=>{
     const d=parseFechaHoraObj(r.fechaHora);
     const fecha=d?pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear():'—';
-    const hora=d?pad(d.getHours())+':'+pad(d.getMinutes()):'—';
+    const fechaHora=d?pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()):'—';
     const bruto=Number(r.pesoBruto||0);
     const neto=Number(r.pesoNeto||0);
     const material=r.productoNombre||'Sin material';
@@ -1921,7 +1921,7 @@ function renderTablaVentasDetalle(data){
 
     return '<tr style="border-bottom:1px solid var(--border);cursor:pointer" onmouseover="this.style.background=\'var(--surface2)\'" onmouseout="this.style.background=\'transparent\'">'+
       '<td style="padding:8px 12px;color:var(--text);font-family:monospace">'+fecha+'</td>'+
-      '<td style="padding:8px 12px;color:var(--text);font-family:monospace">'+hora+'</td>'+
+      '<td style="padding:8px 12px;color:var(--text);font-family:monospace">'+fechaHora+'</td>'+
       '<td style="padding:8px 12px;color:var(--accent);font-family:monospace;font-weight:600">'+r.matriculacam+'</td>'+
       '<td style="padding:8px 12px;text-align:right;color:var(--text);font-family:monospace">'+bruto.toLocaleString('es-ES')+'</td>'+
       '<td style="padding:8px 12px;text-align:right;color:var(--accent2);font-family:monospace;font-weight:600">'+neto.toLocaleString('es-ES')+'</td>'+
