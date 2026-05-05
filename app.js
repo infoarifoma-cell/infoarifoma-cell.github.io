@@ -1596,6 +1596,9 @@ function cerrarAlbaran(){
   const aw=document.getElementById('albaran-wrap');
   aw.style.display='none';
   aw.classList.remove('print-active');
+  // Limpiar peso anterior para siguiente pesada
+  document.getElementById('bas-peso-input').value='';
+  basActualizarPeso();
 }
 
 
