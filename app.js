@@ -2024,6 +2024,9 @@ async function saveCamion(){
 }
 async function eliminarCamion(){
   if(!camEditingId)return;
+  const c=camGestData.find(x=>x.id==camEditingId);
+  const mat=(c?.matriculacam||'').trim();
+  if(!mat){alert('No se pueden eliminar camiones vacíos. Completa los datos primero.');return;}
   if(!confirm('¿Eliminar este camión de la base de datos?'))return;
   const payload={tipo:'eliminarCamion',id:camEditingId};
   try{
