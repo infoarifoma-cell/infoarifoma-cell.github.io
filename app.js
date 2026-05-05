@@ -1846,6 +1846,28 @@ function renderVentas(){
       '<span style="color:var(--accent2);font-family:monospace;font-weight:700">'+kgToT(r.pesoNeto)+'T</span>'+
     '</div>').join('')
     :'<div style="color:var(--muted);font-size:.78rem;padding:8px 0">Sin pesadas hoy</div>';
+
+  renderTablaVentasDetalle(dataMesSel);
+}
+
+function renderTablaVentasDetalle(data){
+  const tbody=document.getElementById('ventas-detalle-tbody');
+  if(!data||!data.length){
+    tbody.innerHTML='<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--muted)">Sin pesadas este mes</td></tr>';
+    return;
+  }
+  tbody.innerHTML=data.map(r=>{
+    const d=parseFechaHoraObj(r.fechaHora);
+    const fh=d?d.toLocaleString('es-ES',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+    return '<tr style="border-bottom:1px solid var(--border)">'+
+      '<td style="padding:8px 12px;color:var(--text);font-family:monospace">'+fh+'</td>'+
+      '<td style="padding:8px 12px;color:var(--accent);font-family:monospace;font-weight:600">'+r.matriculacam+'</td>'+
+      '<td style="padding:8px 12px;color:var(--text)">'+r.productoNombre+'</td>'+
+      '<td style="padding:8px 12px;text-align:right;color:var(--text);font-family:monospace">'+Number(r.pesoBruto||0).toLocaleString()+' kg</td>'+
+      '<td style="padding:8px 12px;text-align:right;color:var(--accent2);font-family:monospace;font-weight:600">'+Number(r.pesoNeto||0).toLocaleString()+' kg</td>'+
+      '<td style="padding:8px 12px;text-align:right;color:var(--accent);font-family:monospace;font-weight:700">'+kgToT(r.pesoNeto)+' T</td>'+
+    '</tr>';
+  }).join('');
 }
 
 // ── CAMIONES GESTIÓN ──────────────────────────────────────────
