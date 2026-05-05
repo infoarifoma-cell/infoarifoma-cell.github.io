@@ -1787,21 +1787,26 @@ function parseFechaHoraObj(fh){
     const s=String(fh).trim();
     // ISO format: 2026-03-20T16:33:00.000Z
     if(s.includes('T')){
-      const datePart=s.slice(0,10);
-      const parts=datePart.split('-');
-      return new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
+      const [datePart,timePart]=s.split('T');
+      const [y,m,d]=datePart.split('-');
+      const [h,min]=timePart.split(':');
+      return new Date(parseInt(y),parseInt(m)-1,parseInt(d),parseInt(h),parseInt(min));
     }
-    // yyyy-mm-dd
+    // yyyy-mm-dd with time
     if(s.match(/^\d{4}-\d{2}-\d{2}/)){
-      const parts=s.slice(0,10).split('-');
-      return new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
+      const match=s.match(/^(\d{4})-(\d{2})-(\d{2})\s*(?:(\d{2}):(\d{2}))?/);
+      if(!match)return null;
+      const [,y,m,d,h,min]=match;
+      return new Date(parseInt(y),parseInt(m)-1,parseInt(d),parseInt(h||0),parseInt(min||0));
     }
     // dd/mm/yyyy HH:mm:ss or dd/mm/yy HH:mm
     const parts=s.split(' ');
     const dp=parts[0].split('/');
     if(dp.length<3)return null;
     const year=parseInt(dp[2])<100?2000+parseInt(dp[2]):parseInt(dp[2]);
-    return new Date(year,parseInt(dp[1])-1,parseInt(dp[0]));
+    const h=parts[1]?parseInt(parts[1].split(':')[0]):0;
+    const min=parts[1]?parseInt(parts[1].split(':')[1]):0;
+    return new Date(year,parseInt(dp[1])-1,parseInt(dp[0]),h,min);
   }catch(e){return null;}
 }
 
@@ -1851,12 +1856,27 @@ function renderVentas(){
 }
 
 function renderTablaVentasDetalle(data){
+  const fechaEl=document.getElementById('ventas-detalle-fecha');
+  const fechaFiltro=fechaEl?fechaEl.value:null;
+
+  let filtered=data||[];
+  if(fechaFiltro){
+    filtered=filtered.filter(r=>{
+      const d=parseFechaHoraObj(r.fechaHora);
+      if(!d)return false;
+      const dStr=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+      return dStr===fechaFiltro;
+    });
+  }
+
   const tbody=document.getElementById('ventas-detalle-tbody');
-  if(!data||!data.length){
-    tbody.innerHTML='<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--muted)">Sin pesadas este mes</td></tr>';
+  if(!filtered.length){
+    tbody.innerHTML='<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--muted)">'+
+      (fechaFiltro?'Sin pesadas en esta fecha':'Sin pesadas este mes')+
+    '</td></tr>';
     return;
   }
-  tbody.innerHTML=data.map(r=>{
+  tbody.innerHTML=filtered.map(r=>{
     const d=parseFechaHoraObj(r.fechaHora);
     const fh=d?d.toLocaleString('es-ES',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
     return '<tr style="border-bottom:1px solid var(--border)">'+
