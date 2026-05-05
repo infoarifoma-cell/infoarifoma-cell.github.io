@@ -942,10 +942,15 @@ async function conectarBascula() {
 async function leerDesdeSerial() {
   const decoder = new TextDecoder('latin1');
 
-  // Paso 1: vaciar buffer acumulado (datos viejos) — leer y descartar durante 300ms
+  // Paso 1: vaciar buffer acumulado (datos viejos) — leer y descartar durante 800ms
   const flush = serialPort.readable.getReader();
   try {
-    await Promise.race([flush.read(), new Promise(r => setTimeout(r, 300))]);
+    const flushDeadline = Date.now() + 800;
+    while (Date.now() < flushDeadline) {
+      const timeLeft = flushDeadline - Date.now();
+      if (timeLeft <= 0) break;
+      await Promise.race([flush.read(), new Promise(r => setTimeout(r, timeLeft))]);
+    }
   } catch(e) {}
   flush.releaseLock();
 
