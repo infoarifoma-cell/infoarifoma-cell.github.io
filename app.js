@@ -1785,28 +1785,32 @@ function parseFechaHoraObj(fh){
   if(!fh)return null;
   try{
     const s=String(fh).trim();
+    let d=null;
     // ISO format: 2026-03-20T16:33:00.000Z
     if(s.includes('T')){
       const [datePart,timePart]=s.split('T');
-      const [y,m,d]=datePart.split('-');
+      const [y,m,day]=datePart.split('-');
       const [h,min]=timePart.split(':');
-      return new Date(parseInt(y),parseInt(m)-1,parseInt(d),parseInt(h),parseInt(min));
+      d=new Date(Date.UTC(parseInt(y),parseInt(m)-1,parseInt(day),parseInt(h),parseInt(min)));
     }
     // yyyy-mm-dd with time
-    if(s.match(/^\d{4}-\d{2}-\d{2}/)){
+    else if(s.match(/^\d{4}-\d{2}-\d{2}/)){
       const match=s.match(/^(\d{4})-(\d{2})-(\d{2})\s*(?:(\d{2}):(\d{2}))?/);
       if(!match)return null;
-      const [,y,m,d,h,min]=match;
-      return new Date(parseInt(y),parseInt(m)-1,parseInt(d),parseInt(h||0),parseInt(min||0));
+      const [,y,m,day,h,min]=match;
+      d=new Date(parseInt(y),parseInt(m)-1,parseInt(day),parseInt(h||0),parseInt(min||0));
     }
     // dd/mm/yyyy HH:mm:ss or dd/mm/yy HH:mm
-    const parts=s.split(' ');
-    const dp=parts[0].split('/');
-    if(dp.length<3)return null;
-    const year=parseInt(dp[2])<100?2000+parseInt(dp[2]):parseInt(dp[2]);
-    const h=parts[1]?parseInt(parts[1].split(':')[0]):0;
-    const min=parts[1]?parseInt(parts[1].split(':')[1]):0;
-    return new Date(year,parseInt(dp[1])-1,parseInt(dp[0]),h,min);
+    else {
+      const parts=s.split(' ');
+      const dp=parts[0].split('/');
+      if(dp.length<3)return null;
+      const year=parseInt(dp[2])<100?2000+parseInt(dp[2]):parseInt(dp[2]);
+      const h=parts[1]?parseInt(parts[1].split(':')[0]):0;
+      const min=parts[1]?parseInt(parts[1].split(':')[1]):0;
+      d=new Date(year,parseInt(dp[1])-1,parseInt(dp[0]),h,min);
+    }
+    return d;
   }catch(e){return null;}
 }
 
@@ -1855,6 +1859,27 @@ function renderVentas(){
   renderTablaVentasDetalle(dataMesSel);
 }
 
+function copiarTablaVentas(){
+  const tabla=document.getElementById('ventas-tabla');
+  if(!tabla)return;
+  let tsv='';
+  const rows=tabla.querySelectorAll('tr');
+  rows.forEach(row=>{
+    const cols=row.querySelectorAll('th,td');
+    const texto=[];
+    cols.forEach(col=>{
+      const txt=col.textContent.trim();
+      texto.push(txt);
+    });
+    tsv+=texto.join('\t')+'\n';
+  });
+  navigator.clipboard.writeText(tsv).then(()=>{
+    alert('Tabla copiada al portapapeles. Puedes pegarla en Excel.');
+  }).catch(()=>{
+    alert('Error al copiar. Intenta seleccionar la tabla manualmente.');
+  });
+}
+
 function renderTablaVentasDetalle(data){
   const fechaEl=document.getElementById('ventas-detalle-fecha');
   const fechaFiltro=fechaEl?fechaEl.value:null;
@@ -1871,23 +1896,38 @@ function renderTablaVentasDetalle(data){
 
   const tbody=document.getElementById('ventas-detalle-tbody');
   if(!filtered.length){
-    tbody.innerHTML='<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--muted)">'+
+    tbody.innerHTML='<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--muted)">'+
       (fechaFiltro?'Sin pesadas en esta fecha':'Sin pesadas este mes')+
     '</td></tr>';
+    document.getElementById('total-bruto').textContent='—';
+    document.getElementById('total-neto').textContent='—';
+    document.getElementById('total-toneladas').textContent='—';
     return;
   }
+
+  let totalBruto=0,totalNeto=0;
   tbody.innerHTML=filtered.map(r=>{
     const d=parseFechaHoraObj(r.fechaHora);
-    const fh=d?d.toLocaleString('es-ES',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
-    return '<tr style="border-bottom:1px solid var(--border)">'+
-      '<td style="padding:8px 12px;color:var(--text);font-family:monospace">'+fh+'</td>'+
+    const fecha=d?pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear():'—';
+    const hora=d?pad(d.getHours())+':'+pad(d.getMinutes()):'—';
+    const bruto=Number(r.pesoBruto||0);
+    const neto=Number(r.pesoNeto||0);
+    totalBruto+=bruto;
+    totalNeto+=neto;
+    return '<tr style="border-bottom:1px solid var(--border);cursor:pointer" onmouseover="this.style.background=\'var(--surface2)\'" onmouseout="this.style.background=\'transparent\'">'+
+      '<td style="padding:8px 12px;color:var(--text);font-family:monospace">'+fecha+'</td>'+
+      '<td style="padding:8px 12px;color:var(--text);font-family:monospace">'+hora+'</td>'+
       '<td style="padding:8px 12px;color:var(--accent);font-family:monospace;font-weight:600">'+r.matriculacam+'</td>'+
+      '<td style="padding:8px 12px;text-align:right;color:var(--text);font-family:monospace">'+bruto.toLocaleString('es-ES')+'</td>'+
+      '<td style="padding:8px 12px;text-align:right;color:var(--accent2);font-family:monospace;font-weight:600">'+neto.toLocaleString('es-ES')+'</td>'+
       '<td style="padding:8px 12px;color:var(--text)">'+r.productoNombre+'</td>'+
-      '<td style="padding:8px 12px;text-align:right;color:var(--text);font-family:monospace">'+Number(r.pesoBruto||0).toLocaleString()+' kg</td>'+
-      '<td style="padding:8px 12px;text-align:right;color:var(--accent2);font-family:monospace;font-weight:600">'+Number(r.pesoNeto||0).toLocaleString()+' kg</td>'+
-      '<td style="padding:8px 12px;text-align:right;color:var(--accent);font-family:monospace;font-weight:700">'+kgToT(r.pesoNeto)+' T</td>'+
+      '<td style="padding:8px 12px;color:var(--text)">'+r.nombreCliente||'—'+'</td>'+
     '</tr>';
   }).join('');
+
+  document.getElementById('total-bruto').textContent=totalBruto.toLocaleString('es-ES');
+  document.getElementById('total-neto').textContent=totalNeto.toLocaleString('es-ES');
+  document.getElementById('total-toneladas').textContent=kgToT(totalNeto);
 }
 
 // ── CAMIONES GESTIÓN ──────────────────────────────────────────
