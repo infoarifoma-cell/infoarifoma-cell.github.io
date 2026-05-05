@@ -310,6 +310,7 @@ async function getCamiones() {
 
 async function doNuevoCamion(data) {
   const { tipo, ...campos } = data; // quitar el campo "tipo" del payload
+  campos.fechaCreacion = new Date().toISOString(); // agregar timestamp actual
   const { error } = await _supabase.from('tblcamiones').insert([campos]);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
@@ -323,8 +324,18 @@ async function doEditarCamion(data) {
 async function doEliminarCamion(data) {
   const id = Number(data.id);
   if (!id || isNaN(id)) return { ok: false, error: 'ID inválido' };
-  const { error } = await _supabase.from('tblcamiones').delete().eq('id', id);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  try {
+    const { error } = await _supabase.from('tblcamiones').delete().eq('id', id);
+    if (error) {
+      if (error.message && error.message.includes('primary key')) {
+        return { ok: false, error: 'Tabla sin primary key. Contacta administrador.' };
+      }
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
 }
 
 // ── PRODUCCIÓN ───────────────────────────────────────────────
