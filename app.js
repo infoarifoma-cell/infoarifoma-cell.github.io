@@ -194,7 +194,9 @@ async function getCamiones() {
 }
 async function doNuevoCamion(data) {
   const { tipo, ...payload } = data;
+  console.log('Insertando camión:', payload);
   const { error } = await _supabase.from('tblcamiones').insert([payload]);
+  if(error) console.error('Error Supabase:', error);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 async function doEditarCamion(data) {
@@ -1997,7 +1999,19 @@ async function saveCamion(){
   };
   try{
     const json=await apiPost(payload);
-    if(json.ok){closeCamModal();cargarCamiones();}
+    if(json.ok){
+      closeCamModal();
+      // Actualizar lista local en lugar de recargar
+      if(camEditingId){
+        const idx=camGestData.findIndex(x=>x.id==camEditingId);
+        if(idx>=0) camGestData[idx]={...camGestData[idx],...payload};
+      } else {
+        // Nuevo camión: agregar con ID temporal o esperar desde API
+        payload.id=Math.max(...camGestData.map(c=>c.id||0),0)+1;
+        camGestData.push(payload);
+      }
+      filtrarCamionesGestion();
+    }
     else alert('Error: '+json.error);
   }catch(e){alert('Error de conexión');}
 }
