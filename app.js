@@ -3996,6 +3996,7 @@ async function getBCToken() {
 
 async function enviarBCCliente(bcIdx, btn) {
   const { cli, cData } = window._bcClientesData[bcIdx];
+  console.log('enviarBCCliente - cli:', cli, 'bcIdx:', bcIdx, '_bcClientesData:', window._bcClientesData);
   btn.disabled = true;
   btn.textContent = 'Conectando...';
   try {
