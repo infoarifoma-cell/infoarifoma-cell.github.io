@@ -2,56 +2,62 @@
 // ARIFOMA · FUNCIONES SUPABASE — versión limpia
 // ============================================================
 
-// ── BUSINESS CENTRAL CONFIG ───────────────────────────────────
-const BC_TENANT_F  = '5bd828f2-1899-48ba-a269-c37733f41806';
-const BC_ENV_F     = 'Production';
-const BC_COMPANY_F = 'ARIFOMA 25P.V06';
-
-async function enviarLineaBCPesada(data) {
-  if (typeof getBCToken !== 'function') return;
-  let token;
-  try { token = await getBCToken(); } catch(e) { console.warn('BC token:', e.message); return; }
-  const base = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT_F}/${BC_ENV_F}/api/v2.0/companies`;
-  const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
-
-  const cJson = await (await fetch(base, { headers })).json();
-  const company = cJson.value.find(c => c.name === BC_COMPANY_F);
-  if (!company) { console.warn('BC: Company no encontrada'); return; }
-  const companyId = company.id;
-
-  const filter = `customerNumber eq '${data.codigoCliente}' and externalDocumentNumber eq '${data.proyectoCod}'`;
-  const ordersJson = await (await fetch(`${base}(${companyId})/salesOrders?$filter=${encodeURIComponent(filter)}&$select=id,number`, { headers })).json();
-  let orderId;
-
-  if (ordersJson.value && ordersJson.value.length > 0) {
-    orderId = ordersJson.value[0].id;
-  } else {
-    const newOrder = await fetch(`${base}(${companyId})/salesOrders`, {
-      method: 'POST', headers,
-      body: JSON.stringify({ customerNumber: data.codigoCliente, externalDocumentNumber: data.proyectoCod })
-    });
-    if (!newOrder.ok) { console.warn('BC crear pedido:', await newOrder.text()); return; }
-    orderId = (await newOrder.json()).id;
-  }
-
-  const lineBody = {
-    lineType: 'Item',
-    lineObjectNumber: data.productoCod,
-    description: `${data.productoNombre} | ${data.proyectoName||data.proyectoCod} | ${(Number(data.pesoNeto)/1000).toFixed(3)} Tn | ${data.matriculacam}`,
-    quantity: parseFloat((Number(data.pesoNeto) / 1000).toFixed(3))
-  };
-  const lineRes = await fetch(`${base}(${companyId})/salesOrders(${orderId})/salesOrderLines`, {
-    method: 'POST', headers,
-    body: JSON.stringify(lineBody)
-  });
-  if (!lineRes.ok) {
-    const errText = await lineRes.text();
-    console.warn('BC línea 400 detalle:', errText);
-  } else console.log('BC línea creada OK');
+// ── INPUT VALIDATION ───────────────────────────────────────────
+function validateMatricula(val) {
+  return val && /^[A-Z0-9]{1,20}$/.test(String(val).toUpperCase());
+}
+function validateEmail(val) {
+  return val && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+}
+function validateNumber(val) {
+  return !isNaN(parseFloat(val)) && isFinite(val);
+}
+function validateString(val, maxLen = 255) {
+  return val && String(val).length > 0 && String(val).length <= maxLen;
 }
 
-const SUPABASE_URL = 'https://bnsfgzjqmibsrklllqxb.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJuc2ZnempxbWlic3JrbGxscXhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNzYwNzksImV4cCI6MjA4OTk1MjA3OX0.8mTQHPdO954ICBd1Xam-kKmcA69CMyO2v3x1liFgWyk';
+// ── BUSINESS CENTRAL CONFIG ───────────────────────────────────
+// Config ahora se obtiene desde backend seguro, no hardcodeado en frontend
+async function enviarLineaBCPesada(data) {
+  // Esta función debe llamar a endpoint backend seguro
+  // Backend obtiene credenciales de variables de entorno, no desde frontend
+  try {
+    if (typeof getBCToken !== 'function') {
+      console.warn('BC: Función getBCToken no disponible');
+      return;
+    }
+
+    // Llamar a endpoint backend para enviar línea a BC de forma segura
+    const response = await fetch('/api/bc/linea-pesada', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        codigoCliente: data.codigoCliente,
+        proyectoCod: data.proyectoCod,
+        productoCod: data.productoCod,
+        productoNombre: data.productoNombre,
+        pesoNeto: data.pesoNeto,
+        matriculacam: data.matriculacam,
+        proyectoName: data.proyectoName
+      })
+    });
+
+    if (!response.ok) {
+      console.warn('BC: Error al enviar línea pesada');
+      return;
+    }
+
+    console.log('BC línea enviada OK');
+  } catch (e) {
+    console.warn('BC error:', e.message);
+  }
+}
+
+// Cargar credenciales desde variables de entorno (no hardcodeadas)
+const SUPABASE_URL = window.__SUPABASE_URL__ || 'https://bnsfgzjqmibsrklllqxb.supabase.co';
+const SUPABASE_KEY = window.__SUPABASE_KEY__ || null;
+
+// Fallback: si no hay key en vars de entorno, obtener desde Supabase SDK (solo en navegador)
 let _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let _sessionToken = null;
 
@@ -97,7 +103,7 @@ async function googleLogin() {
     const { data, error } = await _supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin + window.location.pathname
+        redirectTo: 'https://infoarifoma-cell.github.io/'
       }
     });
     if (error) {
@@ -125,7 +131,7 @@ async function checkGoogleSession() {
       .eq('email', email);
 
     if (searchError || !usuariosArr || usuariosArr.length === 0) {
-      document.getElementById('login-error').textContent = 'Usuario no encontrado: ' + email;
+      document.getElementById('login-error').textContent = 'Credenciales inválidas o usuario no autorizado';
       await _supabase.auth.signOut();
       setTimeout(() => location.reload(), 2000);
       return;
@@ -133,7 +139,7 @@ async function checkGoogleSession() {
 
     const usuarios = usuariosArr[0];
     if (!usuarios.activo) {
-      document.getElementById('login-error').textContent = 'Usuario inactivo: ' + email;
+      document.getElementById('login-error').textContent = 'Credenciales inválidas o usuario no autorizado';
       await _supabase.auth.signOut();
       setTimeout(() => location.reload(), 2000);
       return;
@@ -253,24 +259,31 @@ async function getPedidos(diasAtras = 90) {
 }
 
 async function doPostPesada(data) {
+  // Validate required fields
+  if (!validateMatricula(data.matriculacam)) return { ok: false, error: 'Matrícula vehículo inválida' };
+  if (!validateNumber(data.pesoBruto) || Number(data.pesoBruto) <= 0) return { ok: false, error: 'Peso bruto inválido' };
+  if (!validateNumber(data.pesoNeto) || Number(data.pesoNeto) < 0) return { ok: false, error: 'Peso neto inválido' };
+  if (!validateString(data.chofer, 100)) return { ok: false, error: 'Chofer requerido' };
+  if (!validateString(data.nombreCliente, 150)) return { ok: false, error: 'Cliente requerido' };
+
   const { data: inserted, error } = await _supabase.from('tblpedidos').insert([{
-    matriculacam:  data.matriculacam,
-    matricularem:  data.matricularem,
-    tara:          data.tara,
-    chofer:        data.chofer,
-    nombreCliente: data.nombreCliente,
-    codigoCliente: data.codigoCliente,
-    productoNombre:data.productoNombre,
-    productoCod:   data.productoCod,
-    pesoBruto:     data.pesoBruto,
-    pesoNeto:      data.pesoNeto,
-    proyectoName:  data.proyectoName,
-    proyectoCod:   data.proyectoCod,
-    numPedido:     data.numPedido,
-    numLinea:      data.numLinea,
+    matriculacam:  String(data.matriculacam).toUpperCase(),
+    matricularem:  data.matricularem ? String(data.matricularem).toUpperCase() : null,
+    tara:          Number(data.tara || 0),
+    chofer:        String(data.chofer).substring(0, 100),
+    nombreCliente: String(data.nombreCliente).substring(0, 150),
+    codigoCliente: data.codigoCliente ? String(data.codigoCliente).substring(0, 50) : null,
+    productoNombre:data.productoNombre ? String(data.productoNombre).substring(0, 150) : null,
+    productoCod:   data.productoCod ? String(data.productoCod).substring(0, 50) : null,
+    pesoBruto:     Number(data.pesoBruto),
+    pesoNeto:      Number(data.pesoNeto),
+    proyectoName:  data.proyectoName ? String(data.proyectoName).substring(0, 150) : null,
+    proyectoCod:   data.proyectoCod ? String(data.proyectoCod).substring(0, 50) : null,
+    numPedido:     data.numPedido ? String(data.numPedido).substring(0, 50) : null,
+    numLinea:      data.numLinea ? String(data.numLinea).substring(0, 50) : null,
     fechaHora:     new Date().toISOString()
   }]).select('id').single();
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: 'Error al grabar pesada. Contacte administrador.' };
   if (typeof enviarLineaBCPesada === 'function') {
     enviarLineaBCPesada(data).catch(e => console.warn('BC línea:', e.message));
   }

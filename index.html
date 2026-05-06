@@ -4,6 +4,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="favicon.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="_env-loader.js"></script>
 <script src="funciones.js"></script>
 
 <meta charset="UTF-8">
@@ -13,20 +14,21 @@
 <!-- CSP: solo recursos de dominios conocidos -->
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
-  script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;
-  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+  script-src 'self' https://cdn.jsdelivr.net;
+  style-src 'self' 'nonce-arifoma2024' https://fonts.googleapis.com;
   font-src 'self' https://fonts.gstatic.com;
   img-src 'self' https: data:;
   connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net https://login.microsoftonline.com https://api.businesscentral.dynamics.com;
   object-src 'none';
-  frame-ancestors 'self'
+  frame-ancestors 'self';
+  base-uri 'self'
 ">
 <!-- Evita MIME sniffing -->
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <!-- Referrer: no filtra info al navegar fuera -->
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>ARIFOMA · Gestión</title>
-<style>
+<style nonce="arifoma2024">
   
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap');
 :root{--bg:#f0f0ec;--surface:#ffffff;--surface2:#f5f5f0;--border:#c8c8b8;--accent:#6b7d2e;--accent2:#5a6b25;--danger:#c0392b;--text:#1a1a1a;--muted:#707070;--radius:12px;--topbar-bg:#1a1a1a;--font-base:19px;}
