@@ -4440,7 +4440,8 @@ async function guardarNorma(){
   const json=await apiPost(payload).catch(e=>({ok:false,error:e.message}));
   btn.disabled=false;btn.textContent='Guardar';
   if(!json.ok){document.getElementById('mnorma-msg').textContent='Error: '+json.error;return;}
-  cerrarModalNorma();cargarNormas();
+  cerrarModalNorma();
+  await cargarNormas();
 }
 async function eliminarNorma(id){
   if(!confirm('¿Eliminar esta norma?'))return;
@@ -4506,7 +4507,8 @@ async function guardarSubgama(){
   const json=await apiPost(payload).catch(e=>({ok:false,error:e.message}));
   btn.disabled=false;btn.textContent='Guardar';
   if(!json.ok){document.getElementById('msubg-msg').textContent='Error: '+json.error;return;}
-  cerrarModalSubgama();cargarSubgamas();
+  cerrarModalSubgama();
+  await cargarSubgamas();
 }
 async function eliminarSubgama(id){
   if(!confirm('¿Eliminar esta subgama?'))return;
