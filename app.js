@@ -127,6 +127,7 @@ async function enviarLineaBCPesada(data) {
 
   // Obtener company ID
   const cJson = await (await fetch(base, { headers })).json();
+  if (!cJson.value || !Array.isArray(cJson.value)) throw new Error('BC error: ' + JSON.stringify(cJson));
   const company = cJson.value.find(c => c.name === BC_COMPANY);
   if (!company) throw new Error('Company no encontrada');
   const companyId = company.id;
