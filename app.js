@@ -4018,12 +4018,19 @@ async function enviarBCCliente(bcIdx, btn) {
     // Buscar codigoCliente en factData
     console.log('factData:', factData);
     const pedidoCli = factData?.find(r => (r.nombreCliente||'').trim() === cli.trim());
+    console.log('pedidoCli:', pedidoCli);
     const customerNo = pedidoCli?.codigoCliente || '';
+    console.log('customerNo:', customerNo);
 
     // Obtener fecha del filtro activo
-    const mes = parseInt(document.getElementById('fact-mes').value) + 1;
-    const anyo = parseInt(document.getElementById('fact-anyo').value);
+    const mesEl = document.getElementById('fact-mes');
+    const anyoEl = document.getElementById('fact-anyo');
+    console.log('mesEl:', mesEl, 'value:', mesEl?.value);
+    console.log('anyoEl:', anyoEl, 'value:', anyoEl?.value);
+    const mes = parseInt(mesEl?.value||0) + 1;
+    const anyo = parseInt(anyoEl?.value||0);
     const invoiceDate = `${anyo}-${String(mes).padStart(2,'0')}-01`;
+    console.log('invoiceDate:', invoiceDate);
 
     btn.textContent = 'Creando factura...';
 
