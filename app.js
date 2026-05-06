@@ -4000,6 +4000,7 @@ async function enviarBCCliente(bcIdx, btn) {
   btn.textContent = 'Conectando...';
   try {
     const token = await getBCToken();
+    console.log('BC Token:', token ? 'OK' : 'NULL');
     const base = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/api/v2.0/companies`;
     const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
 
