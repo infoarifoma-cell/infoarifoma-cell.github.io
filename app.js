@@ -4016,7 +4016,8 @@ async function enviarBCCliente(bcIdx, btn) {
     const companyId = company.id;
 
     // Buscar codigoCliente en factData
-    const pedidoCli = factData.find(r => (r.nombreCliente||'').trim() === cli.trim());
+    console.log('factData:', factData);
+    const pedidoCli = factData?.find(r => (r.nombreCliente||'').trim() === cli.trim());
     const customerNo = pedidoCli?.codigoCliente || '';
 
     // Obtener fecha del filtro activo
