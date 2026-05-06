@@ -32,5 +32,5 @@
 
 // Exportar función para obtener vars
 function getEnvVar(key) {
-  return window[`__${key}__`] || process.env?.[key] || null;
+  return window[`__${key}__`] || null;
 }

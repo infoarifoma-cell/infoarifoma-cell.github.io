@@ -3957,10 +3957,10 @@ async function exportarExcelCliente(bcIdx) {
 }
 
 // ── BUSINESS CENTRAL ─────────────────────────────────────────
-const BC_TENANT   = getEnvVar('BC_TENANT') || '5bd828f2-1899-48ba-a269-c37733f41806';
-const BC_CLIENT   = getEnvVar('BC_CLIENT') || 'e2a57ff0-8ea7-433d-a2af-7335d3f01847';
-const BC_ENV      = getEnvVar('BC_ENV') || 'Production';
-const BC_COMPANY  = getEnvVar('BC_COMPANY') || 'ARIFOMA 25P.V06';
+const BC_TENANT   = '5bd828f2-1899-48ba-a269-c37733f41806';
+const BC_CLIENT   = 'e2a57ff0-8ea7-433d-a2af-7335d3f01847';
+const BC_ENV      = 'Production';
+const BC_COMPANY  = 'ARIFOMA 25P.V06';
 // Resetear cache companyId y clientes BC al cargar
 window._bcCompanyId = null;
 window._bcClientesData = [];
