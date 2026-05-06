@@ -127,7 +127,6 @@ async function enviarLineaBCPesada(data) {
 
   // Obtener company ID
   const cJson = await (await fetch(base, { headers })).json();
-  if (!cJson.value || !Array.isArray(cJson.value)) throw new Error('BC error: ' + JSON.stringify(cJson));
   const company = cJson.value.find(c => c.name === BC_COMPANY);
   if (!company) throw new Error('Company no encontrada');
   const companyId = company.id;
@@ -3996,32 +3995,23 @@ async function getBCToken() {
 
 async function enviarBCCliente(bcIdx, btn) {
   const { cli, cData } = window._bcClientesData[bcIdx];
-  console.log('enviarBCCliente - cli:', cli, 'bcIdx:', bcIdx, '_bcClientesData:', window._bcClientesData);
   btn.disabled = true;
   btn.textContent = 'Conectando...';
   try {
     const token = await getBCToken();
-    console.log('BC Token:', token ? 'OK' : 'NULL');
     const base = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/api/v2.0/companies`;
     const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
 
     // Obtener ID de la company
     const cRes = await fetch(base, { headers });
     const cJson = await cRes.json();
-    console.log('BC Companies response:', cJson);
-    console.log('Buscando company:', BC_COMPANY);
-    console.log('Nombres disponibles:', cJson.value.map(c => c.name));
-    cJson.value.forEach(c => console.log(`Compare: "${c.name}" === "${BC_COMPANY}" ?`, c.name === BC_COMPANY));
     const company = cJson.value.find(c => c.name.trim() === BC_COMPANY.trim());
     if (!company) throw new Error('Company no encontrada: ' + BC_COMPANY);
     const companyId = company.id;
 
     // Buscar codigoCliente en factData
-    console.log('factData:', factData);
     const pedidoCli = factData?.find(r => (r.nombreCliente||'').trim() === cli.trim());
-    console.log('pedidoCli:', pedidoCli);
     const customerNo = pedidoCli?.codigoCliente || '';
-    console.log('customerNo:', customerNo);
 
     // Obtener fecha del filtro activo (usa hoy si no hay filtro)
     const now = new Date();
@@ -4030,7 +4020,6 @@ async function enviarBCCliente(bcIdx, btn) {
     const mes = (mesEl?.value ? parseInt(mesEl.value) : now.getMonth()) + 1;
     const anyo = anyoEl?.value ? parseInt(anyoEl.value) : now.getFullYear();
     const invoiceDate = `${anyo}-${String(mes).padStart(2,'0')}-01`;
-    console.log('invoiceDate:', invoiceDate);
 
     btn.textContent = 'Creando factura...';
 
