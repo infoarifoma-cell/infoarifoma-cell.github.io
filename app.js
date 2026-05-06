@@ -4008,6 +4008,8 @@ async function enviarBCCliente(bcIdx, btn) {
     const cRes = await fetch(base, { headers });
     const cJson = await cRes.json();
     console.log('BC Companies response:', cJson);
+    console.log('Buscando company:', BC_COMPANY);
+    console.log('Nombres disponibles:', cJson.value.map(c => c.name));
     const company = cJson.value.find(c => c.name === BC_COMPANY);
     if (!company) throw new Error('Company no encontrada: ' + BC_COMPANY);
     const companyId = company.id;
