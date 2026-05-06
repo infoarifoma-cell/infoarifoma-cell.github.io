@@ -4007,6 +4007,7 @@ async function enviarBCCliente(bcIdx, btn) {
     // Obtener ID de la company
     const cRes = await fetch(base, { headers });
     const cJson = await cRes.json();
+    console.log('BC Companies response:', cJson);
     const company = cJson.value.find(c => c.name === BC_COMPANY);
     if (!company) throw new Error('Company no encontrada: ' + BC_COMPANY);
     const companyId = company.id;
