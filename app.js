@@ -2579,7 +2579,7 @@ function renderExtras(){
       const ex=getExtrasMonth(n,y,m)+acc;
       if(ex>=0){total+=ex;acc=0;}else{acc=ex;}
     }
-    const cls=total>0?'extra-pos':'';return`<div class="extras-row"><span style="font-weight:600">${n}</span><span class="${cls}">${fmtExtra(total*3600000)}</span></div>`;
+    const cls=total>0?'extra-pos':'';return`<div class="extras-row"><span style="font-weight:600">${n}</span><span class="${cls}">${fmtExtra(total)}</span></div>`;
   }).join('');
   document.getElementById('extras-sum').innerHTML=`<div class="extras-sum">${rows}</div>`;
 }
@@ -2589,10 +2589,10 @@ function renderHistorial(){
   fst.registros.forEach(r=>{const jid=Math.floor(r.id/2);if(!byJid.has(jid))byJid.set(jid,{});byJid.get(jid)[r.tipo]=r;});
   const jornadas=[...byJid.entries()]
     .filter(([,v])=>v.entrada&&(!f||v.entrada.nombre===f))
-    .map(([jid,v])=>({jid,nombre:v.entrada.nombre,entrada:fmtH(v.entrada.ts),salida:v.salida?fmtH(v.salida.ts):'—',duracion:v.salida?fmtDur(safeDur(v.entrada.ts,v.salida.ts)):'—'}))
+    .map(([jid,v])=>({jid,nombre:v.entrada.nombre,fecha:fmtFecha(v.entrada.ts),entrada:fmtH(v.entrada.ts),salida:v.salida?fmtH(v.salida.ts):'—',duracion:v.salida?fmtDur(safeDur(v.entrada.ts,v.salida.ts)):'—'}))
     .sort((a,b)=>b.jid-a.jid);
   if(!jornadas.length){h.innerHTML='<div class="tbl"><div class="empty">Sin registros aún</div></div>';return;}
-  h.innerHTML=`<div class="tbl"><div class="tr th"><div class="tc" style="flex:1.2;font-weight:700">Trabajador</div><div class="tc" style="flex:.8">Entrada</div><div class="tc" style="flex:.8">Salida</div><div class="tc" style="flex:.8">Duración</div></div>${jornadas.map(j=>`<div class="tr"><div class="tc" style="flex:1.2;font-size:.82rem">${j.nombre}</div><div class="tc" style="flex:.8;color:var(--accent2);font-family:'DM Mono',monospace;font-size:.82rem">${j.entrada}</div><div class="tc" style="flex:.8;color:var(--danger);font-family:'DM Mono',monospace;font-size:.82rem">${j.salida}</div><div class="tc" style="flex:.8;color:var(--muted);font-family:'DM Mono',monospace;font-size:.82rem">${j.duracion}</div></div>`).join('')}</div>`;
+  h.innerHTML=`<div class="tbl"><div class="tr th"><div class="tc" style="flex:1.2;font-weight:700">Trabajador</div><div class="tc" style="flex:.7">Fecha</div><div class="tc" style="flex:.8">Entrada</div><div class="tc" style="flex:.8">Salida</div><div class="tc" style="flex:.8">Duración</div></div>${jornadas.map(j=>`<div class="tr"><div class="tc" style="flex:1.2;font-size:.82rem">${j.nombre}</div><div class="tc" style="flex:.7;color:var(--muted);font-size:.75rem">${j.fecha}</div><div class="tc" style="flex:.8;color:var(--accent2);font-family:'DM Mono',monospace;font-size:.82rem">${j.entrada}</div><div class="tc" style="flex:.8;color:var(--danger);font-family:'DM Mono',monospace;font-size:.82rem">${j.salida}</div><div class="tc" style="flex:.8;color:var(--muted);font-family:'DM Mono',monospace;font-size:.82rem">${j.duracion}</div></div>`).join('')}</div>`;
 }
 
 // VAC
