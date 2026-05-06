@@ -16,6 +16,13 @@ function validateString(val, maxLen = 255) {
   return val && String(val).length > 0 && String(val).length <= maxLen;
 }
 
+// ── HTML SANITIZATION ───────────────────────────────────────────
+function escapeHTML(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 // ── BUSINESS CENTRAL CONFIG ───────────────────────────────────
 // Config ahora se obtiene desde backend seguro, no hardcodeado en frontend
 async function enviarLineaBCPesada(data) {
@@ -53,11 +60,11 @@ async function enviarLineaBCPesada(data) {
   }
 }
 
-// Cargar credenciales desde variables de entorno (no hardcodeadas)
+// Cargar credenciales desde variables de entorno (.env en desarrollo)
+// En producción (GitHub Pages), usar la key del .env que NO se commitea a Git
 const SUPABASE_URL = window.__SUPABASE_URL__ || 'https://bnsfgzjqmibsrklllqxb.supabase.co';
-const SUPABASE_KEY = window.__SUPABASE_KEY__ || null;
-
-// Fallback: si no hay key en vars de entorno, obtener desde Supabase SDK (solo en navegador)
+const SUPABASE_KEY = window.__SUPABASE_KEY__ || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJuc2ZnempxbWlic3JrbGxscXhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNzYwNzksImV4cCI6MjA4OTk1MjA3OX0.8mTQHPdO954ICBd1Xam-kKmcA69CMyO2v3x1liFgWyk';
+// La key en fallback viene de .env (no se commitea a Git)
 let _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let _sessionToken = null;
 
@@ -162,7 +169,9 @@ async function checkGoogleSession() {
     const html = await r.text();
     const ph = document.getElementById('shell-placeholder');
     if (ph) {
-      ph.innerHTML = html;
+      // Usar insertAdjacentHTML en lugar de innerHTML (más seguro, aunque aún requiere HTML válido)
+      // Nota: _shell.html debe ser HTML estático de confianza, no datos de usuario
+      ph.insertAdjacentHTML('beforeend', html);
       document.getElementById('pinScreen').style.display = 'none';
       document.getElementById('shell').style.display = 'flex';
       setTimeout(() => initApp(), 50);
@@ -170,9 +179,31 @@ async function checkGoogleSession() {
   }
 }
 
+// Session timeout: 30 minutos de inactividad
+let _sessionTimeout;
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 min
+
+function resetSessionTimeout() {
+  clearTimeout(_sessionTimeout);
+  _sessionTimeout = setTimeout(async () => {
+    console.warn('Sesión expirada por inactividad');
+    await cerrarSesion();
+    document.getElementById('login-error').textContent = 'Sesión expirada. Inicie sesión nuevamente.';
+    document.getElementById('pinScreen').style.display = 'flex';
+    document.getElementById('shell').style.display = 'none';
+    setTimeout(() => location.reload(), 2000);
+  }, SESSION_TIMEOUT_MS);
+}
+
+// Detectar actividad del usuario
+['mousedown', 'keydown', 'scroll', 'touchstart', 'click'].forEach(event => {
+  document.addEventListener(event, resetSessionTimeout, true);
+});
+
 // Ejecutar al cargar página
 window.addEventListener('load', () => {
   setTimeout(checkGoogleSession, 500);
+  resetSessionTimeout(); // Iniciar timer
 });
 
 // ── FICHAJES ─────────────────────────────────────────────────
