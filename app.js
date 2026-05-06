@@ -4026,10 +4026,9 @@ async function enviarBCCliente(bcIdx, btn) {
     // Obtener fecha del filtro activo
     const mesEl = document.getElementById('fact-mes');
     const anyoEl = document.getElementById('fact-anyo');
-    console.log('mesEl:', mesEl, 'value:', mesEl?.value);
-    console.log('anyoEl:', anyoEl, 'value:', anyoEl?.value);
-    const mes = parseInt(mesEl?.value||0) + 1;
-    const anyo = parseInt(anyoEl?.value||0);
+    if (!mesEl?.value || !anyoEl?.value) throw new Error('Selecciona mes y año en filtros');
+    const mes = parseInt(mesEl.value) + 1;
+    const anyo = parseInt(anyoEl.value);
     const invoiceDate = `${anyo}-${String(mes).padStart(2,'0')}-01`;
     console.log('invoiceDate:', invoiceDate);
 
