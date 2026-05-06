@@ -1177,7 +1177,7 @@ async function cargarPedidosHoy(){
     </div>`;
     div.onmouseover=()=>div.style.borderColor='var(--accent)';
     div.onmouseout=()=>div.style.borderColor='var(--border)';
-    div.onclick=()=>seleccionarPedidoExistente(p.numPedido, p.nombreCliente, json.ok?json.data:[]);
+    div.onclick=()=>seleccionarPedidoExistente(p.numPedido, p.nombreCliente, json.data||[], p.fuente);
     listEl.appendChild(div);
   });
 }
@@ -1209,18 +1209,47 @@ async function _cargarPedidosAbiertosBC(){
   }catch(e){console.warn('BC pedidos abiertos:',e.message);return[];}
 }
 
-function seleccionarPedidoExistente(numPedido, nombreCliente, allData){
+async function seleccionarPedidoExistente(numPedido, nombreCliente, allData, fuente){
   basNumPedido=numPedido;
   // Find client
   const cli=CLIENTES.find(c=>c.nombre.toUpperCase()===nombreCliente.toUpperCase());
   basSelCliente={nombre:nombreCliente, codigo:cli?cli.codigo:''};
   // Calculate next linea and load existing lines
-  const lineasData=allData.filter(r=>r.numPedido===numPedido&&Number(r.numLinea||0)>0).sort((a,b)=>Number(a.numLinea)-Number(b.numLinea));
+  let lineasData=allData.filter(r=>r.numPedido===numPedido&&Number(r.numLinea||0)>0).sort((a,b)=>Number(a.numLinea)-Number(b.numLinea));
+
+  // Si es pedido BC y no hay líneas en local, cargar de BC
+  if(fuente==='bc'&&lineasData.length===0){
+    try{
+      if(typeof getBCToken==='function'){
+        const token=await getBCToken();
+        const base=`https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/api/v2.0/companies`;
+        const headers={'Authorization':`Bearer ${token}`};
+        if(!window._bcCompanyId){
+          const cJson=await(await fetch(base,{headers})).json();
+          const company=(cJson.value||[]).find(c=>c.name===BC_COMPANY);
+          if(company)window._bcCompanyId=company.id;
+        }
+        if(window._bcCompanyId){
+          const url=`${base}(${window._bcCompanyId})/salesOrderLines?$filter=documentNumber eq '${numPedido}'&$select=documentNumber,sequence,quantity,unitPrice,lineType&$orderby=sequence`;
+          const res=await fetch(url,{headers});
+          if(res.ok){
+            const json=await res.json();
+            lineasData=(json.value||[]).map((l,i)=>({
+              numPedido:l.documentNumber,
+              numLinea:(i+1)*10000,
+              pesoNeto:l.quantity||0
+            }));
+          }
+        }
+      }
+    }catch(e){console.warn('BC líneas:',e.message);}
+  }
+
   const lineasNums=lineasData.map(r=>Number(r.numLinea));
   basCurrentLinea=lineasNums.length>0?Math.max(...lineasNums)+10000:10000;
   basLineasSesion=lineasData.map(r=>({
     numLinea:Number(r.numLinea),
-    matriculacam:r.matriculacam,
+    matriculacam:r.matriculacam||'',
     matricularem:r.matricularem||'',
     pesoNeto:r.pesoNeto,
     productoCod:r.productoCod||'',
