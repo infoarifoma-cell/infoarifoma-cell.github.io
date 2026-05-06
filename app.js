@@ -4023,12 +4023,12 @@ async function enviarBCCliente(bcIdx, btn) {
     const customerNo = pedidoCli?.codigoCliente || '';
     console.log('customerNo:', customerNo);
 
-    // Obtener fecha del filtro activo
+    // Obtener fecha del filtro activo (usa hoy si no hay filtro)
+    const now = new Date();
     const mesEl = document.getElementById('fact-mes');
     const anyoEl = document.getElementById('fact-anyo');
-    if (!mesEl?.value || !anyoEl?.value) throw new Error('Selecciona mes y año en filtros');
-    const mes = parseInt(mesEl.value) + 1;
-    const anyo = parseInt(anyoEl.value);
+    const mes = (mesEl?.value ? parseInt(mesEl.value) : now.getMonth()) + 1;
+    const anyo = anyoEl?.value ? parseInt(anyoEl.value) : now.getFullYear();
     const invoiceDate = `${anyo}-${String(mes).padStart(2,'0')}-01`;
     console.log('invoiceDate:', invoiceDate);
 
