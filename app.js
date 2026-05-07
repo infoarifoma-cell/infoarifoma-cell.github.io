@@ -3825,7 +3825,7 @@ async function exportarExcelCliente(bcIdx) {
   const viajes = factData.filter(r => {
     const d = parseFechaFact(r.fechaHora) || parseFechaFact(r.fechaPedido);
     if (!d) return false;
-    if (d.getMonth() !== mes || d.getFullYear() !== anyo) return false;
+    if (d.getMonth() + 1 !== mes || d.getFullYear() !== anyo) return false;
     return (r.nombreCliente || '').trim() === cli.trim();
   }).sort((a, b) => new Date(a.fechaHora) - new Date(b.fechaHora));
 
