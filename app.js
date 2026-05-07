@@ -3818,9 +3818,9 @@ function renderFacturacion(){
 // ── EXPORTAR EXCEL ───────────────────────────────────────────
 async function exportarExcelCliente(bcIdx) {
   const { cli } = window._bcClientesData[bcIdx];
-  const mes = parseInt(document.getElementById('fact-mes').value);
-  const anyo = parseInt(document.getElementById('fact-anyo').value);
-  const nomMes = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][mes];
+  const fechaDesdeStr = document.getElementById('fact-fecha-desde').value;
+  const [anyo, mes] = fechaDesdeStr ? fechaDesdeStr.split('-').slice(0, 2).map(Number) : [new Date().getFullYear(), new Date().getMonth() + 1];
+  const nomMes = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][mes - 1];
 
   const viajes = factData.filter(r => {
     const d = parseFechaFact(r.fechaHora) || parseFechaFact(r.fechaPedido);
