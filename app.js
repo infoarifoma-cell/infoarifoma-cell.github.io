@@ -3819,13 +3819,26 @@ function renderFacturacion(){
 async function exportarExcelCliente(bcIdx) {
   const { cli } = window._bcClientesData[bcIdx];
   const fechaDesdeStr = document.getElementById('fact-fecha-desde').value;
+  const fechaHastaStr = document.getElementById('fact-fecha-hasta').value;
+
+  let fechaDesde = null, fechaHasta = null;
+  if (fechaDesdeStr) {
+    const [y, m, d] = fechaDesdeStr.split('-');
+    fechaDesde = new Date(parseInt(y), parseInt(m) - 1, parseInt(d), 0, 0, 0);
+  }
+  if (fechaHastaStr) {
+    const [y, m, d] = fechaHastaStr.split('-');
+    fechaHasta = new Date(parseInt(y), parseInt(m) - 1, parseInt(d), 23, 59, 59);
+  }
+
   const [anyo, mes] = fechaDesdeStr ? fechaDesdeStr.split('-').slice(0, 2).map(Number) : [new Date().getFullYear(), new Date().getMonth() + 1];
   const nomMes = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][mes - 1];
 
   const viajes = factData.filter(r => {
     const d = parseFechaFact(r.fechaHora) || parseFechaFact(r.fechaPedido);
     if (!d) return false;
-    if (d.getMonth() + 1 !== mes || d.getFullYear() !== anyo) return false;
+    if (fechaDesde && d < fechaDesde) return false;
+    if (fechaHasta && d > fechaHasta) return false;
     return (r.nombreCliente || '').trim() === cli.trim();
   }).sort((a, b) => new Date(a.fechaHora) - new Date(b.fechaHora));
 
