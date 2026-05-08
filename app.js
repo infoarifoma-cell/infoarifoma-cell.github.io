@@ -122,53 +122,24 @@ async function doPostPesada(data) {
 
 async function enviarLineaBCPesada(data) {
   const token = await getBCToken();
-  const base = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/api/v2.0/companies`;
-  const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
-
-  // Obtener company ID
-  const cJson = await (await fetch(base, { headers })).json();
-  const company = cJson.value.find(c => c.name === BC_COMPANY);
-  if (!company) throw new Error('Company no encontrada');
-  const companyId = company.id;
-
-  // Buscar pedido abierto para este cliente+proyecto
-  const filter = `customerNumber eq '${data.codigoCliente}' and externalDocumentNumber eq '${data.proyectoCod}'`;
-  const ordersRes = await fetch(`${base}(${companyId})/salesOrders?$filter=${encodeURIComponent(filter)}&$select=id,number`, { headers });
-  const ordersJson = await ordersRes.json();
-  let orderId;
-
-  if (ordersJson.value && ordersJson.value.length > 0) {
-    orderId = ordersJson.value[0].id;
-  } else {
-    // Crear pedido nuevo
-    const newOrder = await fetch(`${base}(${companyId})/salesOrders`, {
-      method: 'POST', headers,
-      body: JSON.stringify({
-        customerNumber: data.codigoCliente,
-        externalDocumentNumber: data.proyectoCod
-      })
-    });
-    if (!newOrder.ok) throw new Error(await newOrder.text());
-    orderId = (await newOrder.json()).id;
-  }
-
-  // Añadir línea
-  const lineRes = await fetch(`${base}(${companyId})/salesOrders(${orderId})/salesOrderLines`, {
-    method: 'POST', headers,
+  const res = await fetch('/api/bc/linea-pesada', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      lineType: 'Item',
-      lineObjectNumber: data.productoCod,
-      description: `${data.productoNombre} | ${data.proyectoName||data.proyectoCod} | ${(Number(data.pesoNeto)/1000).toFixed(3)} Tn | ${data.matriculacam}`,
-      quantity: parseFloat((Number(data.pesoNeto) / 1000).toFixed(3)),
-      unitPrice: 0
+      token,
+      codigoCliente: data.codigoCliente,
+      proyectoCod: data.proyectoCod,
+      productoCod: data.productoCod,
+      productoNombre: data.productoNombre,
+      pesoNeto: data.pesoNeto,
+      matriculacam: data.matriculacam,
+      proyectoName: data.proyectoName
     })
   });
-  if (!lineRes.ok) throw new Error(await lineRes.text());
-  const lineJson = await lineRes.json();
-  // numalbarancalle = documentNumber/lineSequenceNumber (ej: PEDV26-000879/30000)
-  const docNum = lineJson.documentNumber || '';
-  const lineSeq = lineJson.sequence || lineJson.lineSequenceNumber || lineJson.lineNumber || '';
-  return docNum && lineSeq ? `${docNum}/${lineSeq}` : docNum || null;
+  if (!res.ok) throw new Error(await res.text());
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error);
+  return json.numalbarancalle;
 }
 async function doEditarPedido(data) {
   const updates = {};
@@ -4012,15 +3983,6 @@ async function enviarBCCliente(bcIdx, btn) {
   btn.textContent = 'Conectando...';
   try {
     const token = await getBCToken();
-    const base = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/api/v2.0/companies`;
-    const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
-
-    // Obtener ID de la company
-    const cRes = await fetch(base, { headers });
-    const cJson = await cRes.json();
-    const company = cJson.value.find(c => c.name.trim() === BC_COMPANY.trim());
-    if (!company) throw new Error('Company no encontrada: ' + BC_COMPANY);
-    const companyId = company.id;
 
     // Buscar codigoCliente en factData
     const pedidoCli = factData?.find(r => (r.nombreCliente||'').trim() === cli.trim());
@@ -4036,21 +3998,34 @@ async function enviarBCCliente(bcIdx, btn) {
 
     btn.textContent = 'Creando factura...';
 
-    // Crear Sales Invoice
-    const invRes = await fetch(`${base}(${companyId})/salesInvoices`, {
-      method: 'POST', headers,
+    // Crear factura vía backend
+    const invRes = await fetch('/api/bc/facturas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        token,
         customerNumber: customerNo,
         invoiceDate,
         externalDocumentNumber: `APP-${cli.substring(0,10).replace(/\s/g,'-')}-${anyo}${String(mes).padStart(2,'0')}`
       })
     });
-    if (!invRes.ok) throw new Error(await invRes.text());
-    const inv = await invRes.json();
-    const invId = inv.id;
 
-    // Crear líneas por proyecto → producto
+    if (!invRes.ok) throw new Error(await invRes.text());
+    const invData = await invRes.json();
+    if (!invData.ok) throw new Error(invData.error);
+
+    const inv = invData.invoice;
+    const invId = inv.id;
     let lineCount = 0;
+
+    // Crear líneas por proyecto → producto (directamente en frontend por ahora)
+    const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const base = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/api/v2.0/companies`;
+    const cRes = await fetch(base, { headers });
+    const cJson = await cRes.json();
+    const company = cJson.value.find(c => c.name.trim() === BC_COMPANY.trim());
+    const companyId = company.id;
+
     for (const [proy, pData] of Object.entries(cData.proyectos)) {
       for (const [prod, info] of Object.entries(pData.productos)) {
         const lineRes = await fetch(`${base}(${companyId})/salesInvoices(${invId})/salesInvoiceLines`, {
