@@ -91,7 +91,6 @@ async function verificarPin(nombre, pin) {
   if (error) return { ok: false, error: error.message };
   if (data && data.ok) {
     _initAuthClient(data.token);
-    scheduleTokenRefresh(data.token);
   }
   return data;
 }
@@ -198,7 +197,7 @@ function decodeJWT(token) {
   }
 }
 
-// Refrescar token antes de expiración
+// Refrescar token antes de expiración (Google auth)
 async function scheduleTokenRefresh(token) {
   clearTimeout(_tokenRefreshTimeout);
   const decoded = decodeJWT(token);
@@ -211,13 +210,13 @@ async function scheduleTokenRefresh(token) {
 
   if (refreshTime > 0) {
     _tokenRefreshTimeout = setTimeout(async () => {
-      console.log('Refrescando token...');
-      const result = await verificarPin(loginUser.nombre, ''); // PIN vacío = usar sesión existente
-      if (result && result.ok && result.token) {
-        _initAuthClient(result.token);
-        scheduleTokenRefresh(result.token);
+      console.log('Refrescando token Google...');
+      const { data: { session } } = await _supabase.auth.getSession();
+      if (session && session.access_token) {
+        _initAuthClient(session.access_token);
+        scheduleTokenRefresh(session.access_token);
       } else {
-        console.warn('Error refrescando token');
+        console.warn('Error refrescando token Google');
       }
     }, refreshTime);
   }
