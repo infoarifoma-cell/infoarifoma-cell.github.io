@@ -91,6 +91,7 @@ async function verificarPin(nombre, pin) {
   if (error) return { ok: false, error: error.message };
   if (data && data.ok) {
     _initAuthClient(data.token);
+    scheduleTokenRefresh(data.token);
   }
   return data;
 }
@@ -161,6 +162,7 @@ async function checkGoogleSession() {
       provider: 'google'
     };
     _initAuthClient(session.access_token);
+    scheduleTokenRefresh(session.access_token);
 
     // Cargar shell
     document.getElementById('login-loading').style.display = 'block';
@@ -181,7 +183,45 @@ async function checkGoogleSession() {
 
 // Session timeout: 30 minutos de inactividad
 let _sessionTimeout;
+let _tokenRefreshTimeout;
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 min
+
+// Decodificar JWT para obtener exp claim
+function decodeJWT(token) {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const decoded = JSON.parse(atob(parts[1]));
+    return decoded;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Refrescar token antes de expiración
+async function scheduleTokenRefresh(token) {
+  clearTimeout(_tokenRefreshTimeout);
+  const decoded = decodeJWT(token);
+  if (!decoded || !decoded.exp) return;
+
+  const expiresAt = decoded.exp * 1000; // exp está en segundos, convertir a ms
+  const now = Date.now();
+  const timeUntilExpiry = expiresAt - now;
+  const refreshTime = timeUntilExpiry - (5 * 60 * 1000); // Refrescar 5 min antes
+
+  if (refreshTime > 0) {
+    _tokenRefreshTimeout = setTimeout(async () => {
+      console.log('Refrescando token...');
+      const result = await verificarPin(loginUser.nombre, ''); // PIN vacío = usar sesión existente
+      if (result && result.ok && result.token) {
+        _initAuthClient(result.token);
+        scheduleTokenRefresh(result.token);
+      } else {
+        console.warn('Error refrescando token');
+      }
+    }, refreshTime);
+  }
+}
 
 function resetSessionTimeout() {
   clearTimeout(_sessionTimeout);
