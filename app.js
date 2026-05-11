@@ -715,9 +715,10 @@ async function initApp(){
       console.log('Antes data.forEach, data:', data);
       data.forEach(r => {
         console.log('En forEach, r:', r);
-        // Buscar worker que coincida (case-insensitive)
         const nombreDB = r.empleado.toUpperCase();
+        console.log('nombreDB:', nombreDB, 'WORKERS:', WORKERS);
         const worker = WORKERS.find(w => w.toUpperCase() === nombreDB);
+        console.log('worker encontrado:', worker);
         if (worker && r.entrada && !r.salida) {
           fst.workers[worker].working = true;
           if (r.fentrada) {
