@@ -683,7 +683,6 @@ async function cargarInit(){
 }
 
 async function initApp(){
-  initStylePanel();
   loadFst();
 
   // Event delegation para botones de fichaje
