@@ -685,13 +685,30 @@ async function cargarInit(){
 async function initApp(){
   initStylePanel();
   loadFst();
-  // Cargar fichajes de Supabase para actualizar estado actual
-  try{
-    const json = await apiFetch('?accion=fichajes');
-    if(json.ok && json.data) procesarFichajes(json);
+
+  // Actualizar estado HOY desde Supabase
+  const hoy = new Date().toISOString().slice(0, 10);
+  try {
+    const { data, error } = await _supabase
+      .from('tblFichaje')
+      .select('empleado, entrada, salida')
+      .eq('fecha', hoy);
+
+    if (!error && data) {
+      data.forEach(r => {
+        const nombre = r.empleado;
+        if (fst.workers[nombre]) {
+          fst.workers[nombre].working = !!(r.entrada && !r.salida);
+          if (r.entrada && !r.salida) {
+            fst.workers[nombre].entradaHoy = r.entrada;
+          }
+        }
+      });
+    }
   } catch(e) {
-    console.warn('Error cargando fichajes en init:', e);
+    console.warn('Error actualizando estado HOY:', e);
   }
+
   WORKERS.forEach(n=>recalcWorker(n));
   renderWgrid();renderStats();renderVac();renderCal();initOT();
   initBasculaUI();
@@ -2411,21 +2428,23 @@ async function verificarFichajePendiente(nombre) {
       .from('tblFichaje')
       .select('id, entrada, salida')
       .eq('empleado', nombre.toUpperCase())
-      .eq('fecha', hoy)
-      .single();
+      .eq('fecha', hoy);
 
-    if (error && error.code !== 'PGRST116') {
+    if (error) {
       console.error('Error verificando fichaje:', error);
-      return null;
+      return { bloqueado: false };
     }
 
-    if (data && data.entrada && !data.salida) {
-      return { bloqueado: true, motivo: 'Ya has fichado hoy. Primero debes desfichar.' };
+    if (data && data.length > 0) {
+      const registro = data[0];
+      if (registro.entrada && !registro.salida) {
+        return { bloqueado: true, motivo: 'Ya fichaste hoy. Debes desfichar primero.' };
+      }
     }
     return { bloqueado: false };
   } catch (e) {
     console.error('Exception verificarFichajePendiente:', e);
-    return null;
+    return { bloqueado: false };
   }
 }
 
