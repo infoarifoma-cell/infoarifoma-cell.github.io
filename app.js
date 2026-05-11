@@ -2329,8 +2329,8 @@ function parseFechaHoraStr(str){
     // Timestamp numérico
     const n=Number(str);if(!isNaN(n)&&n>1000000000000)return n;
     const s=String(str).trim();
-    // ISO UTC: "2026-04-07T05:00:00Z" — parsea directamente como UTC
-    if(s.includes('T')&&s.endsWith('Z')){const ts=new Date(s).getTime();if(!isNaN(ts))return ts;}
+    // ISO con timezone: "2026-04-07T05:00:00Z" o "2026-05-11T09:29:00+00:00"
+    if(s.includes('T')&&(s.endsWith('Z')||/[+-]\d{2}:\d{2}$/.test(s))){const ts=new Date(s).getTime();if(!isNaN(ts))return ts;}
     const sp=s.split(' ');if(sp.length<2)return null;
     const dp=sp[0],tp=sp[1];
     // Formato ISO: "2026-04-01" (guiones)
