@@ -140,7 +140,6 @@ async function checkGoogleSession() {
       console.error('checkGoogleSession: usuario no encontrado o error');
       document.getElementById('login-error').textContent = 'Credenciales inválidas o usuario no autorizado';
       await _supabase.auth.signOut();
-      setTimeout(() => location.reload(), 2000);
       return;
     }
 
@@ -149,7 +148,6 @@ async function checkGoogleSession() {
       console.error('checkGoogleSession: usuario no activo');
       document.getElementById('login-error').textContent = 'Credenciales inválidas o usuario no autorizado';
       await _supabase.auth.signOut();
-      setTimeout(() => location.reload(), 2000);
       return;
     }
 
