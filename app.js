@@ -688,11 +688,14 @@ async function initApp(){
 
   // Actualizar estado HOY desde Supabase
   const hoy = new Date().toISOString().slice(0, 10);
+  console.log('initApp: consultando fichajes de hoy:', hoy);
   try {
     const { data, error } = await _supabase
       .from('tblFichaje')
       .select('empleado, entrada, salida, fentrada')
       .eq('fecha', hoy);
+
+    console.log('initApp: data from Supabase:', data, 'error:', error);
 
     if (!error && data) {
       // Primero, marcar todos como NO fichados
@@ -704,8 +707,10 @@ async function initApp(){
       // Luego, actualizar solo los que tienen entrada sin salida HOY
       data.forEach(r => {
         const nombre = r.empleado;
+        console.log('Procesando registro:', nombre, 'entrada:', r.entrada, 'salida:', r.salida);
         if (nombre && fst.workers[nombre]) {
           if (r.entrada && !r.salida) {
+            console.log('Marcando como working:', nombre);
             fst.workers[nombre].working = true;
             // Parsear fentrada para recalcular
             if (r.fentrada) {
@@ -715,6 +720,7 @@ async function initApp(){
           }
         }
       });
+      console.log('initApp: fst.workers después de actualizar:', fst.workers);
     }
   } catch(e) {
     console.warn('Error actualizando estado HOY:', e);
