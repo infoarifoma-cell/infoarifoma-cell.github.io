@@ -231,7 +231,7 @@ function resetSessionTimeout() {
     document.getElementById('login-error').textContent = 'Sesión expirada. Inicie sesión nuevamente.';
     document.getElementById('pinScreen').style.display = 'flex';
     document.getElementById('shell').style.display = 'none';
-    setTimeout(() => location.reload(), 2000);
+    // setTimeout(() => location.reload(), 2000);
   }, SESSION_TIMEOUT_MS);
 }
 
