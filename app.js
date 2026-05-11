@@ -703,25 +703,16 @@ async function initApp(){
       .eq('fecha', hoy);
 
     console.log('initApp: Datos Supabase:', data, 'error:', error);
-    console.log('Condición check:', '!error:', !error, 'data:', !!data, 'length:', data?.length);
-
     if (!error && data && data.length > 0) {
-      console.log('Entrando en forEach...');
       WORKERS.forEach(n => {
         fst.workers[n].working = false;
         fst.workers[n].entradaTs = null;
       });
 
-      console.log('Antes data.forEach, data:', data);
       data.forEach(r => {
-        console.log('En forEach, r:', r);
         const nombreDB = r.empleado.toUpperCase();
-        console.log('nombreDB:', nombreDB, 'WORKERS:', WORKERS);
         const worker = WORKERS.find(w => w.toUpperCase() === nombreDB);
-        console.log('worker encontrado:', worker);
-        console.log('Condiciones if:', 'worker:', !!worker, 'r.entrada:', !!r.entrada, '!r.salida:', !r.salida);
         if (worker && r.entrada && !r.salida) {
-          console.log('Marcando como working:', worker);
           fst.workers[worker].working = true;
           if (r.fentrada) {
             fst.workers[worker].entradaTs = new Date(r.fentrada).getTime();
@@ -2542,7 +2533,8 @@ function getMsMonth(nombre,y,m){
 }
 function renderWcard(nombre){
   const w=fst.workers[nombre];const liveMs=w.working?(Date.now()-w.entradaTs):0;const total=w.totalMs+liveMs;
-  const c=document.getElementById('wc-'+nombre);if(!c)return;
+  const c=document.getElementById('wc-'+nombre);if(!c){console.log('renderWcard: no encontrado wc-'+nombre);return;}
+  console.log('renderWcard:', nombre, 'working:', w.working);
   c.className='wcard'+(w.working?' on':'');
   c.querySelector('.wst').innerHTML=w.working?'<span class="ldot"></span>Desde '+fmtH(w.entradaTs):'Sin fichar';
   c.querySelector('.wtime').textContent=total>0?'Hoy: '+fmtDur(total):'';
