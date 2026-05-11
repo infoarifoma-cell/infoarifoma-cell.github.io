@@ -2532,13 +2532,17 @@ function getMsMonth(nombre,y,m){
   return total;
 }
 function renderWcard(nombre){
-  const w=fst.workers[nombre];const liveMs=w.working?(Date.now()-w.entradaTs):0;const total=w.totalMs+liveMs;
-  const c=document.getElementById('wc-'+nombre);if(!c){console.log('renderWcard: no encontrado wc-'+nombre);return;}
-  console.log('renderWcard:', nombre, 'working:', w.working);
+  const w=fst.workers[nombre];
+  const liveMs=w.working?(Date.now()-w.entradaTs):0;
+  const total=w.totalMs+liveMs;
+  const c=document.getElementById('wc-'+nombre);
+  if(!c) return;
+
   c.className='wcard'+(w.working?' on':'');
   c.querySelector('.wst').innerHTML=w.working?'<span class="ldot"></span>Desde '+fmtH(w.entradaTs):'Sin fichar';
   c.querySelector('.wtime').textContent=total>0?'Hoy: '+fmtDur(total):'';
-  c.querySelector('.wbtn').textContent=w.working?'Registrar salida':'Registrar entrada';
+  const btn = c.querySelector('.wbtn');
+  if(btn) btn.textContent=w.working?'Registrar salida':'Registrar entrada';
 }
 function renderStats(){
   const act=WORKERS.filter(n=>fst.workers[n].working).length;
