@@ -683,6 +683,7 @@ async function cargarInit(){
 }
 
 async function initApp(){
+  console.log('initApp STARTED');
   initStylePanel();
   loadFst();
 
