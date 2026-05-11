@@ -691,6 +691,9 @@ async function initApp(){
   console.log('initApp() START - _supabase:', !!_supabase);
   loadFst();
 
+  // Recalcular estado working desde registros locales (antes de queryar Supabase)
+  WORKERS.forEach(n => recalcWorker(n));
+
   // Event delegation para botones de fichaje
   document.addEventListener('click', e => {
     if (e.target.classList.contains('wbtn')) {
