@@ -2545,6 +2545,7 @@ function getMsMonth(nombre,y,m){
 }
 function renderWcard(nombre){
   const w=fst.workers[nombre];
+  console.log(`renderWcard(${nombre}): working=${w.working}, entradaTs=${w.entradaTs}`);
   const liveMs=w.working?(Date.now()-w.entradaTs):0;
   const total=w.totalMs+liveMs;
   const c=document.getElementById('wc-'+nombre);
