@@ -723,14 +723,14 @@ async function initApp(){
           }
         }
       });
-      // Renderizar después de actualizar
-      WORKERS.forEach(n => renderWcard(n));
     }
   } catch(e) {
     console.warn('Error actualizando estado HOY:', e);
   }
 
   renderWgrid();renderStats();renderVac();renderCal();initOT();
+  // Renderizar estado actualizado DESPUÉS de renderWgrid
+  WORKERS.forEach(n => renderWcard(n));
   initBasculaUI();
   await cargarInit();
   // Load OT history in background for reminders
