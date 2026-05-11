@@ -719,7 +719,9 @@ async function initApp(){
         console.log('nombreDB:', nombreDB, 'WORKERS:', WORKERS);
         const worker = WORKERS.find(w => w.toUpperCase() === nombreDB);
         console.log('worker encontrado:', worker);
+        console.log('Condiciones if:', 'worker:', !!worker, 'r.entrada:', !!r.entrada, '!r.salida:', !r.salida);
         if (worker && r.entrada && !r.salida) {
+          console.log('Marcando como working:', worker);
           fst.workers[worker].working = true;
           if (r.fentrada) {
             fst.workers[worker].entradaTs = new Date(r.fentrada).getTime();
