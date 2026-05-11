@@ -53,24 +53,18 @@ async function getFichajes() {
   return error ? { ok: false, error: error.message } : { ok: true, data };
 }
 async function doPostEntrada(data) {
-  // Check auth
-  const { data: { user } } = await _supabase.auth.getUser();
-  console.log('doPostEntrada user:', user);
-  console.log('doPostEntrada _sessionToken:', _sessionToken);
-
   const insertData = {
-    empleado: data.empleado
+    empleado: data.empleado,
+    fecha: data.fecha || new Date().toISOString().slice(0, 10),
+    entrada: data.entrada || new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+    tipoTrabajo: data.tipoTrabajo || 'JORNADA',
+    fentrada: data.fentrada || new Date().toISOString()
   };
-  console.log('TEST: insertData solo empleado:', insertData);
   const { error } = await _supabase.from('tblFichaje').insert([insertData]);
   if (error) {
-    console.error('doPostEntrada error full:', error);
-    console.error('doPostEntrada error code:', error.code);
-    console.error('doPostEntrada error message:', error.message);
-    console.error('doPostEntrada error details:', error.details);
+    console.error('doPostEntrada error:', error.message);
     return { ok: false, error: error.message };
   }
-  console.log('doPostEntrada success');
   return { ok: true };
 }
 async function doEditSalida(data) {
@@ -462,7 +456,6 @@ async function apiFetch(params) {
 // ── ROUTER: apiPost (híbrido Supabase + Google Sheets) ──────
 async function apiPost(payload) {
   const t = payload.tipo || '';
-  console.log('apiPost called with tipo:', t, 'payload:', payload);
 
   // ── Producción y Gasoil → Google Sheets ──
   if (t === 'gasoil' || t === 'editarGasoil' || t === 'editProduccion' || t === 'addProduccion') {
@@ -470,10 +463,7 @@ async function apiPost(payload) {
   }
 
   // ── Todo lo demás → Supabase ──
-  if (t === 'fichajeEntrada') {
-    console.log('Calling doPostEntrada');
-    return doPostEntrada(payload);
-  }
+  if (t === 'fichajeEntrada')  return doPostEntrada(payload);
   if (t === 'fichajesSalida')  return doEditSalida(payload);
   if (t === 'editFichaje')     return doEditFichaje(payload);
   if (t === 'delFichaje')      return doDeleteFichaje(payload);
@@ -2426,17 +2416,11 @@ function ficharWorker(nombre){
   saveFst();renderWcard(nombre);renderStats();
 }
 async function enviarEntrada(nombre,tsE){
-  console.log('enviarEntrada called:', nombre, tsE);
   const _d=new Date(tsE);const _fecha=_d.getFullYear()+'-'+pad(_d.getMonth()+1)+'-'+pad(_d.getDate());
   const payload={tipo:'fichajeEntrada',empleado:nombre.toUpperCase(),fecha:_fecha,entrada:fmtHM(tsE),fentrada:fmtFechaHora(tsE)};
-  console.log('enviarEntrada payload:', payload);
   try{
     const result = await apiPost(payload);
-    if (!result.ok) {
-      console.error('enviarEntrada error:', result.error);
-    } else {
-      console.log('enviarEntrada success:', nombre);
-    }
+    if (!result.ok) console.error('enviarEntrada error:', result.error);
   } catch(e) {
     console.error('enviarEntrada exception:', e.message);
   }
@@ -2445,11 +2429,7 @@ async function enviarSalida(nombre,tsE,tsS,ms){
   const payload={tipo:'fichajesSalida',empleado:nombre.toUpperCase(),fentrada:fmtFechaHora(tsE),salida:fmtHM(tsS),fsalida:fmtFechaHora(tsS),tiempodia:Math.round(ms/60000)/60};
   try{
     const result = await apiPost(payload);
-    if (!result.ok) {
-      console.error('enviarSalida error:', result.error);
-    } else {
-      console.log('enviarSalida success:', nombre);
-    }
+    if (!result.ok) console.error('enviarSalida error:', result.error);
   } catch(e) {
     console.error('enviarSalida exception:', e.message);
   }
