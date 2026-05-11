@@ -683,45 +683,32 @@ async function cargarInit(){
 }
 
 async function initApp(){
-  console.log('initApp STARTED');
   initStylePanel();
   loadFst();
 
   // Actualizar estado HOY desde Supabase
   const hoy = new Date().toISOString().slice(0, 10);
-  console.log('initApp: consultando fichajes de hoy:', hoy);
   try {
     const { data, error } = await _supabase
       .from('tblFichaje')
       .select('empleado, entrada, salida, fentrada')
       .eq('fecha', hoy);
 
-    console.log('initApp: data from Supabase:', data, 'error:', error);
-
-    if (!error && data) {
-      // Primero, marcar todos como NO fichados
+    if (!error && data && data.length > 0) {
       WORKERS.forEach(n => {
         fst.workers[n].working = false;
         fst.workers[n].entradaTs = null;
       });
 
-      // Luego, actualizar solo los que tienen entrada sin salida HOY
       data.forEach(r => {
         const nombre = r.empleado;
-        console.log('Procesando registro:', nombre, 'entrada:', r.entrada, 'salida:', r.salida);
-        if (nombre && fst.workers[nombre]) {
-          if (r.entrada && !r.salida) {
-            console.log('Marcando como working:', nombre);
-            fst.workers[nombre].working = true;
-            // Parsear fentrada para recalcular
-            if (r.fentrada) {
-              const ts = new Date(r.fentrada).getTime();
-              fst.workers[nombre].entradaTs = ts;
-            }
+        if (nombre && fst.workers[nombre] && r.entrada && !r.salida) {
+          fst.workers[nombre].working = true;
+          if (r.fentrada) {
+            fst.workers[nombre].entradaTs = new Date(r.fentrada).getTime();
           }
         }
       });
-      console.log('initApp: fst.workers después de actualizar:', fst.workers);
     }
   } catch(e) {
     console.warn('Error actualizando estado HOY:', e);
@@ -2474,7 +2461,6 @@ async function ficharWorker(nombre){
   if(!w.working){
     // Verificar si ya existe fichaje pendiente hoy
     const resultado = await verificarFichajePendiente(nombre);
-    console.log('verificarFichajePendiente resultado:', resultado);
     if (resultado && resultado.bloqueado) {
       alert(resultado.motivo);
       return;

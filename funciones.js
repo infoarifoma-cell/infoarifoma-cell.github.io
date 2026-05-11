@@ -126,9 +126,7 @@ async function googleLogin() {
 
 // Verificar si hay sesión Google al cargar
 async function checkGoogleSession() {
-  console.log('checkGoogleSession STARTED');
   const { data: { session } } = await _supabase.auth.getSession();
-  console.log('checkGoogleSession session:', session);
   if (session && session.user) {
     const email = session.user.email;
 
@@ -243,10 +241,10 @@ function resetSessionTimeout() {
 });
 
 // Ejecutar al cargar página
-document.addEventListener('DOMContentLoaded', () => {
-  checkGoogleSession();
+setTimeout(() => {
+  checkGoogleSession().catch(e => console.error('checkGoogleSession error:', e));
   resetSessionTimeout();
-});
+}, 100);
 
 // ── FICHAJES ─────────────────────────────────────────────────
 
