@@ -685,6 +685,13 @@ async function cargarInit(){
 async function initApp(){
   initStylePanel();
   loadFst();
+  // Cargar fichajes de Supabase para actualizar estado actual
+  try{
+    const json = await apiFetch('?accion=fichajes');
+    if(json.ok && json.data) procesarFichajes(json);
+  } catch(e) {
+    console.warn('Error cargando fichajes en init:', e);
+  }
   WORKERS.forEach(n=>recalcWorker(n));
   renderWgrid();renderStats();renderVac();renderCal();initOT();
   initBasculaUI();
