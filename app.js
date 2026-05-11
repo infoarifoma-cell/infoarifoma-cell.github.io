@@ -703,8 +703,10 @@ async function initApp(){
       .eq('fecha', hoy);
 
     console.log('initApp: Datos Supabase:', data, 'error:', error);
+    console.log('Condición check:', '!error:', !error, 'data:', !!data, 'length:', data?.length);
 
     if (!error && data && data.length > 0) {
+      console.log('Entrando en forEach...');
       WORKERS.forEach(n => {
         fst.workers[n].working = false;
         fst.workers[n].entradaTs = null;
@@ -714,15 +716,15 @@ async function initApp(){
         // Buscar worker que coincida (case-insensitive)
         const nombreDB = r.empleado.toUpperCase();
         const worker = WORKERS.find(w => w.toUpperCase() === nombreDB);
-        console.log('Buscando:', nombreDB, '→ encontrado:', worker);
         if (worker && r.entrada && !r.salida) {
-          console.log('Marcando como working:', worker);
           fst.workers[worker].working = true;
           if (r.fentrada) {
             fst.workers[worker].entradaTs = new Date(r.fentrada).getTime();
           }
         }
       });
+      // Renderizar después de actualizar
+      WORKERS.forEach(n => renderWcard(n));
     }
   } catch(e) {
     console.warn('Error actualizando estado HOY:', e);
