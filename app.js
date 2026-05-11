@@ -2556,7 +2556,9 @@ function renderStats(){
   document.getElementById('i-hrs').textContent=fmtDur(ms);
 }
 function renderWgrid(){
+  console.log('renderWgrid called');
   document.getElementById('wgrid').innerHTML=WORKERS.map(n=>`<div class="wcard" id="wc-${n}"><div class="wname">${n}</div><div class="wst">Sin fichar</div><div class="wtime"></div><button class="wbtn" data-worker="${n}">Registrar entrada</button></div>`).join('');
+  console.log('renderWgrid done, wbtn count:', document.querySelectorAll('.wbtn').length);
 }
 function renderResumenCards(){
   const resGrid=document.getElementById('res-grid');
