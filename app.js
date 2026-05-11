@@ -62,7 +62,10 @@ async function doPostEntrada(data) {
     fentrada: data.fentrada || new Date().toISOString()
   }]);
   if (error) {
-    console.error('doPostEntrada error:', JSON.stringify(error));
+    console.error('doPostEntrada error full:', error);
+    console.error('doPostEntrada error code:', error.code);
+    console.error('doPostEntrada error message:', error.message);
+    console.error('doPostEntrada error details:', error.details);
     return { ok: false, error: error.message };
   }
   console.log('doPostEntrada success');
