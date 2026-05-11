@@ -54,7 +54,6 @@ async function getFichajes() {
 }
 async function doPostEntrada(data) {
   const insertData = {
-    id: crypto.randomUUID(),
     empleado: data.empleado,
     fecha: data.fecha || new Date().toISOString().slice(0, 10),
     entrada: data.entrada || new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
@@ -62,7 +61,7 @@ async function doPostEntrada(data) {
     fentrada: data.fentrada || new Date().toISOString()
   };
   console.log('doPostEntrada insertData:', insertData);
-  const { error } = await _supabase.from('tblFichaje').insert([insertData]);
+  const { error } = await _supabase.from('tblFichaje').upsert([insertData], { onConflict: 'empleado,fecha' });
   if (error) {
     console.error('doPostEntrada error full:', error);
     console.error('doPostEntrada error code:', error.code);
