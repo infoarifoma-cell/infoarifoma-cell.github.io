@@ -702,6 +702,8 @@ async function initApp(){
       .select('empleado, entrada, salida, fentrada')
       .eq('fecha', hoy);
 
+    console.log('initApp: Datos Supabase:', data, 'error:', error);
+
     if (!error && data && data.length > 0) {
       WORKERS.forEach(n => {
         fst.workers[n].working = false;
