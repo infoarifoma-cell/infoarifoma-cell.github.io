@@ -691,16 +691,27 @@ async function initApp(){
   try {
     const { data, error } = await _supabase
       .from('tblFichaje')
-      .select('empleado, entrada, salida')
+      .select('empleado, entrada, salida, fentrada')
       .eq('fecha', hoy);
 
     if (!error && data) {
+      // Primero, marcar todos como NO fichados
+      WORKERS.forEach(n => {
+        fst.workers[n].working = false;
+        fst.workers[n].entradaTs = null;
+      });
+
+      // Luego, actualizar solo los que tienen entrada sin salida HOY
       data.forEach(r => {
         const nombre = r.empleado;
-        if (fst.workers[nombre]) {
-          fst.workers[nombre].working = !!(r.entrada && !r.salida);
+        if (nombre && fst.workers[nombre]) {
           if (r.entrada && !r.salida) {
-            fst.workers[nombre].entradaHoy = r.entrada;
+            fst.workers[nombre].working = true;
+            // Parsear fentrada para recalcular
+            if (r.fentrada) {
+              const ts = new Date(r.fentrada).getTime();
+              fst.workers[nombre].entradaTs = ts;
+            }
           }
         }
       });
@@ -709,7 +720,6 @@ async function initApp(){
     console.warn('Error actualizando estado HOY:', e);
   }
 
-  WORKERS.forEach(n=>recalcWorker(n));
   renderWgrid();renderStats();renderVac();renderCal();initOT();
   initBasculaUI();
   await cargarInit();
@@ -2457,6 +2467,7 @@ async function ficharWorker(nombre){
   if(!w.working){
     // Verificar si ya existe fichaje pendiente hoy
     const resultado = await verificarFichajePendiente(nombre);
+    console.log('verificarFichajePendiente resultado:', resultado);
     if (resultado && resultado.bloqueado) {
       alert(resultado.motivo);
       return;
