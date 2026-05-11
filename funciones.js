@@ -126,7 +126,9 @@ async function googleLogin() {
 
 // Verificar si hay sesión Google al cargar
 async function checkGoogleSession() {
+  console.log('checkGoogleSession STARTED');
   const { data: { session } } = await _supabase.auth.getSession();
+  console.log('checkGoogleSession session:', session);
   if (session && session.user) {
     const email = session.user.email;
 
