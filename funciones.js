@@ -239,9 +239,13 @@ function resetSessionTimeout() {
 });
 
 // Ejecutar al cargar página
+let appInitialized = false;
 setTimeout(() => {
-  checkGoogleSession().catch(e => console.error('checkGoogleSession error:', e));
-  resetSessionTimeout();
+  if (!appInitialized) {
+    appInitialized = true;
+    checkGoogleSession().catch(e => console.error('checkGoogleSession error:', e));
+    resetSessionTimeout();
+  }
 }, 100);
 
 // ── FICHAJES ─────────────────────────────────────────────────
