@@ -2426,30 +2426,17 @@ function procesarAusencias(json){
 }
 
 async function verificarFichajePendiente(nombre) {
-  try {
-    const hoy = new Date().toISOString().slice(0, 10);
-    const { data, error } = await _supabase
-      .from('tblFichaje')
-      .select('id, entrada, salida')
-      .eq('empleado', nombre.toUpperCase())
-      .eq('fecha', hoy);
+  const hoy = new Date().toISOString().slice(0, 10);
+  const { data } = await _supabase
+    .from('tblFichaje')
+    .select('entrada, salida')
+    .eq('empleado', nombre.toUpperCase())
+    .eq('fecha', hoy);
 
-    if (error) {
-      console.error('Error verificando fichaje:', error);
-      return { bloqueado: false };
-    }
-
-    if (data && data.length > 0) {
-      const registro = data[0];
-      if (registro.entrada && !registro.salida) {
-        return { bloqueado: true, motivo: 'Ya fichaste hoy. Debes desfichar primero.' };
-      }
-    }
-    return { bloqueado: false };
-  } catch (e) {
-    console.error('Exception verificarFichajePendiente:', e);
-    return { bloqueado: false };
+  if (data && data.length > 0 && data[0].entrada && !data[0].salida) {
+    return { bloqueado: true };
   }
+  return { bloqueado: false };
 }
 
 function handleFichar(nombre) {
