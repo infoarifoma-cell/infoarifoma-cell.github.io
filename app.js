@@ -723,6 +723,7 @@ async function initApp(){
           if (r.fentrada) {
             fst.workers[worker].entradaTs = new Date(r.fentrada).getTime();
           }
+          console.log(`initApp: ${worker} working=true (entrada sin salida)`);
         }
       });
     } else {
@@ -735,8 +736,8 @@ async function initApp(){
     WORKERS.forEach(n => recalcWorker(n));
   }
 
+  // Renderizar DESPUÉS de actualizar estado desde Supabase
   renderWgrid();renderStats();renderVac();renderCal();initOT();
-  // Renderizar estado actualizado DESPUÉS de renderWgrid
   WORKERS.forEach(n => renderWcard(n));
   initBasculaUI();
   await cargarInit();
