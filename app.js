@@ -2447,12 +2447,16 @@ async function verificarFichajePendiente(nombre) {
 }
 
 function handleFichar(nombre) {
+  console.log('handleFichar called with:', nombre);
   ficharWorker(nombre).catch(e => console.error('handleFichar error:', e));
 }
 
 async function ficharWorker(nombre){
+  console.log('ficharWorker START:', nombre);
   const w=fst.workers[nombre];const now=Date.now();
+  console.log('worker state:', w);
   if(!w.working){
+    console.log('Not working, checking Supabase...');
     // Verificar si ya existe fichaje pendiente hoy
     const resultado = await verificarFichajePendiente(nombre);
     if (resultado && resultado.bloqueado) {
