@@ -683,6 +683,7 @@ async function cargarInit(){
 }
 
 async function initApp(){
+  console.log('initApp() START - _supabase:', !!_supabase);
   loadFst();
 
   // Event delegation para botones de fichaje
@@ -695,6 +696,7 @@ async function initApp(){
 
   // Actualizar estado HOY desde Supabase
   const hoy = new Date().toISOString().slice(0, 10);
+  console.log('Consultando Supabase para:', hoy);
   try {
     const { data, error } = await _supabase
       .from('tblFichaje')
