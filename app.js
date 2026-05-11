@@ -686,6 +686,14 @@ async function initApp(){
   initStylePanel();
   loadFst();
 
+  // Event delegation para botones de fichaje
+  document.addEventListener('click', e => {
+    if (e.target.classList.contains('wbtn')) {
+      const nombre = e.target.dataset.worker;
+      if (nombre) handleFichar(nombre);
+    }
+  });
+
   // Actualizar estado HOY desde Supabase
   const hoy = new Date().toISOString().slice(0, 10);
   try {
@@ -2548,16 +2556,7 @@ function renderStats(){
   document.getElementById('i-hrs').textContent=fmtDur(ms);
 }
 function renderWgrid(){
-  const wgrid = document.getElementById('wgrid');
-  wgrid.innerHTML=WORKERS.map(n=>`<div class="wcard" id="wc-${n}"><div class="wname">${n}</div><div class="wst">Sin fichar</div><div class="wtime"></div><button class="wbtn" data-worker="${n}">Registrar entrada</button></div>`).join('');
-
-  // Event delegation
-  wgrid.addEventListener('click', e => {
-    if (e.target.classList.contains('wbtn')) {
-      const nombre = e.target.dataset.worker;
-      handleFichar(nombre);
-    }
-  });
+  document.getElementById('wgrid').innerHTML=WORKERS.map(n=>`<div class="wcard" id="wc-${n}"><div class="wname">${n}</div><div class="wst">Sin fichar</div><div class="wtime"></div><button class="wbtn" data-worker="${n}">Registrar entrada</button></div>`).join('');
 }
 function renderResumenCards(){
   const resGrid=document.getElementById('res-grid');
