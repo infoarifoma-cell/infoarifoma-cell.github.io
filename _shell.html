@@ -232,6 +232,78 @@
     <div class="topbar-clock" id="topbar-clock">00:00:00</div>
     <button id="style-panel-btn" onclick="openStylePanel()" title="Panel de estilos" style="width:32px;height:32px;border-radius:8px;border:none;background:rgba(255,255,255,.1);color:#fff;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;transition:all .2s;font-family:monospace;margin-left:12px;flex-shrink:0">⚙</button>
   </div>
+
+  <!-- ── Bottom Nav (móvil) ── -->
+  <div class="bnav-overlay" id="bnav-overlay" onclick="closeBnavMore()"></div>
+  <div class="bnav-more-panel" id="bnav-more-panel">
+    <div class="bnav-more-grid">
+      <button class="bnav-more-btn" onclick="bnavGo('pedidos')" id="bm-pedidos">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="14" height="12" rx="2"/><path d="M5 7h8M5 10h8M5 13h5"/></svg>Pedidos
+      </button>
+      <button class="bnav-more-btn" onclick="bnavGo('facturacion')" id="bm-facturacion">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 2h10a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M6 6h6M6 9h6M6 12h3"/></svg>Facturac.
+      </button>
+      <button class="bnav-more-btn" onclick="bnavGo('ventas')" id="bm-ventas">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 13l4-4 3 3 5-6"/><circle cx="15" cy="6" r="1.5"/></svg>Ventas
+      </button>
+      <button class="bnav-more-btn" onclick="bnavGo('produccion')" id="bm-produccion">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 15h14M4 15V8l3-2v9M9 15V5l3-2v12M14 15V3"/></svg>Producc.
+      </button>
+      <button class="bnav-more-btn" onclick="bnavGo('camiones')" id="bm-camiones">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="7" width="11" height="7" rx="1"/><path d="M12 9h3l2 3v2h-5V9z"/><circle cx="4.5" cy="14.5" r="1.5"/><circle cx="13.5" cy="14.5" r="1.5"/></svg>Camiones
+      </button>
+      <button class="bnav-more-btn" onclick="bnavGo('gasoil')" id="bm-gasoil">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2" width="8" height="14" rx="1"/><path d="M11 5h2a2 2 0 0 1 2 2v3a1 1 0 0 1-1 1h-3"/><path d="M6 6v4"/></svg>Gasoil
+      </button>
+      <button class="bnav-more-btn" onclick="bnavGo('activos')" id="bm-activos">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="10" width="4" height="6" rx="1"/><rect x="7" y="6" width="4" height="10" rx="1"/><rect x="12" y="2" width="4" height="14" rx="1"/></svg>Activos
+      </button>
+      <button class="bnav-more-btn" onclick="bnavGo('resumen')" id="bm-resumen">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="14" height="12" rx="2"/><path d="M5 7h8M5 10h5"/></svg>Resumen
+      </button>
+      <button class="bnav-more-btn" onclick="bnavGo('vacaciones')" id="bm-vacaciones">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 2l1.5 4h4l-3.2 2.4 1.2 4L9 10l-3.5 2.4 1.2-4L3.5 6h4z"/></svg>Vacaciones
+      </button>
+      <button class="bnav-more-btn" onclick="bnavGo('calendario')" id="bm-calendario">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="14" height="13" rx="2"/><path d="M2 7h14M6 2v2M12 2v2"/></svg>Calendario
+      </button>
+      <button class="bnav-more-btn" onclick="bnavGo('editar')" id="bm-editar">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3l3 3-9 9H3v-3z"/></svg>Editar fich.
+      </button>
+      <button class="bnav-more-btn" onclick="bnavGo('documentos')" id="bm-documentos">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 2h7l4 4v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M11 2v4h4M6 9h6M6 12h4"/></svg>Docs
+      </button>
+      <button class="bnav-more-btn" onclick="bnavGo('ot')" id="bm-ot">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 4l-1.5 1.5M3 15l4-4m0 0l6-6-2-2-6 6m2 2l2 2"/><circle cx="13" cy="5" r="2"/></svg>Nueva OT
+      </button>
+      <button class="bnav-more-btn" onclick="bnavGo('historial-ot')" id="bm-historial-ot">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="14" height="12" rx="2"/><path d="M5 7h8M5 10h8M5 13h5"/></svg>Hist. OT
+      </button>
+      <button class="bnav-more-btn" onclick="bnavGo('preventivo')" id="bm-preventivo">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="9" r="7"/><path d="M9 5v4l2.5 2"/></svg>Preventivo
+      </button>
+    </div>
+  </div>
+  <nav class="bottom-nav" id="bottom-nav">
+    <div class="bottom-nav-row">
+      <button class="bnav-btn active" onclick="bnavGo('inicio')" id="bn-inicio">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 9l7-7 7 7"/><path d="M4 7v8h4v-4h2v4h4V7"/></svg>Inicio
+      </button>
+      <button class="bnav-btn" onclick="bnavGo('bascula')" id="bn-bascula">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 14h10M9 4v6M6 7l3-3 3 3"/><rect x="2" y="14" width="14" height="2" rx="1"/></svg>Pesada
+      </button>
+      <button class="bnav-btn" onclick="bnavGo('fichaje')" id="bn-fichaje">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="9" r="7"/><path d="M9 5v4l2.5 2.5"/></svg>Fichaje
+      </button>
+      <button class="bnav-btn" onclick="bnavGo('ot')" id="bn-ot">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 4l-1.5 1.5M3 15l4-4m0 0l6-6-2-2-6 6m2 2l2 2"/><circle cx="13" cy="5" r="2"/></svg>OT
+      </button>
+      <button class="bnav-btn" onclick="toggleBnavMore()" id="bn-more">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="4" cy="9" r="1.5"/><circle cx="9" cy="9" r="1.5"/><circle cx="14" cy="9" r="1.5"/></svg>Mas
+      </button>
+    </div>
+  </nav>
+
   <div class="layout">
     <div class="sidebar" id="sidebar">
       <div class="sidebar-inner">

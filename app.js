@@ -606,6 +606,34 @@ async function checkPin(){
 // ── SHELL ─────────────────────────────────────────────────────
 let menuOpen=false;
 function toggleMenu(){menuOpen=!menuOpen;document.getElementById('sidebar').classList.toggle('open',menuOpen);document.getElementById('menu-btn').classList.toggle('open',menuOpen);}
+
+// ── Bottom Nav (móvil) ───────────────────────────────────────
+const BNAV_MAIN=['inicio','bascula','fichaje','ot'];
+function bnavGo(id){closeBnavMore();goPage(id);}
+function toggleBnavMore(){
+  const panel=document.getElementById('bnav-more-panel');
+  const overlay=document.getElementById('bnav-overlay');
+  const open=panel.classList.toggle('open');
+  overlay.classList.toggle('open',open);
+}
+function closeBnavMore(){
+  const panel=document.getElementById('bnav-more-panel');
+  const overlay=document.getElementById('bnav-overlay');
+  if(panel){panel.classList.remove('open');}
+  if(overlay){overlay.classList.remove('open');}
+}
+function updateBnav(id){
+  document.querySelectorAll('.bnav-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.bnav-more-btn').forEach(b=>b.classList.remove('active'));
+  const mainBtn=document.getElementById('bn-'+id);
+  if(mainBtn){mainBtn.classList.add('active');}
+  else{
+    const moreBtn=document.getElementById('bm-'+id);
+    if(moreBtn)moreBtn.classList.add('active');
+    document.getElementById('bn-more').classList.add('active');
+  }
+}
+
 function goPage(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.snav-btn').forEach(b=>b.classList.remove('active'));
@@ -613,6 +641,7 @@ function goPage(id){
   const btn=document.getElementById('snav-'+id);if(btn)btn.classList.add('active');
   document.getElementById('topbar-title').textContent=PAGE_TITLES[id]||id;
   if(menuOpen)toggleMenu();
+  updateBnav(id);
   if(id==='resumen'){renderResumenCards();renderMeses();renderHistorial();renderExtras();}
   if(id==='vacaciones'){renderVac();renderBajas();renderDiasLibres();renderExtrasManual();}
   if(id==='calendario')renderCal();
@@ -688,7 +717,6 @@ async function initApp(){
     return;
   }
   window._appInitialized = true;
-  console.log('initApp() START - _supabase:', !!_supabase);
   loadFst();
 
   // Event delegation para botones de fichaje
@@ -701,14 +729,12 @@ async function initApp(){
 
   // Actualizar estado HOY desde Supabase (fuente de verdad)
   const hoy = new Date().toISOString().slice(0, 10);
-  console.log('Consultando Supabase para:', hoy);
   try {
     const { data, error } = await _supabase
       .from('tblFichaje')
       .select('empleado, entrada, salida, fentrada')
       .eq('fecha', hoy);
 
-    console.log('initApp: Datos Supabase:', data, 'error:', error);
     if (!error && data && data.length > 0) {
       WORKERS.forEach(n => {
         fst.workers[n].working = false;
