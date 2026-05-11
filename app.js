@@ -2517,13 +2517,17 @@ function recalcWorker(nombre){
   // totalMs = solo hoy (para el panel de fichaje)
   const now=new Date();const todayStart=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
   let total=0,lastE=null;
-  fst.registros.filter(r=>r.nombre===nombre&&r.ts>=todayStart&&r.ts<todayStart+86400000)
-    .sort((a,b)=>a.ts-b.ts||a.id-b.id)
-    .forEach(r=>{if(r.tipo==='entrada')lastE=r.ts;else if(lastE!==null){total+=safeDur(lastE,r.ts);lastE=null;}});
+  const todayRegs=fst.registros.filter(r=>r.nombre===nombre&&r.ts>=todayStart&&r.ts<todayStart+86400000);
+  console.log(`recalcWorker(${nombre}): todayRegs=${todayRegs.length}, totalRegistros=${fst.registros.filter(r=>r.nombre===nombre).length}`);
+  todayRegs.sort((a,b)=>a.ts-b.ts||a.id-b.id)
+    .forEach(r=>{
+      console.log(`  reg: tipo=${r.tipo} ts=${r.ts} (${new Date(r.ts).toISOString()})`);
+      if(r.tipo==='entrada')lastE=r.ts;else if(lastE!==null){total+=safeDur(lastE,r.ts);lastE=null;}
+    });
   fst.workers[nombre].totalMs=total;
   // Estado working: si hay entrada hoy sin salida
-  if(lastE!==null){fst.workers[nombre].working=true;fst.workers[nombre].entradaTs=lastE;}
-  else{fst.workers[nombre].working=false;fst.workers[nombre].entradaTs=null;}
+  if(lastE!==null){fst.workers[nombre].working=true;fst.workers[nombre].entradaTs=lastE;console.log(`  → working=true`);}
+  else{fst.workers[nombre].working=false;fst.workers[nombre].entradaTs=null;console.log(`  → working=false`);}
 }
 function safeDur(tsE,tsS){
   let dur=tsS-tsE;
