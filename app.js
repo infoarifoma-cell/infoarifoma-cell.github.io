@@ -737,8 +737,11 @@ async function initApp(){
   }
 
   // Renderizar DESPUÉS de actualizar estado desde Supabase
+  console.log('initApp: ANTES de renderWgrid, working states:', WORKERS.map(n=>n+'='+fst.workers[n].working).join(', '));
   renderWgrid();renderStats();renderVac();renderCal();initOT();
+  console.log('initApp: DESPUÉS de renderWgrid, ANTES de renderWcard');
   WORKERS.forEach(n => renderWcard(n));
+  console.log('initApp: DESPUÉS de renderWcard');
   initBasculaUI();
   await cargarInit();
   // Load OT history in background for reminders
@@ -2404,6 +2407,13 @@ function procesarFichajes(json){
             tsS=tsE+Math.round(horas*3600000);
           }
         }
+      }
+      // Debug: log registros de hoy sin salida
+      const _todayDbg=new Date();_todayDbg.setHours(0,0,0,0);
+      const _todayStartDbg=_todayDbg.getTime();
+      if(!tsS && r.fecha===new Date().toISOString().slice(0,10)){
+        console.log(`procesarFichajes HOY sin salida: empleado=${r.empleado} fecha=${r.fecha} entrada=${r.entrada} salida=${r.salida} fentrada=${r.fentrada} tsE=${tsE} tsS=${tsS}`);
+        if(tsE) console.log(`  tsE como fecha: ${new Date(tsE).toISOString()}, todayStart=${_todayStartDbg}, inRange=${tsE>=_todayStartDbg&&tsE<_todayStartDbg+86400000}`);
       }
       if(tsE)fst.registros.push({id:id*2,nombre,tipo:'entrada',ts:tsE});
       if(tsS&&tsE)fst.registros.push({id:id*2+1,nombre,tipo:'salida',ts:tsS,duracion:tsS-tsE});
