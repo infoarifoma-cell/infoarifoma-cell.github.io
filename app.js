@@ -720,7 +720,7 @@ async function initApp(){
       });
     }
   } catch(e) {
-    console.warn('Error actualizando estado HOY:', e);
+    console.error('Error actualizando estado HOY:', e);
   }
 
   renderWgrid();renderStats();renderVac();renderCal();initOT();
@@ -2536,7 +2536,6 @@ function renderWcard(nombre){
   const total=w.totalMs+liveMs;
   const c=document.getElementById('wc-'+nombre);
   if(!c) return;
-
   c.className='wcard'+(w.working?' on':'');
   c.querySelector('.wst').innerHTML=w.working?'<span class="ldot"></span>Desde '+fmtH(w.entradaTs):'Sin fichar';
   c.querySelector('.wtime').textContent=total>0?'Hoy: '+fmtDur(total):'';

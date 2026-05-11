@@ -137,7 +137,6 @@ async function checkGoogleSession() {
       .eq('email', email);
 
     if (searchError || !usuariosArr || usuariosArr.length === 0) {
-      console.error('checkGoogleSession: usuario no encontrado o error');
       document.getElementById('login-error').textContent = 'Credenciales inválidas o usuario no autorizado';
       await _supabase.auth.signOut();
       return;
@@ -145,7 +144,6 @@ async function checkGoogleSession() {
 
     const usuarios = usuariosArr[0];
     if (!usuarios.activo) {
-      console.error('checkGoogleSession: usuario no activo');
       document.getElementById('login-error').textContent = 'Credenciales inválidas o usuario no autorizado';
       await _supabase.auth.signOut();
       return;
