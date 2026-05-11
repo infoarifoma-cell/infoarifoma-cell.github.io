@@ -53,15 +53,12 @@ async function getFichajes() {
   return error ? { ok: false, error: error.message } : { ok: true, data };
 }
 async function doPostEntrada(data) {
+  // Test: solo empleado
   const insertData = {
-    empleado: data.empleado,
-    fecha: data.fecha || new Date().toISOString().slice(0, 10),
-    entrada: data.entrada || new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
-    tipoTrabajo: data.tipoTrabajo || 'JORNADA',
-    fentrada: data.fentrada || new Date().toISOString()
+    empleado: data.empleado
   };
-  console.log('doPostEntrada insertData:', insertData);
-  const { error } = await _supabase.from('tblFichaje').upsert([insertData], { onConflict: 'empleado,fecha' });
+  console.log('TEST: insertData solo empleado:', insertData);
+  const { error } = await _supabase.from('tblFichaje').insert([insertData]);
   if (error) {
     console.error('doPostEntrada error full:', error);
     console.error('doPostEntrada error code:', error.code);
