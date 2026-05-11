@@ -2429,20 +2429,23 @@ async function verificarFichajePendiente(nombre) {
   }
 }
 
-function ficharWorker(nombre){
+function handleFichar(nombre) {
+  ficharWorker(nombre);
+}
+
+async function ficharWorker(nombre){
   const w=fst.workers[nombre];const now=Date.now();
   if(!w.working){
     // Verificar si ya existe fichaje pendiente hoy
-    verificarFichajePendiente(nombre).then(resultado => {
-      if (resultado && resultado.bloqueado) {
-        alert(resultado.motivo);
-        return;
-      }
-      w.working=true;w.entradaTs=now;
-      fst.registros.push({id:frid++,nombre,tipo:'entrada',ts:now});
-      enviarEntrada(nombre,now);
-      saveFst();renderWcard(nombre);renderStats();
-    });
+    const resultado = await verificarFichajePendiente(nombre);
+    if (resultado && resultado.bloqueado) {
+      alert(resultado.motivo);
+      return;
+    }
+    w.working=true;w.entradaTs=now;
+    fst.registros.push({id:frid++,nombre,tipo:'entrada',ts:now});
+    enviarEntrada(nombre,now);
+    saveFst();renderWcard(nombre);renderStats();
   }else{
     if(!w.entradaTs){console.warn('entradaTs nulo para',nombre);return;}
     const tsE=w.entradaTs; // capturar ANTES de que recalcWorker lo resetee
@@ -2524,7 +2527,7 @@ function renderStats(){
   document.getElementById('i-hrs').textContent=fmtDur(ms);
 }
 function renderWgrid(){
-  document.getElementById('wgrid').innerHTML=WORKERS.map(n=>`<div class="wcard" id="wc-${n}"><div class="wname">${n}</div><div class="wst">Sin fichar</div><div class="wtime"></div><button class="wbtn" onclick="ficharWorker('${n}')">Registrar entrada</button></div>`).join('');
+  document.getElementById('wgrid').innerHTML=WORKERS.map(n=>`<div class="wcard" id="wc-${n}"><div class="wname">${n}</div><div class="wst">Sin fichar</div><div class="wtime"></div><button class="wbtn" onclick="handleFichar('${n}')">Registrar entrada</button></div>`).join('');
 }
 function renderResumenCards(){
   const resGrid=document.getElementById('res-grid');
