@@ -714,7 +714,9 @@ async function initApp(){
         // Buscar worker que coincida (case-insensitive)
         const nombreDB = r.empleado.toUpperCase();
         const worker = WORKERS.find(w => w.toUpperCase() === nombreDB);
+        console.log('Buscando:', nombreDB, '→ encontrado:', worker);
         if (worker && r.entrada && !r.salida) {
+          console.log('Marcando como working:', worker);
           fst.workers[worker].working = true;
           if (r.fentrada) {
             fst.workers[worker].entradaTs = new Date(r.fentrada).getTime();
