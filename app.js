@@ -683,7 +683,6 @@ async function cargarInit(){
 }
 
 async function initApp(){
-  console.log('initApp() STARTED');
   initStylePanel();
   loadFst();
 
@@ -697,7 +696,6 @@ async function initApp(){
 
   // Actualizar estado HOY desde Supabase
   const hoy = new Date().toISOString().slice(0, 10);
-  console.log('initApp() consultando Supabase para:', hoy);
   try {
     const { data, error } = await _supabase
       .from('tblFichaje')
@@ -712,16 +710,13 @@ async function initApp(){
 
       data.forEach(r => {
         const nombre = r.empleado;
-        console.log('Processing row:', nombre, 'entrada:', r.entrada, 'salida:', r.salida);
         if (nombre && fst.workers[nombre] && r.entrada && !r.salida) {
-          console.log('Setting working=true for:', nombre);
           fst.workers[nombre].working = true;
           if (r.fentrada) {
             fst.workers[nombre].entradaTs = new Date(r.fentrada).getTime();
           }
         }
       });
-      console.log('After update, fst.workers:', fst.workers);
     }
   } catch(e) {
     console.warn('Error actualizando estado HOY:', e);
@@ -2460,16 +2455,12 @@ async function verificarFichajePendiente(nombre) {
 }
 
 function handleFichar(nombre) {
-  console.log('handleFichar called with:', nombre);
   ficharWorker(nombre).catch(e => console.error('handleFichar error:', e));
 }
 
 async function ficharWorker(nombre){
-  console.log('ficharWorker START:', nombre);
   const w=fst.workers[nombre];const now=Date.now();
-  console.log('worker state:', w);
   if(!w.working){
-    console.log('Not working, checking Supabase...');
     // Verificar si ya existe fichaje pendiente hoy
     const resultado = await verificarFichajePendiente(nombre);
     if (resultado && resultado.bloqueado) {
