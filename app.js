@@ -2440,7 +2440,7 @@ async function verificarFichajePendiente(nombre) {
 }
 
 function handleFichar(nombre) {
-  ficharWorker(nombre);
+  ficharWorker(nombre).catch(e => console.error('handleFichar error:', e));
 }
 
 async function ficharWorker(nombre){
