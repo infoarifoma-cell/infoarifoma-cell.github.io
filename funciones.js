@@ -239,10 +239,10 @@ function resetSessionTimeout() {
 });
 
 // Ejecutar al cargar página
-let appInitialized = false;
+window.appInitialized = false;
 setTimeout(() => {
-  if (!appInitialized) {
-    appInitialized = true;
+  if (!window.appInitialized) {
+    window.appInitialized = true;
     checkGoogleSession().catch(e => console.error('checkGoogleSession error:', e));
     resetSessionTimeout();
   }
