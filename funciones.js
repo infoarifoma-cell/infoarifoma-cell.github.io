@@ -160,9 +160,9 @@ async function checkGoogleSession() {
       rol: usuarios.rol,
       provider: 'google'
     };
-    // Usa el token JWT de Supabase (que ya está en sesión) para RLS
+    // Usa el token JWT de Supabase (que ya está en sesión)
     _sessionToken = session.access_token;
-    // No recrear cliente — la sesión OAuth ya está en _supabase
+    // NO recrear cliente — causa múltiples instancias
     scheduleTokenRefresh(session.access_token);
 
     // Cargar shell
