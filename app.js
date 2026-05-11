@@ -462,6 +462,7 @@ async function apiFetch(params) {
 // ── ROUTER: apiPost (híbrido Supabase + Google Sheets) ──────
 async function apiPost(payload) {
   const t = payload.tipo || '';
+  console.log('apiPost called with tipo:', t, 'payload:', payload);
 
   // ── Producción y Gasoil → Google Sheets ──
   if (t === 'gasoil' || t === 'editarGasoil' || t === 'editProduccion' || t === 'addProduccion') {
@@ -469,7 +470,10 @@ async function apiPost(payload) {
   }
 
   // ── Todo lo demás → Supabase ──
-  if (t === 'fichajeEntrada')  return doPostEntrada(payload);
+  if (t === 'fichajeEntrada') {
+    console.log('Calling doPostEntrada');
+    return doPostEntrada(payload);
+  }
   if (t === 'fichajesSalida')  return doEditSalida(payload);
   if (t === 'editFichaje')     return doEditFichaje(payload);
   if (t === 'delFichaje')      return doDeleteFichaje(payload);
