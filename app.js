@@ -691,9 +691,6 @@ async function initApp(){
   console.log('initApp() START - _supabase:', !!_supabase);
   loadFst();
 
-  // Recalcular estado working desde registros locales (antes de queryar Supabase)
-  WORKERS.forEach(n => recalcWorker(n));
-
   // Event delegation para botones de fichaje
   document.addEventListener('click', e => {
     if (e.target.classList.contains('wbtn')) {
@@ -702,7 +699,7 @@ async function initApp(){
     }
   });
 
-  // Actualizar estado HOY desde Supabase
+  // Actualizar estado HOY desde Supabase (fuente de verdad)
   const hoy = new Date().toISOString().slice(0, 10);
   console.log('Consultando Supabase para:', hoy);
   try {
@@ -728,9 +725,14 @@ async function initApp(){
           }
         }
       });
+    } else {
+      // Si Supabase falla o no tiene datos, recalc desde registros locales
+      WORKERS.forEach(n => recalcWorker(n));
     }
   } catch(e) {
     console.error('Error actualizando estado HOY:', e);
+    // Si falla, recalc desde registros locales
+    WORKERS.forEach(n => recalcWorker(n));
   }
 
   renderWgrid();renderStats();renderVac();renderCal();initOT();
