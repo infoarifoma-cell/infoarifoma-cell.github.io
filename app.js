@@ -683,6 +683,7 @@ async function cargarInit(){
 }
 
 async function initApp(){
+  console.log('initApp() STARTED');
   initStylePanel();
   loadFst();
 
@@ -696,6 +697,7 @@ async function initApp(){
 
   // Actualizar estado HOY desde Supabase
   const hoy = new Date().toISOString().slice(0, 10);
+  console.log('initApp() consultando Supabase para:', hoy);
   try {
     const { data, error } = await _supabase
       .from('tblFichaje')
