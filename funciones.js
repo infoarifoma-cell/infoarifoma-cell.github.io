@@ -100,6 +100,7 @@ async function cerrarSesion() {
   }
   _sessionToken = null;
   _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  window._appInitialized = false;
 }
 
 // ── GOOGLE AUTH ──────────────────────────────────────────────

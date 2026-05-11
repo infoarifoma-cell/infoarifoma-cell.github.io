@@ -683,6 +683,11 @@ async function cargarInit(){
 }
 
 async function initApp(){
+  if (window._appInitialized) {
+    console.warn('initApp() already running, skipping duplicate call');
+    return;
+  }
+  window._appInitialized = true;
   console.log('initApp() START - _supabase:', !!_supabase);
   loadFst();
 
