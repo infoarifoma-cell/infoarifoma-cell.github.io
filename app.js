@@ -53,14 +53,20 @@ async function getFichajes() {
   return error ? { ok: false, error: error.message } : { ok: true, data };
 }
 async function doPostEntrada(data) {
+  console.log('doPostEntrada payload:', data);
   const { error } = await _supabase.from('tblFichaje').insert([{
     empleado: data.empleado,
-    fecha: data.fecha || new Date().toLocaleDateString('es-ES'),
+    fecha: data.fecha || new Date().toISOString().slice(0, 10),
     entrada: data.entrada || new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
     tipoTrabajo: data.tipoTrabajo || 'JORNADA',
     fentrada: data.fentrada || new Date().toISOString()
   }]);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  if (error) {
+    console.error('doPostEntrada error:', JSON.stringify(error));
+    return { ok: false, error: error.message };
+  }
+  console.log('doPostEntrada success');
+  return { ok: true };
 }
 async function doEditSalida(data) {
   const { data: registro, error: searchError } = await _supabase
@@ -2413,11 +2419,29 @@ function ficharWorker(nombre){
 async function enviarEntrada(nombre,tsE){
   const _d=new Date(tsE);const _fecha=_d.getFullYear()+'-'+pad(_d.getMonth()+1)+'-'+pad(_d.getDate());
   const payload={tipo:'fichajeEntrada',empleado:nombre.toUpperCase(),fecha:_fecha,entrada:fmtHM(tsE),fentrada:fmtFechaHora(tsE)};
-  try{await apiPost(payload);}catch(e){}
+  try{
+    const result = await apiPost(payload);
+    if (!result.ok) {
+      console.error('enviarEntrada error:', result.error);
+    } else {
+      console.log('enviarEntrada success:', nombre);
+    }
+  } catch(e) {
+    console.error('enviarEntrada exception:', e.message);
+  }
 }
 async function enviarSalida(nombre,tsE,tsS,ms){
   const payload={tipo:'fichajesSalida',empleado:nombre.toUpperCase(),fentrada:fmtFechaHora(tsE),salida:fmtHM(tsS),fsalida:fmtFechaHora(tsS),tiempodia:Math.round(ms/60000)/60};
-  try{await apiPost(payload);}catch(e){}
+  try{
+    const result = await apiPost(payload);
+    if (!result.ok) {
+      console.error('enviarSalida error:', result.error);
+    } else {
+      console.log('enviarSalida success:', nombre);
+    }
+  } catch(e) {
+    console.error('enviarSalida exception:', e.message);
+  }
 }
 
 
