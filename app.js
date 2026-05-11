@@ -723,7 +723,6 @@ async function initApp(){
           if (r.fentrada) {
             fst.workers[worker].entradaTs = new Date(r.fentrada).getTime();
           }
-          console.log(`initApp: ${worker} working=true (entrada sin salida)`);
         }
       });
     } else {
@@ -737,11 +736,8 @@ async function initApp(){
   }
 
   // Renderizar DESPUÉS de actualizar estado desde Supabase
-  console.log('initApp: ANTES de renderWgrid, working states:', WORKERS.map(n=>n+'='+fst.workers[n].working).join(', '));
   renderWgrid();renderStats();renderVac();renderCal();initOT();
-  console.log('initApp: DESPUÉS de renderWgrid, ANTES de renderWcard');
   WORKERS.forEach(n => renderWcard(n));
-  console.log('initApp: DESPUÉS de renderWcard');
   initBasculaUI();
   await cargarInit();
   // Load OT history in background for reminders
@@ -2408,13 +2404,6 @@ function procesarFichajes(json){
           }
         }
       }
-      // Debug: log registros de hoy sin salida
-      const _todayDbg=new Date();_todayDbg.setHours(0,0,0,0);
-      const _todayStartDbg=_todayDbg.getTime();
-      if(!tsS && r.fecha===new Date().toISOString().slice(0,10)){
-        console.log(`procesarFichajes HOY sin salida: empleado=${r.empleado} fecha=${r.fecha} entrada=${r.entrada} salida=${r.salida} fentrada=${r.fentrada} tsE=${tsE} tsS=${tsS}`);
-        if(tsE) console.log(`  tsE como fecha: ${new Date(tsE).toISOString()}, todayStart=${_todayStartDbg}, inRange=${tsE>=_todayStartDbg&&tsE<_todayStartDbg+86400000}`);
-      }
       if(tsE)fst.registros.push({id:id*2,nombre,tipo:'entrada',ts:tsE});
       if(tsS&&tsE)fst.registros.push({id:id*2+1,nombre,tipo:'salida',ts:tsS,duracion:tsS-tsE});
     });
@@ -2528,16 +2517,12 @@ function recalcWorker(nombre){
   const now=new Date();const todayStart=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
   let total=0,lastE=null;
   const todayRegs=fst.registros.filter(r=>r.nombre===nombre&&r.ts>=todayStart&&r.ts<todayStart+86400000);
-  console.log(`recalcWorker(${nombre}): todayRegs=${todayRegs.length}, totalRegistros=${fst.registros.filter(r=>r.nombre===nombre).length}`);
   todayRegs.sort((a,b)=>a.ts-b.ts||a.id-b.id)
-    .forEach(r=>{
-      console.log(`  reg: tipo=${r.tipo} ts=${r.ts} (${new Date(r.ts).toISOString()})`);
-      if(r.tipo==='entrada')lastE=r.ts;else if(lastE!==null){total+=safeDur(lastE,r.ts);lastE=null;}
-    });
+    .forEach(r=>{if(r.tipo==='entrada')lastE=r.ts;else if(lastE!==null){total+=safeDur(lastE,r.ts);lastE=null;}});
   fst.workers[nombre].totalMs=total;
   // Estado working: si hay entrada hoy sin salida
-  if(lastE!==null){fst.workers[nombre].working=true;fst.workers[nombre].entradaTs=lastE;console.log(`  → working=true`);}
-  else{fst.workers[nombre].working=false;fst.workers[nombre].entradaTs=null;console.log(`  → working=false`);}
+  if(lastE!==null){fst.workers[nombre].working=true;fst.workers[nombre].entradaTs=lastE;}
+  else{fst.workers[nombre].working=false;fst.workers[nombre].entradaTs=null;}
 }
 function safeDur(tsE,tsS){
   let dur=tsS-tsE;
@@ -2559,7 +2544,6 @@ function getMsMonth(nombre,y,m){
 }
 function renderWcard(nombre){
   const w=fst.workers[nombre];
-  console.log(`renderWcard(${nombre}): working=${w.working}, entradaTs=${w.entradaTs}`);
   const liveMs=w.working?(Date.now()-w.entradaTs):0;
   const total=w.totalMs+liveMs;
   const c=document.getElementById('wc-'+nombre);
