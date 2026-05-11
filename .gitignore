@@ -18,3 +18,4 @@ yarn.lock
 *.log
 VERCEL_SECURITY_CHECK.md
 funciones_original.js
+vercel.json
