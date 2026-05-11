@@ -243,10 +243,9 @@ function resetSessionTimeout() {
 });
 
 // Ejecutar al cargar página
-window.addEventListener('load', () => {
-  console.log('window load event fired');
-  setTimeout(checkGoogleSession, 500);
-  resetSessionTimeout(); // Iniciar timer
+document.addEventListener('DOMContentLoaded', () => {
+  checkGoogleSession();
+  resetSessionTimeout();
 });
 
 // ── FICHAJES ─────────────────────────────────────────────────
