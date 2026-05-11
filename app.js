@@ -2426,8 +2426,10 @@ function ficharWorker(nombre){
   saveFst();renderWcard(nombre);renderStats();
 }
 async function enviarEntrada(nombre,tsE){
+  console.log('enviarEntrada called:', nombre, tsE);
   const _d=new Date(tsE);const _fecha=_d.getFullYear()+'-'+pad(_d.getMonth()+1)+'-'+pad(_d.getDate());
   const payload={tipo:'fichajeEntrada',empleado:nombre.toUpperCase(),fecha:_fecha,entrada:fmtHM(tsE),fentrada:fmtFechaHora(tsE)};
+  console.log('enviarEntrada payload:', payload);
   try{
     const result = await apiPost(payload);
     if (!result.ok) {
