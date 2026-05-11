@@ -709,11 +709,13 @@ async function initApp(){
       });
 
       data.forEach(r => {
-        const nombre = r.empleado;
-        if (nombre && fst.workers[nombre] && r.entrada && !r.salida) {
-          fst.workers[nombre].working = true;
+        // Buscar worker que coincida (case-insensitive)
+        const nombreDB = r.empleado.toUpperCase();
+        const worker = WORKERS.find(w => w.toUpperCase() === nombreDB);
+        if (worker && r.entrada && !r.salida) {
+          fst.workers[worker].working = true;
           if (r.fentrada) {
-            fst.workers[nombre].entradaTs = new Date(r.fentrada).getTime();
+            fst.workers[worker].entradaTs = new Date(r.fentrada).getTime();
           }
         }
       });
@@ -2434,9 +2436,6 @@ function procesarAusencias(json){
 }
 
 async function verificarFichajePendiente(nombre) {
-  console.log('verificarFichajePendiente called for:', nombre);
-  console.log('_supabase:', _supabase);
-
   const hoy = new Date().toISOString().slice(0, 10);
   const { data, error } = await _supabase
     .from('tblFichaje')
@@ -2444,13 +2443,9 @@ async function verificarFichajePendiente(nombre) {
     .eq('empleado', nombre.toUpperCase())
     .eq('fecha', hoy);
 
-  console.log('Query result:', { data, error });
-
   if (data && data.length > 0 && data[0].entrada && !data[0].salida) {
-    console.log('Bloqueando: ya fichó hoy');
     return { bloqueado: true, motivo: 'Ya fichaste hoy. Debes desfichar primero.' };
   }
-  console.log('Permitiendo: puede fichar');
   return { bloqueado: false };
 }
 
@@ -2552,9 +2547,7 @@ function renderStats(){
   document.getElementById('i-hrs').textContent=fmtDur(ms);
 }
 function renderWgrid(){
-  console.log('renderWgrid called');
   document.getElementById('wgrid').innerHTML=WORKERS.map(n=>`<div class="wcard" id="wc-${n}"><div class="wname">${n}</div><div class="wst">Sin fichar</div><div class="wtime"></div><button class="wbtn" data-worker="${n}">Registrar entrada</button></div>`).join('');
-  console.log('renderWgrid done, wbtn count:', document.querySelectorAll('.wbtn').length);
 }
 function renderResumenCards(){
   const resGrid=document.getElementById('res-grid');
