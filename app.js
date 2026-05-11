@@ -710,13 +710,16 @@ async function initApp(){
 
       data.forEach(r => {
         const nombre = r.empleado;
+        console.log('Processing row:', nombre, 'entrada:', r.entrada, 'salida:', r.salida);
         if (nombre && fst.workers[nombre] && r.entrada && !r.salida) {
+          console.log('Setting working=true for:', nombre);
           fst.workers[nombre].working = true;
           if (r.fentrada) {
             fst.workers[nombre].entradaTs = new Date(r.fentrada).getTime();
           }
         }
       });
+      console.log('After update, fst.workers:', fst.workers);
     }
   } catch(e) {
     console.warn('Error actualizando estado HOY:', e);
@@ -2448,7 +2451,7 @@ async function verificarFichajePendiente(nombre) {
 
   if (data && data.length > 0 && data[0].entrada && !data[0].salida) {
     console.log('Bloqueando: ya fichó hoy');
-    return { bloqueado: true };
+    return { bloqueado: true, motivo: 'Ya fichaste hoy. Debes desfichar primero.' };
   }
   console.log('Permitiendo: puede fichar');
   return { bloqueado: false };
