@@ -2548,7 +2548,16 @@ function renderStats(){
   document.getElementById('i-hrs').textContent=fmtDur(ms);
 }
 function renderWgrid(){
-  document.getElementById('wgrid').innerHTML=WORKERS.map(n=>`<div class="wcard" id="wc-${n}"><div class="wname">${n}</div><div class="wst">Sin fichar</div><div class="wtime"></div><button class="wbtn" onclick="handleFichar('${n}')">Registrar entrada</button></div>`).join('');
+  const wgrid = document.getElementById('wgrid');
+  wgrid.innerHTML=WORKERS.map(n=>`<div class="wcard" id="wc-${n}"><div class="wname">${n}</div><div class="wst">Sin fichar</div><div class="wtime"></div><button class="wbtn" data-worker="${n}">Registrar entrada</button></div>`).join('');
+
+  // Event delegation
+  wgrid.addEventListener('click', e => {
+    if (e.target.classList.contains('wbtn')) {
+      const nombre = e.target.dataset.worker;
+      handleFichar(nombre);
+    }
+  });
 }
 function renderResumenCards(){
   const resGrid=document.getElementById('res-grid');
