@@ -2404,12 +2404,45 @@ function procesarAusencias(json){
   renderVac();renderBajas();renderDiasLibres();renderExtrasManual();renderCal();
 }
 
+async function verificarFichajePendiente(nombre) {
+  try {
+    const hoy = new Date().toISOString().slice(0, 10);
+    const { data, error } = await _supabase
+      .from('tblFichaje')
+      .select('id, entrada, salida')
+      .eq('empleado', nombre.toUpperCase())
+      .eq('fecha', hoy)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error verificando fichaje:', error);
+      return null;
+    }
+
+    if (data && data.entrada && !data.salida) {
+      return { bloqueado: true, motivo: 'Ya has fichado hoy. Primero debes desfichar.' };
+    }
+    return { bloqueado: false };
+  } catch (e) {
+    console.error('Exception verificarFichajePendiente:', e);
+    return null;
+  }
+}
+
 function ficharWorker(nombre){
   const w=fst.workers[nombre];const now=Date.now();
   if(!w.working){
-    w.working=true;w.entradaTs=now;
-    fst.registros.push({id:frid++,nombre,tipo:'entrada',ts:now});
-    enviarEntrada(nombre,now);
+    // Verificar si ya existe fichaje pendiente hoy
+    verificarFichajePendiente(nombre).then(resultado => {
+      if (resultado && resultado.bloqueado) {
+        alert(resultado.motivo);
+        return;
+      }
+      w.working=true;w.entradaTs=now;
+      fst.registros.push({id:frid++,nombre,tipo:'entrada',ts:now});
+      enviarEntrada(nombre,now);
+      saveFst();renderWcard(nombre);renderStats();
+    });
   }else{
     if(!w.entradaTs){console.warn('entradaTs nulo para',nombre);return;}
     const tsE=w.entradaTs; // capturar ANTES de que recalcWorker lo resetee
@@ -2419,8 +2452,8 @@ function ficharWorker(nombre){
     fst.registros.push({id:frid++,nombre,tipo:'salida',ts:now,duracion:ms});
     recalcWorker(nombre);
     enviarSalida(nombre,tsE,now,ms);
+    saveFst();renderWcard(nombre);renderStats();
   }
-  saveFst();renderWcard(nombre);renderStats();
 }
 async function enviarEntrada(nombre,tsE){
   const _d=new Date(tsE);const _fecha=_d.getFullYear()+'-'+pad(_d.getMonth()+1)+'-'+pad(_d.getDate());
