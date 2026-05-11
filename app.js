@@ -54,6 +54,7 @@ async function getFichajes() {
 }
 async function doPostEntrada(data) {
   const insertData = {
+    id: crypto.randomUUID(),
     empleado: data.empleado,
     fecha: data.fecha || new Date().toISOString().slice(0, 10),
     entrada: data.entrada || new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
