@@ -69,11 +69,10 @@ let _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let _sessionToken = null;
 
 // Recrear cliente Supabase con token de sesión en headers
+// NO recrear cliente — causa múltiples instancias GoTrueClient
+// Solo guardar token
 function _initAuthClient(token) {
   _sessionToken = token;
-  _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-    global: { headers: { 'Authorization': `Bearer ${token}` } }
-  });
 }
 
 // ── AUTENTICACIÓN SEGURA ────────────────────────────────────
