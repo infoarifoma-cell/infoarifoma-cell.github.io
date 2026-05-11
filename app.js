@@ -53,7 +53,11 @@ async function getFichajes() {
   return error ? { ok: false, error: error.message } : { ok: true, data };
 }
 async function doPostEntrada(data) {
-  // Test: solo empleado
+  // Check auth
+  const { data: { user } } = await _supabase.auth.getUser();
+  console.log('doPostEntrada user:', user);
+  console.log('doPostEntrada _sessionToken:', _sessionToken);
+
   const insertData = {
     empleado: data.empleado
   };
