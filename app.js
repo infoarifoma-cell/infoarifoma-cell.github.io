@@ -67,6 +67,24 @@ async function doPostEntrada(data) {
   }
   return { ok: true };
 }
+async function doPostFichajeManual(data) {
+  const insertData = {
+    empleado: data.empleado,
+    fecha: data.fecha,
+    entrada: data.entrada,
+    salida: data.salida || null,
+    tipoTrabajo: data.tipoTrabajo || 'JORNADA',
+    fentrada: data.fentrada,
+    fsalida: data.fsalida || null,
+    tiempodia: data.tiempodia || null
+  };
+  const { data: rows, error } = await _supabase.from('tblFichaje').insert([insertData]).select('id');
+  if (error) {
+    console.error('doPostFichajeManual error:', error.message);
+    return { ok: false, error: error.message };
+  }
+  return { ok: true, id: rows && rows[0] ? rows[0].id : null };
+}
 async function doEditSalida(data) {
   const { data: registro, error: searchError } = await _supabase
     .from('tblFichaje').select('id')
@@ -464,6 +482,7 @@ async function apiPost(payload) {
 
   // ── Todo lo demás → Supabase ──
   if (t === 'fichajeEntrada')  return doPostEntrada(payload);
+  if (t === 'fichajeManual')   return doPostFichajeManual(payload);
   if (t === 'fichajesSalida')  return doEditSalida(payload);
   if (t === 'editFichaje')     return doEditFichaje(payload);
   if (t === 'delFichaje')      return doDeleteFichaje(payload);
@@ -2878,48 +2897,85 @@ function renderEditar(){
     </div>`).join('')}
   </div>`;
 }
+function closeEditModal(){document.getElementById('edit-modal').classList.remove('open');fst.editingId=null;}
+function deleteEditing(){
+  const jid=fst.editingId;
+  try{apiPost({tipo:'delFichaje',id:jid});}catch(e){}
+  fst.registros=fst.registros.filter(x=>Math.floor(x.id/2)!==jid);
+  WORKERS.forEach(n=>recalcWorker(n));saveFst();closeEditModal();renderEditar();renderMeses();renderHistorial();renderStats();WORKERS.forEach(n=>renderWcard(n));
+}
+
+// ── NUEVO FICHAJE MANUAL ──
+function openNewFichajeModal(){
+  fst.editingId='__new__';
+  document.getElementById('em-title').textContent='Nuevo fichaje';
+  document.getElementById('em-btn-delete').style.display='none';
+  document.getElementById('edit-modal').classList.add('open');
+  document.getElementById('em-worker').value=WORKERS[0];
+  document.getElementById('em-fecha').value='';
+  document.getElementById('em-hora-e').value='';
+  document.getElementById('em-hora-s').value='';
+}
 function openEditModal(jid){
   const re=fst.registros.find(x=>Math.floor(x.id/2)===jid&&x.tipo==='entrada');
   const rs=fst.registros.find(x=>Math.floor(x.id/2)===jid&&x.tipo==='salida');
   if(!re)return;
   fst.editingId=jid;
+  document.getElementById('em-title').textContent='Editar jornada';
+  document.getElementById('em-btn-delete').style.display='';
   document.getElementById('edit-modal').classList.add('open');
   document.getElementById('em-worker').value=re.nombre;
   document.getElementById('em-fecha').value=dateStr(new Date(re.ts));
   document.getElementById('em-hora-e').value=fmtHM(re.ts);
   document.getElementById('em-hora-s').value=rs?fmtHM(rs.ts):'';
 }
-function closeEditModal(){document.getElementById('edit-modal').classList.remove('open');fst.editingId=null;}
-function saveEdit(){
-  const jid=fst.editingId;
-  const re=fst.registros.find(x=>Math.floor(x.id/2)===jid&&x.tipo==='entrada');
-  const rs=fst.registros.find(x=>Math.floor(x.id/2)===jid&&x.tipo==='salida');
-  if(!re)return;
+async function saveEdit(){
+  const isNew=fst.editingId==='__new__';
   const nombre=document.getElementById('em-worker').value;
   const fechaVal=document.getElementById('em-fecha').value;
+  const horaE=document.getElementById('em-hora-e').value;
+  const horaS=document.getElementById('em-hora-s').value;
+  if(!nombre||!fechaVal||!horaE){alert('Trabajador, fecha y hora de entrada son obligatorios.');return;}
   const [fy,fm,fd]=fechaVal.split('-').map(Number);
-  const [heH,heM]=document.getElementById('em-hora-e').value.split(':').map(Number);
-  re.nombre=nombre;re.ts=new Date(fy,fm-1,fd,heH,heM,0).getTime();
+  const [heH,heM]=horaE.split(':').map(Number);
   const entradaStr=pad(heH)+':'+pad(heM);
   let salidaStr='';
-  if(rs){
-    const hsVal=document.getElementById('em-hora-s').value;
-    if(hsVal){const[hsH,hsM]=hsVal.split(':').map(Number);rs.nombre=nombre;rs.ts=new Date(fy,fm-1,fd,hsH,hsM,0).getTime();rs.duracion=rs.ts-re.ts;salidaStr=pad(hsH)+':'+pad(hsM);}
+  let tsE=new Date(fy,fm-1,fd,heH,heM,0).getTime();
+  let tsS=null;
+  let durMs=0;
+  if(horaS){
+    const[hsH,hsM]=horaS.split(':').map(Number);
+    salidaStr=pad(hsH)+':'+pad(hsM);
+    tsS=new Date(fy,fm-1,fd,hsH,hsM,0).getTime();
+    if(tsS<tsE)tsS+=86400000;
+    durMs=tsS-tsE;
   }
-  const fechaFmt=pad(fd)+'/'+pad(fm)+'/'+fy;
-  const fentradaFmt=fechaFmt+' '+entradaStr;
-  const fsalidaFmt=salidaStr?fechaFmt+' '+salidaStr:'';
-  const durMs=rs?rs.duracion:0;
   const tiempodia=durMs>0?(durMs/3600000).toFixed(2):'';
-  // Enviar a Sheets
-  try{apiPost({tipo:'editFichaje',id:jid,empleado:nombre,fecha:fechaFmt,entrada:entradaStr,salida:salidaStr,tiempodia,fentrada:fentradaFmt,fsalida:fsalidaFmt});}catch(e){}
-  WORKERS.forEach(n=>recalcWorker(n));saveFst();closeEditModal();renderEditar();renderMeses();renderHistorial();renderStats();WORKERS.forEach(n=>renderWcard(n));
-}
-function deleteEditing(){
-  const jid=fst.editingId;
-  // Borrar en Sheets
-  try{apiPost({tipo:'delFichaje',id:jid});}catch(e){}
-  fst.registros=fst.registros.filter(x=>Math.floor(x.id/2)!==jid);
+  const fechaISO=fechaVal; // YYYY-MM-DD
+  const fentradaISO=new Date(fy,fm-1,fd,heH,heM,0).toISOString();
+  const fsalidaISO=tsS?new Date(tsS).toISOString():null;
+
+  if(isNew){
+    // Insertar en Supabase
+    try{
+      const result=await apiPost({tipo:'fichajeManual',empleado:nombre.toUpperCase(),fecha:fechaISO,entrada:entradaStr,salida:salidaStr||null,fentrada:fentradaISO,fsalida:fsalidaISO,tiempodia:tiempodia||null});
+      if(!result.ok){alert('Error al guardar: '+(result.error||'desconocido'));return;}
+      // Añadir a registros locales
+      const newId=result.id||Math.floor(Date.now()/1000);
+      fst.registros.push({id:newId*2,nombre,tipo:'entrada',ts:tsE});
+      if(tsS)fst.registros.push({id:newId*2+1,nombre,tipo:'salida',ts:tsS,duracion:durMs});
+    }catch(e){alert('Error de conexión');return;}
+  }else{
+    // Editar existente (código original)
+    const jid=fst.editingId;
+    const re=fst.registros.find(x=>Math.floor(x.id/2)===jid&&x.tipo==='entrada');
+    const rs=fst.registros.find(x=>Math.floor(x.id/2)===jid&&x.tipo==='salida');
+    if(!re)return;
+    re.nombre=nombre;re.ts=tsE;
+    if(rs&&horaS){const[hsH,hsM]=horaS.split(':').map(Number);rs.nombre=nombre;rs.ts=new Date(fy,fm-1,fd,hsH,hsM,0).getTime();if(rs.ts<re.ts)rs.ts+=86400000;rs.duracion=rs.ts-re.ts;}
+    else if(!rs&&horaS){fst.registros.push({id:jid*2+1,nombre,tipo:'salida',ts:tsS,duracion:durMs});}
+    try{apiPost({tipo:'editFichaje',id:jid,empleado:nombre.toUpperCase(),fecha:fechaISO,entrada:entradaStr,salida:salidaStr||null,tiempodia:tiempodia||null,fentrada:fentradaISO,fsalida:fsalidaISO});}catch(e){}
+  }
   WORKERS.forEach(n=>recalcWorker(n));saveFst();closeEditModal();renderEditar();renderMeses();renderHistorial();renderStats();WORKERS.forEach(n=>renderWcard(n));
 }
 
