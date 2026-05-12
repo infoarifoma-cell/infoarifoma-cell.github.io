@@ -2952,8 +2952,8 @@ async function saveEdit(){
   }
   const tiempodia=durMs>0?(durMs/3600000).toFixed(2):'';
   const fechaISO=fechaVal; // YYYY-MM-DD
-  const fentradaISO=new Date(fy,fm-1,fd,heH,heM,0).toISOString();
-  const fsalidaISO=tsS?new Date(tsS).toISOString():null;
+  const fentradaISO=fechaISO+'T'+entradaStr+':00';
+  const fsalidaISO=salidaStr?(fechaISO+'T'+salidaStr+':00'):null;
 
   if(isNew){
     // Insertar en Supabase
