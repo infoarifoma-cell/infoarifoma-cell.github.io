@@ -2414,8 +2414,8 @@ function procesarFichajes(json){
       const tieneHoraSalida=String(r.salida||'').trim()!=='';
       let tsE=null,tsS=null;
       // Caso 1: cols D/E con horas → usar fBase + esas horas
-      if(fBase&&tieneHoraEntrada&&tieneHoraSalida){
-        const hE=extraerHora(r.entrada),hS=extraerHora(r.salida);
+      if(fBase&&tieneHoraEntrada){
+        const hE=extraerHora(r.entrada),hS=tieneHoraSalida?extraerHora(r.salida):null;
         if(hE){const d=new Date(fBase);d.setHours(hE[0],hE[1],0,0);tsE=d.getTime();}
         if(hS){const d=new Date(fBase);d.setHours(hS[0],hS[1],0,0);if(tsE&&d.getTime()<tsE)d.setDate(d.getDate()+1);tsS=d.getTime();}
       }
