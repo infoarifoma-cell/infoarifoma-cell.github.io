@@ -459,6 +459,7 @@ async function apiFetch(params) {
   if (accion === 'fichajes')    return getFichajes();
   if (accion === 'ausencias')   return getAusencias();
   if (accion === 'camiones')    return getCamiones();
+  if (accion === 'obras')       return getObras();
   if (accion === 'pedidos')     return getPedidos(dias);
   if (accion === 'historialOT')   return getHistorialOT();
   if (accion === 'documentos')    return getDocumentos();
@@ -492,6 +493,9 @@ async function apiPost(payload) {
   if (t === 'nuevoCamion')     return doNuevoCamion(payload);
   if (t === 'editarCamion')    return doEditarCamion(payload);
   if (t === 'eliminarCamion')  return doEliminarCamion(payload);
+  if (t === 'nuevaObra')       return doNuevaObra(payload);
+  if (t === 'editarObra')      return doEditarObra(payload);
+  if (t === 'eliminarObra')    return doEliminarObra(payload);
   if (t === 'ausencia')        return doPostAusencia(payload);
   if (t === 'editAusencia')    return doEditAusencia(payload);
   if (t === 'delAusencia')     return doDeleteAusencia(payload);
@@ -672,6 +676,7 @@ function goPage(id){
   if(id==='pedidos')cargarPedidos();
   if(id==='ventas'){if(ventasData.length===0)cargarVentas();else renderVentas();}
   if(id==='camiones')cargarCamiones();
+  if(id==='obras')cargarObras();
   if(id==='activos')initActivos();
   if(id==='gasoil')cargarGasoil();
   if(id==='produccion')initProduccion();
@@ -934,6 +939,17 @@ async function _ensureBCCompanyId(token){
 }
 
 async function _cargarClientesYProyectosBC(){
+  // 1. Cargar obras desde tblobras (Supabase)
+  try{
+    const obrasJson=await apiFetch('?accion=obras');
+    if(obrasJson.ok&&obrasJson.data&&obrasJson.data.length>0){
+      obrasGestData=obrasJson.data;
+      _actualizarCliProyDesdeObras();
+      console.log('Obras: '+obrasJson.data.length+' cargadas desde tblobras');
+    }
+  }catch(e){console.warn('Error cargando obras:',e.message);}
+
+  // 2. Cargar clientes desde BC
   try{
     if(typeof getBCToken!=='function')return;
     const token=await getBCToken();
@@ -942,7 +958,6 @@ async function _cargarClientesYProyectosBC(){
     const base=`https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/api/v2.0/companies(${companyId})`;
     const headers={'Authorization':`Bearer ${token}`};
 
-    // Cargar clientes
     const custUrl=`${base}/customers?$select=number,displayName&$orderby=displayName&$top=500`;
     const custRes=await fetch(custUrl,{headers});
     if(custRes.ok){
@@ -954,37 +969,7 @@ async function _cargarClientesYProyectosBC(){
         console.log('BC: '+bcClientes.length+' clientes cargados');
       }
     }
-
-    // Cargar proyectos desde salesOrders (externalDocumentNumber = código proyecto)
-    const ordersUrl=`${base}/salesOrders?$select=customerNumber,customerName,externalDocumentNumber&$filter=status eq 'Open'&$top=1000`;
-    const ordersRes=await fetch(ordersUrl,{headers});
-    if(ordersRes.ok){
-      const ordersJson=await ordersRes.json();
-      const orders=ordersJson.value||[];
-      if(orders.length>0){
-        const newCliProy={};
-        const seen=new Set();
-        orders.forEach(o=>{
-          const cliNombre=o.customerName||'';
-          const proyCod=o.externalDocumentNumber||'';
-          if(!cliNombre||!proyCod)return;
-          const key=cliNombre+'||'+proyCod;
-          if(seen.has(key))return;
-          seen.add(key);
-          if(!newCliProy[cliNombre])newCliProy[cliNombre]=[];
-          newCliProy[cliNombre].push({nombre:proyCod,codigo:proyCod});
-        });
-        // Merge: mantener proyectos locales para clientes sin pedidos BC
-        Object.keys(CLI_PROY).forEach(cli=>{
-          if(!newCliProy[cli])newCliProy[cli]=CLI_PROY[cli];
-        });
-        CLI_PROY=newCliProy;
-        console.log('BC: proyectos cargados para '+Object.keys(newCliProy).length+' clientes');
-      }
-    }else{
-      console.warn('BC salesOrders no disponible, usando proyectos locales');
-    }
-  }catch(e){console.warn('BC clientes/proyectos:',e.message);}
+  }catch(e){console.warn('BC clientes:',e.message);}
 }
 async function initBasculaCamiones(){
   try{
@@ -2210,6 +2195,128 @@ async function eliminarCamion(){
     }
     else alert('Error: '+json.error);
   }catch(e){alert('Error de conexión');}
+}
+
+// ── OBRAS / PROYECTOS ────────────────────────────────────────
+let obrasGestData=[];
+let obraEditingId=null;
+
+async function cargarObras(){
+  const el=document.getElementById('obras-list');
+  el.innerHTML='<div class="tbl"><div class="empty">Cargando...</div></div>';
+  try{
+    const json=await apiFetch('?accion=obras');
+    if(!json.ok)throw new Error(json.error);
+    obrasGestData=json.data||[];
+    filtrarObrasGestion();
+  }catch(e){el.innerHTML='<div class="tbl"><div class="empty">Error: '+e.message+'</div></div>';}
+}
+
+function filtrarObrasGestion(){
+  const q=(document.getElementById('filt-obra').value||'').toUpperCase();
+  let data=obrasGestData;
+  if(q)data=data.filter(o=>String(o.codigo||'').toUpperCase().includes(q)||String(o.nombre||'').toUpperCase().includes(q)||String(o.nombreCliente||'').toUpperCase().includes(q));
+  renderObrasGestion(data);
+}
+
+function renderObrasGestion(data){
+  const el=document.getElementById('obras-list');
+  if(!data.length){el.innerHTML='<div class="tbl"><div class="empty">Sin resultados</div></div>';return;}
+  el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:.6">Código</div><div class="tc" style="flex:1.3">Nombre obra</div><div class="tc" style="flex:1.2">Cliente</div><div class="tc" style="flex:.5">Estado</div><div class="tc" style="flex:.4"></div></div>'+
+  data.map(o=>`<div class="tr"><div class="tc" style="flex:.6;font-family:monospace;font-weight:700;color:var(--accent)">${o.codigo}</div><div class="tc" style="flex:1.3">${o.nombre}</div><div class="tc" style="flex:1.2;color:var(--muted)">${o.nombreCliente||'—'}</div><div class="tc" style="flex:.5">${o.activo!==false?'<span style="color:#0c6">Activa</span>':'<span style="color:var(--muted)">Inactiva</span>'}</div><div class="tc" style="flex:.4;text-align:right"><button class="btn-sm" onclick="openObraModal(${o.id})">Editar</button></div></div>`).join('')+'</div>';
+}
+
+function openObraModal(id){
+  obraEditingId=id;
+  const modal=document.getElementById('obra-modal');
+  document.getElementById('obra-modal-title').textContent=id?'Editar obra':'Nueva obra';
+  const delBtn=document.getElementById('ob-del-btn');
+  // Poblar select de clientes
+  const sel=document.getElementById('ob-cliente');
+  sel.innerHTML='<option value="">Seleccionar cliente...</option>'+CLIENTES.map(c=>`<option value="${c.codigo}" data-nombre="${c.nombre}">${c.codigo} — ${c.nombre}</option>`).join('');
+  if(id){
+    const o=obrasGestData.find(x=>x.id==id);if(!o)return;
+    sel.value=o.codigoCliente||'';
+    document.getElementById('ob-codigo').value=o.codigo||'';
+    document.getElementById('ob-nombre').value=o.nombre||'';
+    document.getElementById('ob-activo').checked=o.activo!==false;
+    delBtn.style.display='block';
+  } else {
+    document.getElementById('ob-codigo').value='';
+    document.getElementById('ob-nombre').value='';
+    document.getElementById('ob-activo').checked=true;
+    sel.value='';
+    delBtn.style.display='none';
+  }
+  modal.classList.add('open');
+}
+
+function onObraClienteSel(){
+  // Auto-rellenar si necesario
+}
+
+function closeObraModal(){document.getElementById('obra-modal').classList.remove('open');obraEditingId=null;}
+
+async function saveObra(){
+  const selCli=document.getElementById('ob-cliente');
+  const opt=selCli.selectedOptions[0];
+  if(!selCli.value){alert('Selecciona un cliente.');return;}
+  const codigo=document.getElementById('ob-codigo').value.toUpperCase().trim();
+  const nombre=document.getElementById('ob-nombre').value.trim();
+  if(!codigo){alert('Introduce un código de obra.');return;}
+  if(!nombre){alert('Introduce un nombre de obra.');return;}
+  const payload={
+    tipo:obraEditingId?'editarObra':'nuevaObra',
+    id:obraEditingId,
+    codigo,
+    nombre,
+    codigoCliente:selCli.value,
+    nombreCliente:opt?opt.dataset.nombre:'',
+    activo:document.getElementById('ob-activo').checked,
+  };
+  try{
+    const json=await apiPost(payload);
+    if(json.ok){
+      closeObraModal();
+      if(obraEditingId){
+        const idx=obrasGestData.findIndex(x=>x.id==obraEditingId);
+        if(idx>=0) obrasGestData[idx]={...obrasGestData[idx],...payload};
+      } else {
+        payload.id=Math.max(...obrasGestData.map(o=>o.id||0),0)+1;
+        obrasGestData.push(payload);
+      }
+      filtrarObrasGestion();
+      // Actualizar CLI_PROY en memoria
+      _actualizarCliProyDesdeObras();
+    }
+    else alert('Error: '+json.error);
+  }catch(e){alert('Error de conexión');}
+}
+
+async function eliminarObra(){
+  if(!obraEditingId)return;
+  if(!confirm('¿Eliminar esta obra de la base de datos?'))return;
+  try{
+    const json=await apiPost({tipo:'eliminarObra',id:obraEditingId});
+    if(json.ok){
+      closeObraModal();
+      obrasGestData=obrasGestData.filter(x=>x.id!=obraEditingId);
+      filtrarObrasGestion();
+      _actualizarCliProyDesdeObras();
+    }
+    else alert('Error: '+json.error);
+  }catch(e){alert('Error de conexión');}
+}
+
+function _actualizarCliProyDesdeObras(){
+  const nuevo={};
+  obrasGestData.filter(o=>o.activo!==false).forEach(o=>{
+    const cli=o.nombreCliente||'';
+    if(!cli)return;
+    if(!nuevo[cli])nuevo[cli]=[];
+    nuevo[cli].push({nombre:o.nombre,codigo:o.codigo});
+  });
+  CLI_PROY=nuevo;
 }
 
 // ── ACTIVOS ───────────────────────────────────────────────────

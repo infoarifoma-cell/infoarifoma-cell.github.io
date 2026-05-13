@@ -425,6 +425,38 @@ async function doEliminarCamion(data) {
   }
 }
 
+// ── OBRAS / PROYECTOS ───────────────────────────────────────
+
+async function getObras() {
+  const { data, error } = await _supabase.from('tblobras').select('*').order('nombreCliente');
+  return error ? { ok: false, error: error.message } : { ok: true, data };
+}
+
+async function doNuevaObra(data) {
+  const { tipo, id, ...campos } = data;
+  campos.fechaCreacion = new Date().toISOString();
+  const { error } = await _supabase.from('tblobras').insert([campos]);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+async function doEditarObra(data) {
+  const { id, tipo, ...updates } = data;
+  const { error } = await _supabase.from('tblobras').update(updates).eq('id', id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+async function doEliminarObra(data) {
+  const id = Number(data.id);
+  if (!id || isNaN(id)) return { ok: false, error: 'ID inválido' };
+  try {
+    const { error } = await _supabase.from('tblobras').delete().eq('id', id);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
 // ── PRODUCCIÓN ───────────────────────────────────────────────
 
 async function getProduccion(mes, anyo) {

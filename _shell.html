@@ -253,6 +253,9 @@
       <button class="bnav-more-btn" onclick="bnavGo('camiones')" id="bm-camiones">
         <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="7" width="11" height="7" rx="1"/><path d="M12 9h3l2 3v2h-5V9z"/><circle cx="4.5" cy="14.5" r="1.5"/><circle cx="13.5" cy="14.5" r="1.5"/></svg>Camiones
       </button>
+      <button class="bnav-more-btn" onclick="bnavGo('obras')" id="bm-obras">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 16h14M4 16V8l5-4 5 4v8M7 16v-4h4v4"/></svg>Obras
+      </button>
       <button class="bnav-more-btn" onclick="bnavGo('gasoil')" id="bm-gasoil">
         <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2" width="8" height="14" rx="1"/><path d="M11 5h2a2 2 0 0 1 2 2v3a1 1 0 0 1-1 1h-3"/><path d="M6 6v4"/></svg>Gasoil
       </button>
@@ -334,6 +337,9 @@
         <div class="sidebar-section">Transporte</div>
         <button class="snav-btn" onclick="goPage('camiones')" id="snav-camiones">
           <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="7" width="11" height="7" rx="1"/><path d="M12 9h3l2 3v2h-5V9z"/><circle cx="4.5" cy="14.5" r="1.5"/><circle cx="13.5" cy="14.5" r="1.5"/></svg>Camiones
+        </button>
+        <button class="snav-btn" onclick="goPage('obras')" id="snav-obras">
+          <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 16h14M4 16V8l5-4 5 4v8M7 16v-4h4v4"/></svg>Obras
         </button>
         <button class="snav-btn" onclick="goPage('gasoil')" id="snav-gasoil">
           <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -866,6 +872,40 @@
             <input type="text" class="fsel" id="filt-cam" placeholder="Buscar por matrícula, chofer o empresa..." oninput="filtrarCamionesGestion()" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;padding:7px 10px;outline:none">
           </div>
           <div id="camiones-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
+        </div>
+
+        <!-- ══ OBRAS / PROYECTOS ══ -->
+        <div class="page" id="pg-obras">
+          <div class="modal-wrap" id="obra-modal">
+            <div class="modal-box" style="max-width:400px">
+              <h3 id="obra-modal-title">Nueva obra</h3>
+              <label>Cliente</label>
+              <select class="inp" id="ob-cliente" onchange="onObraClienteSel()">
+                <option value="">Seleccionar cliente...</option>
+              </select>
+              <label>Código obra</label><input type="text" class="inp inp-mono" id="ob-codigo" placeholder="Ej: PV-036" style="text-transform:uppercase">
+              <label>Nombre obra</label><input type="text" class="inp" id="ob-nombre" placeholder="Ej: HORCASA LA PARDILLA">
+              <div style="margin-top:8px">
+                <label><input type="checkbox" id="ob-activo" checked> Activa</label>
+              </div>
+              <div class="modal-btns">
+                <button class="btn-cancel" onclick="closeObraModal()">Cancelar</button>
+                <button class="btn-save" onclick="saveObra()">Guardar</button>
+                <button class="btn-danger" id="ob-del-btn" onclick="eliminarObra()" style="background:#e05;color:#fff;display:none">Eliminar</button>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+            <div class="sec-title" style="margin:0">Gestión de obras / proyectos</div>
+            <div style="display:flex;gap:8px">
+              <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="cargarObras()">&#8635; Actualizar</button>
+              <button class="btn-pri" style="font-size:.72rem;padding:6px 14px" onclick="openObraModal(null)">+ Añadir</button>
+            </div>
+          </div>
+          <div class="frow">
+            <input type="text" class="fsel" id="filt-obra" placeholder="Buscar por código, nombre o cliente..." oninput="filtrarObrasGestion()" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;padding:7px 10px;outline:none">
+          </div>
+          <div id="obras-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
         </div>
 
         <!-- ══ ACTIVOS ══ -->
