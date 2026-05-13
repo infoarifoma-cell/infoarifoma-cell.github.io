@@ -955,27 +955,34 @@ async function _cargarClientesYProyectosBC(){
       }
     }
 
-    // Cargar proyectos (jobs) y mapear a clientes
-    const jobsUrl=`${base}/jobs?$select=no,description,billToCustomerNo&$filter=status eq 'Open'&$top=500`;
-    const jobsRes=await fetch(jobsUrl,{headers});
-    if(jobsRes.ok){
-      const jobsJson=await jobsRes.json();
-      const jobs=jobsJson.value||[];
-      if(jobs.length>0){
-        // Construir mapa cliente→proyectos
+    // Cargar proyectos desde salesOrders (externalDocumentNumber = código proyecto)
+    const ordersUrl=`${base}/salesOrders?$select=customerNumber,customerName,externalDocumentNumber&$filter=status eq 'Open'&$top=1000`;
+    const ordersRes=await fetch(ordersUrl,{headers});
+    if(ordersRes.ok){
+      const ordersJson=await ordersRes.json();
+      const orders=ordersJson.value||[];
+      if(orders.length>0){
         const newCliProy={};
-        jobs.forEach(j=>{
-          // Buscar nombre cliente por código
-          const cli=CLIENTES.find(c=>c.codigo===j.billToCustomerNo);
-          const cliNombre=cli?cli.nombre:j.billToCustomerNo;
+        const seen=new Set();
+        orders.forEach(o=>{
+          const cliNombre=o.customerName||'';
+          const proyCod=o.externalDocumentNumber||'';
+          if(!cliNombre||!proyCod)return;
+          const key=cliNombre+'||'+proyCod;
+          if(seen.has(key))return;
+          seen.add(key);
           if(!newCliProy[cliNombre])newCliProy[cliNombre]=[];
-          newCliProy[cliNombre].push({nombre:j.description,codigo:j.no});
+          newCliProy[cliNombre].push({nombre:proyCod,codigo:proyCod});
+        });
+        // Merge: mantener proyectos locales para clientes sin pedidos BC
+        Object.keys(CLI_PROY).forEach(cli=>{
+          if(!newCliProy[cli])newCliProy[cli]=CLI_PROY[cli];
         });
         CLI_PROY=newCliProy;
         console.log('BC: proyectos cargados para '+Object.keys(newCliProy).length+' clientes');
       }
     }else{
-      console.warn('BC jobs endpoint no disponible, usando proyectos locales');
+      console.warn('BC salesOrders no disponible, usando proyectos locales');
     }
   }catch(e){console.warn('BC clientes/proyectos:',e.message);}
 }
