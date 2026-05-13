@@ -807,7 +807,7 @@ function actualizarReloj(){
 }
 
 // ── BÁSCULA ───────────────────────────────────────────────────
-const CLIENTES=[
+let CLIENTES=[
   {nombre:'ALONSO MAYOR AMBROSIO AMADO',codigo:'CLI-00027'},
   {nombre:'ANGEL SALVADOR SANTANA PEÑA',codigo:'CLI-00024'},
   {nombre:'API MOVILIDAD, S.A.',codigo:'CLI-00005'},
@@ -842,7 +842,7 @@ const CLIENTES=[
   {nombre:'TRANSPORTES ROMANO PERERA SL',codigo:'CLI-00011'},
   {nombre:'TRANSPORTES Y GRUAS SANCHEZ CANARIAS SL',codigo:'CLI-00012'},
 ];
-const CLI_PROY={
+let CLI_PROY={
   'ALONSO MAYOR AMBROSIO AMADO':[{nombre:'OBRAS ALONSO MAYOR AMBROSIO AMADO',codigo:'PV-020'}],
   'ANGEL SALVADOR SANTANA PEÑA':[{nombre:'CLIENTES VARIOS',codigo:'PV-000'},{nombre:'OBRAS ANGEL SALVADOR',codigo:'PV-027'}],
   'API MOVILIDAD, S.A.':[{nombre:'APIMOVILIDAD CRTRA VALLESECO-VALSENDERO',codigo:'PV-007'}],
@@ -919,6 +919,65 @@ function initBasculaUI(){
   const fp=document.getElementById('bas-fecha-pedido');if(fp)fp.value=dateStr(now);
   renderCamGrid(camionesData);
   renderCliDropdown('');
+  // Cargar clientes y proyectos desde BC en background
+  _cargarClientesYProyectosBC();
+}
+
+async function _ensureBCCompanyId(token){
+  if(window._bcCompanyId)return window._bcCompanyId;
+  const base=`https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/api/v2.0/companies`;
+  const cJson=await(await fetch(base,{headers:{'Authorization':`Bearer ${token}`}})).json();
+  const company=(cJson.value||[]).find(c=>c.name===BC_COMPANY);
+  if(!company)return null;
+  window._bcCompanyId=company.id;
+  return company.id;
+}
+
+async function _cargarClientesYProyectosBC(){
+  try{
+    if(typeof getBCToken!=='function')return;
+    const token=await getBCToken();
+    const companyId=await _ensureBCCompanyId(token);
+    if(!companyId)return;
+    const base=`https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/api/v2.0/companies(${companyId})`;
+    const headers={'Authorization':`Bearer ${token}`};
+
+    // Cargar clientes
+    const custUrl=`${base}/customers?$select=number,displayName&$orderby=displayName&$top=500`;
+    const custRes=await fetch(custUrl,{headers});
+    if(custRes.ok){
+      const custJson=await custRes.json();
+      const bcClientes=(custJson.value||[]).map(c=>({nombre:c.displayName,codigo:c.number})).filter(c=>c.nombre&&c.codigo);
+      if(bcClientes.length>0){
+        CLIENTES=bcClientes;
+        renderCliDropdown('');
+        console.log('BC: '+bcClientes.length+' clientes cargados');
+      }
+    }
+
+    // Cargar proyectos (jobs) y mapear a clientes
+    const jobsUrl=`${base}/jobs?$select=no,description,billToCustomerNo&$filter=status eq 'Open'&$top=500`;
+    const jobsRes=await fetch(jobsUrl,{headers});
+    if(jobsRes.ok){
+      const jobsJson=await jobsRes.json();
+      const jobs=jobsJson.value||[];
+      if(jobs.length>0){
+        // Construir mapa cliente→proyectos
+        const newCliProy={};
+        jobs.forEach(j=>{
+          // Buscar nombre cliente por código
+          const cli=CLIENTES.find(c=>c.codigo===j.billToCustomerNo);
+          const cliNombre=cli?cli.nombre:j.billToCustomerNo;
+          if(!newCliProy[cliNombre])newCliProy[cliNombre]=[];
+          newCliProy[cliNombre].push({nombre:j.description,codigo:j.no});
+        });
+        CLI_PROY=newCliProy;
+        console.log('BC: proyectos cargados para '+Object.keys(newCliProy).length+' clientes');
+      }
+    }else{
+      console.warn('BC jobs endpoint no disponible, usando proyectos locales');
+    }
+  }catch(e){console.warn('BC clientes/proyectos:',e.message);}
 }
 async function initBasculaCamiones(){
   try{
