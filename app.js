@@ -1416,7 +1416,8 @@ async function seleccionarPedidoExistente(numPedido, nombreCliente, allData, fue
     proyectoName:r.proyectoName||'',
   }));
   // Update obras dropdown for this client
-  const obras=CLI_PROY[nombreCliente]||[];
+  const cli=CLIENTES.find(c=>c.nombre.toUpperCase()===nombreCliente.toUpperCase());
+  const obras=_getObrasCliente(nombreCliente,cli?cli.codigo:'');
   const sel=document.getElementById('bas-obra-sel');
   if(sel)sel.innerHTML='<option value="">Seleccionar obra...</option>'+obras.map(o=>`<option value="${o.codigo}">${o.codigo} — ${o.nombre}</option>`).join('');
   // Show selected
@@ -1473,7 +1474,7 @@ function seleccionarCliente(nombre,codigo){
   const btnS2=document.getElementById('bas-btn-s2');
   if(btnS2)btnS2.disabled=true;
   // Load obras
-  const obras=CLI_PROY[nombre]||[];
+  const obras=_getObrasCliente(nombre,codigo);
   const obraSel=document.getElementById('bas-obra-sel');
   if(obraSel)obraSel.innerHTML='<option value="">Seleccionar obra...</option>'+obras.map(o=>`<option value="${o.codigo}">${o.codigo} — ${o.nombre}</option>`).join('');
   // Show nueva cab button
@@ -1569,7 +1570,7 @@ function renderLineasAlbaran(){
 document.addEventListener('change',function(e){
   if(e.target.id==='bas-obra-sel'){
     const cod=e.target.value;
-    const obras=(basSelCliente&&basSelCliente.nombre)?CLI_PROY[basSelCliente.nombre]||[]:[];
+    const obras=(basSelCliente&&basSelCliente.nombre)?_getObrasCliente(basSelCliente.nombre,basSelCliente.codigo):[];
     const obra=obras.find(o=>o.codigo===cod);
     document.getElementById('alb-obra-nombre').textContent=obra?'Obra: '+obra.nombre:'';
   }
@@ -1589,7 +1590,7 @@ async function guardarLinea(){
   const tara=basSelCamion.tara||0;
   const neto=bruto-tara>0?bruto-tara:0;
   const prodNombre=PROD_MAP[prodCod]||prodCod;
-  const obras=(basSelCliente&&basSelCliente.nombre)?CLI_PROY[basSelCliente.nombre]||[]:[];
+  const obras=(basSelCliente&&basSelCliente.nombre)?_getObrasCliente(basSelCliente.nombre,basSelCliente.codigo):[];
   const obra=obras.find(o=>o.codigo===obraCod);
   const obraNombre=obra?obra.nombre:'';
   const fechaPedido=document.getElementById('bas-fecha-pedido').value;
@@ -1911,7 +1912,9 @@ function epedClienteChange(){
 }
 function epedCargarProyectos(nombreCliente, selectedVal){
   const proySel=document.getElementById('eped-proyecto');
-  const obras=CLI_PROY[nombreCliente]||[{nombre:'CLIENTES VARIOS',codigo:'PV-000'}];
+  const cliObj=CLIENTES.find(c=>c.nombre===nombreCliente);
+  const obras=_getObrasCliente(nombreCliente,cliObj?cliObj.codigo:'');
+  if(!obras.length)obras.push({nombre:'CLIENTES VARIOS',codigo:'PV-000'});
   proySel.innerHTML=obras.map(o=>`<option value="${o.codigo}"${(o.nombre===selectedVal||o.codigo===selectedVal)?' selected':''}>${o.codigo} — ${o.nombre}</option>`).join('');
 }
 function cerrarModalEped(){document.getElementById('modal-eped').classList.remove('open');}
@@ -2380,14 +2383,29 @@ async function eliminarObra(){
 }
 
 function _actualizarCliProyDesdeObras(){
-  const nuevo={};
+  const porNombre={};
+  const porCodigo={};
   obrasGestData.filter(o=>o.activo!==false).sort((a,b)=>(a.codigo||'').localeCompare(b.codigo||'')).forEach(o=>{
     const cli=o.nombreCliente||'';
-    if(!cli)return;
-    if(!nuevo[cli])nuevo[cli]=[];
-    nuevo[cli].push({nombre:o.nombre,codigo:o.codigo});
+    const cod=o.codigoCliente||'';
+    if(cli){
+      if(!porNombre[cli])porNombre[cli]=[];
+      porNombre[cli].push({nombre:o.nombre,codigo:o.codigo});
+    }
+    if(cod){
+      if(!porCodigo[cod])porCodigo[cod]=[];
+      porCodigo[cod].push({nombre:o.nombre,codigo:o.codigo});
+    }
   });
-  CLI_PROY=nuevo;
+  CLI_PROY=porNombre;
+  window._CLI_PROY_COD=porCodigo;
+}
+
+// Buscar obras para un cliente por nombre o código
+function _getObrasCliente(nombre,codigo){
+  return CLI_PROY[nombre]||
+    (codigo&&window._CLI_PROY_COD?window._CLI_PROY_COD[codigo]:null)||
+    [];
 }
 
 // ── ACTIVOS ───────────────────────────────────────────────────
