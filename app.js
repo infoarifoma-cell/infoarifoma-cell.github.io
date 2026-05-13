@@ -177,6 +177,7 @@ async function doEditarPedido(data) {
   if (data.pesoNeto      !== undefined) updates.pesoNeto      = Number(data.pesoNeto);
   if (data.proyectoCod   !== undefined) updates.proyectoCod   = data.proyectoCod;
   if (data.proyectoName  !== undefined) updates.proyectoName  = data.proyectoName;
+  if (data.observaciones !== undefined) updates.observaciones = data.observaciones;
   const { error } = await _supabase.from('tblpedidos').update(updates).eq('id', data.id);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
@@ -1883,6 +1884,7 @@ function editarPedidoModal(id){
   document.getElementById('eped-chofer').value=r.chofer||'';
   document.getElementById('eped-bruto').value=r.pesoBruto||'';
   document.getElementById('eped-neto').value=r.pesoNeto||'';
+  document.getElementById('eped-obs').value=r.observaciones||'';
   document.getElementById('eped-fecha').value=formatFechaHoraPed(r.fechaHora);
   document.getElementById('eped-msg').textContent='';
   document.getElementById('modal-eped').classList.add('open');
@@ -1925,13 +1927,14 @@ async function guardarPedidoEditar(){
       proyectoName:proyName,
       pesoBruto:document.getElementById('eped-bruto').value,
       pesoNeto:document.getElementById('eped-neto').value,
+      observaciones:document.getElementById('eped-obs').value,
     };
     const json=await apiPost(payload);
     if(json.ok){
       msg.style.color='var(--accent)'; msg.textContent='Guardado correctamente';
       // Actualizar dato local
       const r=pedidosData.find(x=>x.id==payload.id);
-      if(r){Object.assign(r,{nombreCliente:payload.nombreCliente,matriculacam:payload.matriculacam,matricularem:payload.matricularem,chofer:payload.chofer,productoNombre:payload.productoNombre,pesoBruto:Number(payload.pesoBruto),pesoNeto:Number(payload.pesoNeto)});}
+      if(r){Object.assign(r,{nombreCliente:payload.nombreCliente,matriculacam:payload.matriculacam,matricularem:payload.matricularem,chofer:payload.chofer,productoNombre:payload.productoNombre,pesoBruto:Number(payload.pesoBruto),pesoNeto:Number(payload.pesoNeto),observaciones:payload.observaciones});}
       filtrarPedidos();
       setTimeout(cerrarModalEped,900);
     } else {
