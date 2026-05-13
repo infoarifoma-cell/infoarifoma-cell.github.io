@@ -880,9 +880,16 @@
             <div class="modal-box" style="max-width:400px">
               <h3 id="obra-modal-title">Nueva obra</h3>
               <label>Cliente</label>
-              <select class="inp" id="ob-cliente" onchange="onObraClienteSel()">
-                <option value="">Seleccionar cliente...</option>
-              </select>
+              <div style="position:relative">
+                <div class="inp" id="ob-cli-display" onclick="toggleObraCliDropdown()" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center">
+                  <span id="ob-cli-text" style="color:var(--muted)">Seleccionar cliente...</span>
+                  <span style="font-size:.6rem">▼</span>
+                </div>
+                <div id="ob-cli-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;max-height:220px;overflow-y:auto;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,.3)">
+                  <input type="text" class="inp" id="ob-cli-search" placeholder="Buscar cliente..." oninput="filtrarObraClientes()" style="border:none;border-bottom:1px solid var(--border);border-radius:0;margin:0">
+                  <div id="ob-cli-list"></div>
+                </div>
+              </div>
               <label>Código obra</label><input type="text" class="inp inp-mono" id="ob-codigo" placeholder="Ej: PV-036" style="text-transform:uppercase">
               <label>Nombre obra</label><input type="text" class="inp" id="ob-nombre" placeholder="Ej: HORCASA LA PARDILLA">
               <div style="margin-top:8px">
