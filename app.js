@@ -2310,7 +2310,7 @@ async function eliminarObra(){
 
 function _actualizarCliProyDesdeObras(){
   const nuevo={};
-  obrasGestData.filter(o=>o.activo!==false).forEach(o=>{
+  obrasGestData.filter(o=>o.activo!==false).sort((a,b)=>(a.codigo||'').localeCompare(b.codigo||'')).forEach(o=>{
     const cli=o.nombreCliente||'';
     if(!cli)return;
     if(!nuevo[cli])nuevo[cli]=[];

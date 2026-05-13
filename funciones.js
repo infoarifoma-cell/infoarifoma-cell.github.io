@@ -428,7 +428,7 @@ async function doEliminarCamion(data) {
 // ── OBRAS / PROYECTOS ───────────────────────────────────────
 
 async function getObras() {
-  const { data, error } = await _supabase.from('tblobras').select('*').order('nombreCliente');
+  const { data, error } = await _supabase.from('tblobras').select('*').order('codigo');
   return error ? { ok: false, error: error.message } : { ok: true, data };
 }
 
