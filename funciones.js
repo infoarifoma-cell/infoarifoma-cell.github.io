@@ -396,7 +396,7 @@ async function getCamiones() {
 }
 
 async function doNuevoCamion(data) {
-  const { tipo, ...campos } = data; // quitar el campo "tipo" del payload
+  const { tipo, id, ...campos } = data; // quitar "tipo" e "id" del payload
   campos.fechaCreacion = new Date().toISOString(); // agregar timestamp actual
   const { error } = await _supabase.from('tblcamiones').insert([campos]);
   return error ? { ok: false, error: error.message } : { ok: true };
