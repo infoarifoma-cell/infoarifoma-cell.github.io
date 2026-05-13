@@ -1416,7 +1416,6 @@ async function seleccionarPedidoExistente(numPedido, nombreCliente, allData, fue
     proyectoName:r.proyectoName||'',
   }));
   // Update obras dropdown for this client
-  const cli=CLIENTES.find(c=>c.nombre.toUpperCase()===nombreCliente.toUpperCase());
   const obras=_getObrasCliente(nombreCliente,cli?cli.codigo:'');
   const sel=document.getElementById('bas-obra-sel');
   if(sel)sel.innerHTML='<option value="">Seleccionar obra...</option>'+obras.map(o=>`<option value="${o.codigo}">${o.codigo} — ${o.nombre}</option>`).join('');
