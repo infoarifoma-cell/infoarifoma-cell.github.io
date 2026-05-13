@@ -969,6 +969,42 @@ async function _cargarClientesYProyectosBC(){
         console.log('BC: '+bcClientes.length+' clientes cargados');
       }
     }
+
+    // 3. Cargar proyectos desde BC (Jobs/Projects) y mergear con tblobras
+    const endpoints=['projects','jobs'];
+    for(const ep of endpoints){
+      try{
+        const projUrl=`${base}/${ep}?$select=no,description,billToCustomerNo&$orderby=no&$top=1000`;
+        const projRes=await fetch(projUrl,{headers});
+        if(!projRes.ok)continue;
+        const projJson=await projRes.json();
+        const projects=projJson.value||[];
+        if(projects.length>0){
+          // Añadir proyectos BC que no existan en tblobras
+          const existingCodes=new Set(obrasGestData.map(o=>o.codigo));
+          let added=0;
+          projects.forEach(p=>{
+            if(existingCodes.has(p.no))return;
+            const cli=CLIENTES.find(c=>c.codigo===p.billToCustomerNo);
+            const nombreCli=cli?cli.nombre:p.billToCustomerNo;
+            obrasGestData.push({
+              id:'bc-'+p.no,
+              codigo:p.no,
+              nombre:p.description||p.no,
+              codigoCliente:p.billToCustomerNo,
+              nombreCliente:nombreCli,
+              activo:true
+            });
+            added++;
+          });
+          if(added>0){
+            _actualizarCliProyDesdeObras();
+            console.log('BC: '+added+' proyectos añadidos desde '+ep);
+          }
+          break; // Uno de los endpoints funcionó
+        }
+      }catch(e){continue;}
+    }
   }catch(e){console.warn('BC clientes:',e.message);}
 }
 async function initBasculaCamiones(){
@@ -2226,41 +2262,76 @@ function renderObrasGestion(data){
   data.map(o=>`<div class="tr"><div class="tc" style="flex:.6;font-family:monospace;font-weight:700;color:var(--accent)">${o.codigo}</div><div class="tc" style="flex:1.3">${o.nombre}</div><div class="tc" style="flex:1.2;color:var(--muted)">${o.nombreCliente||'—'}</div><div class="tc" style="flex:.5">${o.activo!==false?'<span style="color:#0c6">Activa</span>':'<span style="color:var(--muted)">Inactiva</span>'}</div><div class="tc" style="flex:.4;text-align:right"><button class="btn-sm" onclick="openObraModal(${o.id})">Editar</button></div></div>`).join('')+'</div>';
 }
 
+let _obraSelCliente=null; // {codigo, nombre}
+
 function openObraModal(id){
   obraEditingId=id;
+  _obraSelCliente=null;
   const modal=document.getElementById('obra-modal');
   document.getElementById('obra-modal-title').textContent=id?'Editar obra':'Nueva obra';
   const delBtn=document.getElementById('ob-del-btn');
-  // Poblar select de clientes
-  const sel=document.getElementById('ob-cliente');
-  sel.innerHTML='<option value="">Seleccionar cliente...</option>'+CLIENTES.map(c=>`<option value="${c.codigo}" data-nombre="${c.nombre}">${c.codigo} — ${c.nombre}</option>`).join('');
+  const cliText=document.getElementById('ob-cli-text');
+  document.getElementById('ob-cli-dropdown').style.display='none';
+  document.getElementById('ob-cli-search').value='';
   if(id){
     const o=obrasGestData.find(x=>x.id==id);if(!o)return;
-    sel.value=o.codigoCliente||'';
+    _obraSelCliente={codigo:o.codigoCliente,nombre:o.nombreCliente};
+    cliText.textContent=o.nombreCliente||'Seleccionar cliente...';
+    cliText.style.color=o.nombreCliente?'var(--text)':'var(--muted)';
     document.getElementById('ob-codigo').value=o.codigo||'';
     document.getElementById('ob-nombre').value=o.nombre||'';
     document.getElementById('ob-activo').checked=o.activo!==false;
     delBtn.style.display='block';
   } else {
+    cliText.textContent='Seleccionar cliente...';
+    cliText.style.color='var(--muted)';
     document.getElementById('ob-codigo').value='';
     document.getElementById('ob-nombre').value='';
     document.getElementById('ob-activo').checked=true;
-    sel.value='';
     delBtn.style.display='none';
   }
   modal.classList.add('open');
 }
 
-function onObraClienteSel(){
-  // Auto-rellenar si necesario
+function toggleObraCliDropdown(){
+  const dd=document.getElementById('ob-cli-dropdown');
+  dd.style.display=dd.style.display==='none'?'block':'none';
+  if(dd.style.display==='block'){
+    document.getElementById('ob-cli-search').value='';
+    document.getElementById('ob-cli-search').focus();
+    renderObraCliList('');
+  }
 }
 
-function closeObraModal(){document.getElementById('obra-modal').classList.remove('open');obraEditingId=null;}
+function renderObraCliList(q){
+  const list=document.getElementById('ob-cli-list');if(!list)return;
+  const sorted=[...CLIENTES].sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  const filtered=q?sorted.filter(c=>c.nombre.toUpperCase().includes(q.toUpperCase())||c.codigo.toUpperCase().includes(q.toUpperCase())):sorted;
+  list.innerHTML='';
+  filtered.forEach(c=>{
+    const div=document.createElement('div');
+    div.style.cssText='padding:10px 14px;cursor:pointer;font-size:.82rem;border-bottom:1px solid var(--border)';
+    div.innerHTML='<span style="font-family:monospace;color:var(--accent);margin-right:8px">'+c.codigo+'</span>'+c.nombre;
+    div.onmouseover=()=>div.style.background='var(--surface2)';
+    div.onmouseout=()=>div.style.background='transparent';
+    div.onclick=()=>{
+      _obraSelCliente={codigo:c.codigo,nombre:c.nombre};
+      document.getElementById('ob-cli-text').textContent=c.nombre;
+      document.getElementById('ob-cli-text').style.color='var(--text)';
+      document.getElementById('ob-cli-dropdown').style.display='none';
+    };
+    list.appendChild(div);
+  });
+}
+
+function filtrarObraClientes(){
+  renderObraCliList(document.getElementById('ob-cli-search').value);
+}
+
+function closeObraModal(){document.getElementById('obra-modal').classList.remove('open');obraEditingId=null;_obraSelCliente=null;}
 
 async function saveObra(){
-  const selCli=document.getElementById('ob-cliente');
-  const opt=selCli.selectedOptions[0];
-  if(!selCli.value){alert('Selecciona un cliente.');return;}
+  if(!_obraSelCliente){alert('Selecciona un cliente.');return;}
   const codigo=document.getElementById('ob-codigo').value.toUpperCase().trim();
   const nombre=document.getElementById('ob-nombre').value.trim();
   if(!codigo){alert('Introduce un código de obra.');return;}
@@ -2270,8 +2341,8 @@ async function saveObra(){
     id:obraEditingId,
     codigo,
     nombre,
-    codigoCliente:selCli.value,
-    nombreCliente:opt?opt.dataset.nombre:'',
+    codigoCliente:_obraSelCliente.codigo,
+    nombreCliente:_obraSelCliente.nombre,
     activo:document.getElementById('ob-activo').checked,
   };
   try{
