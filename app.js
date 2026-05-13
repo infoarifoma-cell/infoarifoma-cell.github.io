@@ -187,7 +187,7 @@ async function getCamiones() {
   return error ? { ok: false, error: error.message } : { ok: true, data };
 }
 async function doNuevoCamion(data) {
-  const { tipo, ...payload } = data;
+  const { tipo, id, ...payload } = data;
   console.log('Insertando camión:', payload);
   const { error } = await _supabase.from('tblcamiones').insert([payload]);
   if(error) console.error('Error Supabase:', error);
@@ -1577,6 +1577,7 @@ async function guardarLinea(){
     proyectoName:obraNombre,
     numPedido:basNumPedido,
     numLinea:basCurrentLinea,
+    observaciones:(document.getElementById('bas-observaciones').value||'').trim(),
   };
 
   const btn=document.querySelector('#bas-step-3 .btn-pri');
@@ -1652,6 +1653,14 @@ function mostrarAlbaranUltimaLinea(){
   document.getElementById('alb-producto').textContent=p.productoNombre||'—';
   document.getElementById('alb-bruto').textContent=Number(p.pesoBruto).toLocaleString();
   document.getElementById('alb-neto').textContent=Number(p.pesoNeto).toLocaleString();
+  // Observaciones
+  const obsWrap2=document.getElementById('alb-obs-wrap');
+  const obsText2=document.getElementById('alb-obs-text');
+  if(obsWrap2&&obsText2){
+    const obs2=p.observaciones||'';
+    if(obs2){obsText2.textContent=obs2;obsWrap2.style.display='block';}
+    else{obsWrap2.style.display='none';}
+  }
   const nombre=(p.productoNombre||'').toUpperCase();
   const esCE=/\b(0\/4|4\/12|12\/20)\b/.test(nombre);
   const ceImg=document.getElementById('alb-ce-img');
@@ -1728,6 +1737,14 @@ async function mostrarAlbaran(id,p){
   document.getElementById('alb-producto').textContent=p.productoNombre||'—';
   document.getElementById('alb-bruto').textContent=Number(p.pesoBruto).toLocaleString();
   document.getElementById('alb-neto').textContent=Number(p.pesoNeto).toLocaleString();
+  // Observaciones
+  const obsWrap=document.getElementById('alb-obs-wrap');
+  const obsText=document.getElementById('alb-obs-text');
+  if(obsWrap&&obsText){
+    const obs=p.observaciones||'';
+    if(obs){obsText.textContent=obs;obsWrap.style.display='block';}
+    else{obsWrap.style.display='none';}
+  }
   // CE logo
   const nombre=(p.productoNombre||'').toUpperCase();
   const esCE=/\b(0\/4|4\/12|12\/20)\b/.test(nombre);

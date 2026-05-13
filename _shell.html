@@ -196,6 +196,18 @@
         </tbody>
       </table>
 
+      <!-- OBSERVACIONES -->
+      <div id="alb-obs-wrap" style="display:none;margin-bottom:1mm">
+        <table style="width:100%;border-collapse:collapse;font-size:8pt">
+          <tr>
+            <td style="border:1px solid #999;padding:3px 5px;vertical-align:top">
+              <div style="font-weight:800;font-size:7pt;text-transform:uppercase;color:#333;margin-bottom:2px;letter-spacing:.06em">OBSERVACIONES</div>
+              <div id="alb-obs-text" style="font-size:8pt;line-height:1.4;min-height:8mm;white-space:pre-wrap"></div>
+            </td>
+          </tr>
+        </table>
+      </div>
+
       <!-- FIRMAS + LOGOS -->
       <table style="width:100%;border-collapse:collapse;font-size:7pt;margin-top:auto">
         <!-- Fila superior: espacio para firmar -->
@@ -583,6 +595,11 @@
                   <option value="">Seleccionar obra...</option>
                 </select>
                 <div style="font-size:.78rem;color:var(--accent2);margin-top:4px" id="alb-obra-nombre"></div>
+              </div>
+
+              <div style="margin-bottom:16px">
+                <div class="label">Observaciones:</div>
+                <textarea class="inp" id="bas-observaciones" placeholder="Observaciones opcionales..." rows="2" style="resize:vertical;font-family:'DM Sans',sans-serif;font-size:.85rem"></textarea>
               </div>
 
               <!-- Tabla líneas del pedido -->
