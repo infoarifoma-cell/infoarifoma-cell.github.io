@@ -970,41 +970,6 @@ async function _cargarClientesYProyectosBC(){
       }
     }
 
-    // 3. Cargar proyectos desde BC (Jobs/Projects) y mergear con tblobras
-    const endpoints=['projects','jobs'];
-    for(const ep of endpoints){
-      try{
-        const projUrl=`${base}/${ep}?$select=no,description,billToCustomerNo&$orderby=no&$top=1000`;
-        const projRes=await fetch(projUrl,{headers});
-        if(!projRes.ok)continue;
-        const projJson=await projRes.json();
-        const projects=projJson.value||[];
-        if(projects.length>0){
-          // Añadir proyectos BC que no existan en tblobras
-          const existingCodes=new Set(obrasGestData.map(o=>o.codigo));
-          let added=0;
-          projects.forEach(p=>{
-            if(existingCodes.has(p.no))return;
-            const cli=CLIENTES.find(c=>c.codigo===p.billToCustomerNo);
-            const nombreCli=cli?cli.nombre:p.billToCustomerNo;
-            obrasGestData.push({
-              id:'bc-'+p.no,
-              codigo:p.no,
-              nombre:p.description||p.no,
-              codigoCliente:p.billToCustomerNo,
-              nombreCliente:nombreCli,
-              activo:true
-            });
-            added++;
-          });
-          if(added>0){
-            _actualizarCliProyDesdeObras();
-            console.log('BC: '+added+' proyectos añadidos desde '+ep);
-          }
-          break; // Uno de los endpoints funcionó
-        }
-      }catch(e){continue;}
-    }
   }catch(e){console.warn('BC clientes:',e.message);}
 }
 async function initBasculaCamiones(){
@@ -1354,7 +1319,7 @@ async function _cargarPedidosAbiertosBC(){
       window._bcCompanyId=company.id;
     }
     const hoy=new Date().toISOString().slice(0,10);
-    const filter=`status eq 'Open' and orderDate eq ${hoy}`;
+    const filter=`status eq 'Draft' and orderDate eq ${hoy}`;
     const url=`${base}(${window._bcCompanyId})/salesOrders?$filter=${encodeURIComponent(filter)}&$select=number,customerName,orderDate,status&$orderby=number desc`;
     const res=await fetch(url,{headers});
     if(!res.ok)return[];
