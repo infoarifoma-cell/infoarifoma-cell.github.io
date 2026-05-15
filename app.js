@@ -4562,7 +4562,13 @@ async function enviarCajaSheet() {
       });
     });
 
-    const result = await sheetsPost({ tipo: 'caja', filas });
+    const res = await fetch('/api/sheets-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tipo: 'caja', filas })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const result = await res.json();
     if (!result.ok) throw new Error(result.error || 'Error al escribir en Sheet');
 
     btn.textContent = '✓ Enviado';
