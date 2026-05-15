@@ -491,7 +491,7 @@ async function apiPost(payload) {
   const t = payload.tipo || '';
 
   // ── Producción y Gasoil → Google Sheets ──
-  if (t === 'gasoil' || t === 'editarGasoil' || t === 'editProduccion' || t === 'addProduccion' || t === 'caja') {
+  if (t === 'gasoil' || t === 'editarGasoil' || t === 'editProduccion' || t === 'addProduccion') {
     return sheetsPost(payload);
   }
 
@@ -4562,14 +4562,17 @@ async function enviarCajaSheet() {
       });
     });
 
-    const res = await fetch('/api/sheets-proxy', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tipo: 'caja', filas })
-    });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const result = await res.json();
-    if (!result.ok) throw new Error(result.error || 'Error al escribir en Sheet');
+    const rows = filas.map(f => ({
+      codCaja: f.codCaja,
+      numCaja: f.numCaja,
+      facturaBC: f.facturaBC,
+      fechaRegistro: f.fecha,
+      proveedor: f.proveedor,
+      importe: f.importe,
+      factProveedor: f.factProveedor
+    }));
+    const { error: sbErr } = await _supabase.from('tblcaja').insert(rows);
+    if (sbErr) throw new Error(sbErr.message);
 
     btn.textContent = '✓ Enviado';
     btn.style.background = '#2e7d32';
