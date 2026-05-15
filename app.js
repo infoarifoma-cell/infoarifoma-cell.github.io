@@ -491,7 +491,7 @@ async function apiPost(payload) {
   const t = payload.tipo || '';
 
   // ── Producción y Gasoil → Google Sheets ──
-  if (t === 'gasoil' || t === 'editarGasoil' || t === 'editProduccion' || t === 'addProduccion') {
+  if (t === 'gasoil' || t === 'editarGasoil' || t === 'editProduccion' || t === 'addProduccion' || t === 'caja') {
     return sheetsPost(payload);
   }
 
@@ -550,7 +550,7 @@ const DIAS_LAB_2026=[18,18,22,20,20,21,23,21,22,21,21,18];
 const HORAS_DIA_STD=8; // Jornada estándar convenio
 const PRODS=['ARIDO AF-T-0/4-I','ARIDO AG-T-4/12-I','ARIDO AG-T-12/20-I','ARIDO AG-T-20/40-I','ARIDO AG-T-40/70-I','REVUELTO 0/20','REVUELTO 0/10','PIEDRA PARA MURO (UD)','MATERIAL DE RELLENO 0/4'];
 const PROD_CAT={'ARIDO AF-T-0/4-I':'0/4','ARIDO AG-T-4/12-I':'4/12','ARIDO AG-T-12/20-I':'12/20','ARIDO AG-T-20/40-I':'20/40'};
-const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas',produccion:'Producción Planta',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',preventivo:'Mantenimiento Preventivo'};
+const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas',caja:'Caja',produccion:'Producción Planta',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',preventivo:'Mantenimiento Preventivo'};
 
 // ── PIN ──────────────────────────────────────────────────────
 // ── LOGIN SEGURO CON SUPABASE (server-side) ──────────────────
@@ -695,6 +695,7 @@ function goPage(id){
   if(id==='gasoil')cargarGasoil();
   if(id==='produccion')initProduccion();
   if(id==='facturacion')initFacturacion();
+  if(id==='caja')initCaja();
 }
 
 function pad(n){return String(n).padStart(2,'0')}
@@ -4376,6 +4377,208 @@ async function exportarExcelCliente(bcIdx) {
   a.download = `${cli} - ${nomMes} ${anyo}.xlsx`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ── CAJA — Facturas de compra desde BC → Google Sheet ────────
+let cajaFacturas = [];
+let cajaSelected = new Set();
+let cajaInited = false;
+
+function initCaja() {
+  if (!cajaInited) {
+    const hoy = new Date();
+    const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    document.getElementById('caja-fecha-desde').value = primerDia.getFullYear() + '-' + pad(primerDia.getMonth() + 1) + '-' + pad(primerDia.getDate());
+    document.getElementById('caja-fecha-hasta').value = hoy.getFullYear() + '-' + pad(hoy.getMonth() + 1) + '-' + pad(hoy.getDate());
+    cajaInited = true;
+  }
+  if (cajaFacturas.length === 0) {
+    // No auto-load, user clicks button
+  } else {
+    renderCajaList();
+  }
+}
+
+async function cargarFacturasCompra() {
+  const el = document.getElementById('caja-list');
+  el.innerHTML = '<div style="color:var(--muted);text-align:center;padding:30px">Conectando con BC...</div>';
+  cajaSelected.clear();
+  updateCajaSelResumen();
+
+  try {
+    const token = await getBCToken();
+    const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const base = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/api/v2.0/companies`;
+
+    // Get company
+    const cRes = await fetch(base, { headers });
+    if (!cRes.ok) throw new Error('No se pudo obtener company');
+    const cJson = await cRes.json();
+    const company = cJson.value.find(c => c.name.trim() === BC_COMPANY.trim());
+    if (!company) throw new Error('Company no encontrada');
+    const companyId = company.id;
+
+    // Get purchase invoices
+    const invRes = await fetch(
+      `${base}(${companyId})/purchaseInvoices?$select=id,number,invoiceDate,vendorNumber,vendorName,totalAmountExcludingTax,totalAmountIncludingTax,vendorInvoiceNumber,status&$orderby=invoiceDate desc&$top=500`,
+      { headers }
+    );
+    if (!invRes.ok) throw new Error('Error obteniendo facturas: ' + invRes.statusText);
+    const invJson = await invRes.json();
+
+    cajaFacturas = (invJson.value || []).map(f => ({
+      id: f.id,
+      number: f.number || '',
+      date: f.invoiceDate || '',
+      vendorNumber: f.vendorNumber || '',
+      vendorName: f.vendorName || '',
+      amount: f.totalAmountExcludingTax || 0,
+      amountInc: f.totalAmountIncludingTax || 0,
+      vendorInvoice: f.vendorInvoiceNumber || '',
+      status: f.status || ''
+    }));
+
+    el.innerHTML = '';
+    renderCajaList();
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--danger);text-align:center;padding:30px">Error: ${e.message}</div>`;
+  }
+}
+
+function renderCajaList() {
+  const el = document.getElementById('caja-list');
+  if (!cajaFacturas.length) {
+    el.innerHTML = '<div style="color:var(--muted);text-align:center;padding:30px;font-size:.82rem">Sin facturas cargadas</div>';
+    return;
+  }
+
+  const fechaDesdeStr = document.getElementById('caja-fecha-desde').value;
+  const fechaHastaStr = document.getElementById('caja-fecha-hasta').value;
+  const buscar = (document.getElementById('caja-buscar').value || '').toLowerCase();
+
+  let filtered = cajaFacturas.filter(f => {
+    if (fechaDesdeStr && f.date < fechaDesdeStr) return false;
+    if (fechaHastaStr && f.date > fechaHastaStr) return false;
+    if (buscar && !f.vendorName.toLowerCase().includes(buscar) && !f.number.toLowerCase().includes(buscar) && !f.vendorInvoice.toLowerCase().includes(buscar)) return false;
+    return true;
+  });
+
+  let html = `<div style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+    <div style="font-size:.72rem;color:var(--muted)">${filtered.length} factura${filtered.length !== 1 ? 's' : ''}</div>
+    <button onclick="toggleAllCaja()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:.68rem;color:var(--accent);cursor:pointer;font-weight:600">${cajaSelected.size > 0 && filtered.every(f => cajaSelected.has(f.id)) ? 'Deseleccionar todos' : 'Seleccionar todos'}</button>
+  </div>`;
+
+  // Header
+  html += `<div style="display:flex;padding:6px 12px;font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;gap:8px;border-bottom:1px solid var(--border)">
+    <div style="width:28px"></div>
+    <div style="flex:.8">Factura BC</div>
+    <div style="flex:.6">Fecha</div>
+    <div style="flex:2">Proveedor</div>
+    <div style="flex:.8;text-align:right">Importe</div>
+    <div style="flex:1">Nº Fact. Proveedor</div>
+  </div>`;
+
+  filtered.forEach(f => {
+    const checked = cajaSelected.has(f.id);
+    const dateStr = f.date ? new Date(f.date + 'T00:00:00').toLocaleDateString('es-ES') : '';
+    html += `<div onclick="toggleCajaItem('${f.id}')" style="display:flex;align-items:center;padding:10px 12px;gap:8px;border-bottom:1px solid rgba(0,0,0,.05);cursor:pointer;background:${checked ? 'rgba(107,125,46,.06)' : 'transparent'};transition:background .15s">
+      <div style="width:22px;height:22px;border:2px solid ${checked ? 'var(--accent2)' : 'var(--border)'};border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:${checked ? 'var(--accent2)' : 'transparent'};transition:all .15s">
+        ${checked ? '<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" fill="none"/></svg>' : ''}
+      </div>
+      <div style="flex:.8;font-family:'DM Mono',monospace;font-size:.75rem;color:var(--text)">${f.number}</div>
+      <div style="flex:.6;font-size:.75rem;color:var(--muted)">${dateStr}</div>
+      <div style="flex:2;font-size:.78rem;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.vendorName}</div>
+      <div style="flex:.8;text-align:right;font-family:'DM Mono',monospace;font-size:.78rem;font-weight:700;color:var(--accent2)">${f.amountInc.toFixed(2)} €</div>
+      <div style="flex:1;font-size:.72rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.vendorInvoice}</div>
+    </div>`;
+  });
+
+  el.innerHTML = html;
+  updateCajaSelResumen();
+}
+
+function toggleCajaItem(id) {
+  if (cajaSelected.has(id)) cajaSelected.delete(id);
+  else cajaSelected.add(id);
+  renderCajaList();
+}
+
+function toggleAllCaja() {
+  const fechaDesdeStr = document.getElementById('caja-fecha-desde').value;
+  const fechaHastaStr = document.getElementById('caja-fecha-hasta').value;
+  const buscar = (document.getElementById('caja-buscar').value || '').toLowerCase();
+  const filtered = cajaFacturas.filter(f => {
+    if (fechaDesdeStr && f.date < fechaDesdeStr) return false;
+    if (fechaHastaStr && f.date > fechaHastaStr) return false;
+    if (buscar && !f.vendorName.toLowerCase().includes(buscar) && !f.number.toLowerCase().includes(buscar) && !f.vendorInvoice.toLowerCase().includes(buscar)) return false;
+    return true;
+  });
+  const allSelected = filtered.every(f => cajaSelected.has(f.id));
+  if (allSelected) filtered.forEach(f => cajaSelected.delete(f.id));
+  else filtered.forEach(f => cajaSelected.add(f.id));
+  renderCajaList();
+}
+
+function updateCajaSelResumen() {
+  const wrap = document.getElementById('caja-sel-resumen');
+  const n = cajaSelected.size;
+  if (n === 0) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'flex';
+  let total = 0;
+  cajaSelected.forEach(id => { const f = cajaFacturas.find(x => x.id === id); if (f) total += f.amountInc; });
+  document.getElementById('caja-sel-text').textContent = `${n} factura${n !== 1 ? 's' : ''} seleccionada${n !== 1 ? 's' : ''} · ${total.toFixed(2)} €`;
+}
+
+async function enviarCajaSheet() {
+  if (!cajaSelected.size) return;
+  const btn = document.getElementById('caja-btn-enviar');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  try {
+    const now = new Date();
+    const anyo2 = String(now.getFullYear()).slice(-2);
+    const mes2 = pad(now.getMonth() + 1);
+    const codCaja = anyo2 + mes2;
+    const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const numCaja = 'Caja' + meses[now.getMonth()] + anyo2;
+
+    const filas = [];
+    cajaSelected.forEach(id => {
+      const f = cajaFacturas.find(x => x.id === id);
+      if (!f) return;
+      filas.push({
+        codCaja,
+        numCaja,
+        facturaBC: f.number,
+        fecha: f.date ? new Date(f.date + 'T00:00:00').toLocaleDateString('es-ES') : '',
+        proveedor: f.vendorName,
+        importe: f.amountInc,
+        factProveedor: f.vendorInvoice
+      });
+    });
+
+    const result = await sheetsPost({ tipo: 'caja', filas });
+    if (!result.ok) throw new Error(result.error || 'Error al escribir en Sheet');
+
+    btn.textContent = '✓ Enviado';
+    btn.style.background = '#2e7d32';
+    alert(`${filas.length} factura${filas.length > 1 ? 's' : ''} registrada${filas.length > 1 ? 's' : ''} en caja (${numCaja})`);
+
+    // Limpiar selección
+    cajaSelected.clear();
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.textContent = 'Registrar en Sheet';
+      btn.style.background = '';
+      renderCajaList();
+    }, 1500);
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = 'Registrar en Sheet';
+    btn.style.background = '';
+    alert('Error: ' + e.message);
+  }
 }
 
 // ── BUSINESS CENTRAL ─────────────────────────────────────────

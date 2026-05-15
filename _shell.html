@@ -259,6 +259,9 @@
       <button class="bnav-more-btn" onclick="bnavGo('ventas')" id="bm-ventas">
         <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 13l4-4 3 3 5-6"/><circle cx="15" cy="6" r="1.5"/></svg>Ventas
       </button>
+      <button class="bnav-more-btn" onclick="bnavGo('caja')" id="bm-caja">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="14" height="10" rx="2"/><path d="M2 8h14"/><path d="M5 12h3"/></svg>Caja
+      </button>
       <button class="bnav-more-btn" onclick="bnavGo('produccion')" id="bm-produccion">
         <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 15h14M4 15V8l3-2v9M9 15V5l3-2v12M14 15V3"/></svg>Producc.
       </button>
@@ -339,6 +342,9 @@
         </button>
         <button class="snav-btn" onclick="goPage('ventas')" id="snav-ventas">
           <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 13l4-4 3 3 5-6"/><circle cx="15" cy="6" r="1.5"/></svg>Ventas
+        </button>
+        <button class="snav-btn" onclick="goPage('caja')" id="snav-caja">
+          <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="14" height="10" rx="2"/><path d="M2 8h14"/><path d="M5 12h3"/></svg>Caja
         </button>
         <div class="snav-divider"></div>
         <div class="sidebar-section">Planta</div>
@@ -804,6 +810,37 @@
                 <button id="modal-alb-btn-facturar" onclick="facturarAlbaranesSeleccionados()" style="background:var(--accent2);color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:.78rem;font-weight:700;cursor:pointer" disabled>Crear factura en BC</button>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- ══ CAJA (Facturas compra → Sheet) ══ -->
+        <div class="page" id="pg-caja">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
+            <div class="sec-title" style="margin:0">Caja — Facturas de compra</div>
+            <button class="btn-sec" style="font-size:.72rem;padding:8px 14px" onclick="cargarFacturasCompra()">&#8635; Cargar de BC</button>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:flex-end">
+            <div style="min-width:150px">
+              <div class="label">Desde</div>
+              <input type="date" class="inp" id="caja-fecha-desde" onchange="renderCajaList()">
+            </div>
+            <div style="min-width:150px">
+              <div class="label">Hasta</div>
+              <input type="date" class="inp" id="caja-fecha-hasta" onchange="renderCajaList()">
+            </div>
+            <div style="flex:1;min-width:200px">
+              <div class="label">Buscar proveedor</div>
+              <input type="text" class="inp" id="caja-buscar" placeholder="Filtrar..." oninput="renderCajaList()">
+            </div>
+          </div>
+          <!-- Resumen selección -->
+          <div id="caja-sel-resumen" style="display:none;margin-bottom:12px;padding:12px 16px;background:rgba(107,125,46,.08);border:1px solid rgba(107,125,46,.3);border-radius:var(--radius);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+            <div style="font-size:.78rem;font-weight:600;color:var(--accent2)" id="caja-sel-text">0 facturas seleccionadas · 0,00 €</div>
+            <button onclick="enviarCajaSheet()" id="caja-btn-enviar" style="background:var(--accent2);color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:.78rem;font-weight:700;cursor:pointer">Registrar en Sheet</button>
+          </div>
+          <!-- Listado -->
+          <div id="caja-list">
+            <div style="color:var(--muted);text-align:center;padding:30px;font-size:.82rem">Pulsa "Cargar de BC" para traer facturas de compra</div>
           </div>
         </div>
 
