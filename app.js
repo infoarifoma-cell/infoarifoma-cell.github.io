@@ -4420,7 +4420,7 @@ async function cargarFacturasCompra() {
 
     // Get purchase invoices
     const invRes = await fetch(
-      `${base}(${companyId})/purchaseInvoices?$select=id,number,invoiceDate,vendorNumber,vendorName,totalAmountExcludingTax,totalAmountIncludingTax,vendorInvoiceNumber,status&$orderby=invoiceDate desc&$top=500`,
+      `${base}(${companyId})/purchaseInvoices?$select=id,number,postingDate,invoiceDate,vendorNumber,vendorName,totalAmountExcludingTax,totalAmountIncludingTax,vendorInvoiceNumber,status&$orderby=postingDate desc&$top=500`,
       { headers }
     );
     if (!invRes.ok) throw new Error('Error obteniendo facturas: ' + invRes.statusText);
@@ -4429,7 +4429,8 @@ async function cargarFacturasCompra() {
     cajaFacturas = (invJson.value || []).map(f => ({
       id: f.id,
       number: f.number || '',
-      date: f.invoiceDate || '',
+      postingDate: f.postingDate || '',
+      invoiceDate: f.invoiceDate || '',
       vendorNumber: f.vendorNumber || '',
       vendorName: f.vendorName || '',
       amount: f.totalAmountExcludingTax || 0,
@@ -4457,8 +4458,8 @@ function renderCajaList() {
   const buscar = (document.getElementById('caja-buscar').value || '').toLowerCase();
 
   let filtered = cajaFacturas.filter(f => {
-    if (fechaDesdeStr && f.date < fechaDesdeStr) return false;
-    if (fechaHastaStr && f.date > fechaHastaStr) return false;
+    if (fechaDesdeStr && f.postingDate < fechaDesdeStr) return false;
+    if (fechaHastaStr && f.postingDate > fechaHastaStr) return false;
     if (buscar && !f.vendorName.toLowerCase().includes(buscar) && !f.number.toLowerCase().includes(buscar) && !f.vendorInvoice.toLowerCase().includes(buscar)) return false;
     return true;
   });
@@ -4472,7 +4473,7 @@ function renderCajaList() {
   html += `<div style="display:flex;padding:6px 12px;font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;gap:8px;border-bottom:1px solid var(--border)">
     <div style="width:28px"></div>
     <div style="flex:.8">Factura BC</div>
-    <div style="flex:.6">Fecha</div>
+    <div style="flex:.6">F. Registro</div>
     <div style="flex:2">Proveedor</div>
     <div style="flex:.8;text-align:right">Importe</div>
     <div style="flex:1">Nº Fact. Proveedor</div>
@@ -4480,7 +4481,7 @@ function renderCajaList() {
 
   filtered.forEach(f => {
     const checked = cajaSelected.has(f.id);
-    const dateStr = f.date ? new Date(f.date + 'T00:00:00').toLocaleDateString('es-ES') : '';
+    const dateStr = f.postingDate ? new Date(f.postingDate + 'T00:00:00').toLocaleDateString('es-ES') : '';
     html += `<div onclick="toggleCajaItem('${f.id}')" style="display:flex;align-items:center;padding:10px 12px;gap:8px;border-bottom:1px solid rgba(0,0,0,.05);cursor:pointer;background:${checked ? 'rgba(107,125,46,.06)' : 'transparent'};transition:background .15s">
       <div style="width:22px;height:22px;border:2px solid ${checked ? 'var(--accent2)' : 'var(--border)'};border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:${checked ? 'var(--accent2)' : 'transparent'};transition:all .15s">
         ${checked ? '<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" fill="none"/></svg>' : ''}
@@ -4508,8 +4509,8 @@ function toggleAllCaja() {
   const fechaHastaStr = document.getElementById('caja-fecha-hasta').value;
   const buscar = (document.getElementById('caja-buscar').value || '').toLowerCase();
   const filtered = cajaFacturas.filter(f => {
-    if (fechaDesdeStr && f.date < fechaDesdeStr) return false;
-    if (fechaHastaStr && f.date > fechaHastaStr) return false;
+    if (fechaDesdeStr && f.postingDate < fechaDesdeStr) return false;
+    if (fechaHastaStr && f.postingDate > fechaHastaStr) return false;
     if (buscar && !f.vendorName.toLowerCase().includes(buscar) && !f.number.toLowerCase().includes(buscar) && !f.vendorInvoice.toLowerCase().includes(buscar)) return false;
     return true;
   });
@@ -4551,7 +4552,7 @@ async function enviarCajaSheet() {
         codCaja,
         numCaja,
         facturaBC: f.number,
-        fecha: f.date ? new Date(f.date + 'T00:00:00').toLocaleDateString('es-ES') : '',
+        fecha: f.postingDate ? new Date(f.postingDate + 'T00:00:00').toLocaleDateString('es-ES') : '',
         proveedor: f.vendorName,
         importe: f.amountInc,
         factProveedor: f.vendorInvoice
