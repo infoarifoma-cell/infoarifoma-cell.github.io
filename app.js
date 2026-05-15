@@ -199,6 +199,17 @@ async function doEditarCamion(data) {
   const { error } = await _supabase.from('tblcamiones').update(updates).eq('id', id);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
+async function doEliminarCamion(data) {
+  const id = Number(data.id);
+  if (!id || isNaN(id)) return { ok: false, error: 'ID inválido' };
+  try {
+    const { error } = await _supabase.from('tblcamiones').delete().eq('id', id);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
 
 // ── PRODUCCIÓN y GASOIL → Google Sheets (via sheetsFetch/sheetsPost) ──
 
@@ -986,13 +997,14 @@ async function initBascula(){initBasculaUI();await initBasculaCamiones();}
 let camFavoritos=new Set(JSON.parse(localStorage.getItem('camFavoritos')||'[]'));
 function toggleFav(id,e){
   e.stopPropagation();
+  id=String(id);
   if(camFavoritos.has(id))camFavoritos.delete(id);else camFavoritos.add(id);
   localStorage.setItem('camFavoritos',JSON.stringify([...camFavoritos]));
   basCamBuscar();
 }
 function camCard(c){
   const sel=basSelCamion&&basSelCamion.id===c.id;
-  const fav=camFavoritos.has(c.id);
+  const fav=camFavoritos.has(String(c.id));
   return `<div class="mat-btn${sel?' selected':''}" onclick="basSeleccionarCamion('${c.id}')" style="position:relative">
     <span onclick="toggleFav('${c.id}',event)" style="position:absolute;top:4px;right:4px;font-size:.75rem;cursor:pointer;opacity:${fav?1:.3}" title="Favorito">${fav?'★':'☆'}</span>
     ${c.matriculacam}
@@ -1007,8 +1019,8 @@ function renderCamGrid(lista){
     grid.innerHTML=lista.map(camCard).join('');
     return;
   }
-  const favs=lista.filter(c=>camFavoritos.has(c.id));
-  const resto=lista.filter(c=>!camFavoritos.has(c.id));
+  const favs=lista.filter(c=>camFavoritos.has(String(c.id)));
+  const resto=lista.filter(c=>!camFavoritos.has(String(c.id)));
   grid.innerHTML=
     (favs.length?`<div style="grid-column:1/-1;font-size:.62rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.07em;padding:2px 0 4px">★ Favoritos</div>${favs.map(camCard).join('')}`:'')
     +(resto.length?`<div style="grid-column:1/-1;font-size:.62rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;padding:6px 0 4px">Todos</div>${resto.map(camCard).join('')}`:'');
