@@ -9,29 +9,40 @@ export default async function handler(req, res) {
   const SHEETS_API = 'https://script.google.com/macros/s/AKfycbwPIIgZCg03i4aJN8HIxKf20P5IPc-j3HOkoHmt2Jx0-vqiWrmq4Gz2WZmZvyopYJlv/exec';
 
   try {
-    // Google Apps Script responde con 302 redirect tras POST
-    // Hay que seguir el redirect manualmente
-    const response = await fetch(SHEETS_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify(req.body),
-      redirect: 'manual'
-    });
+    // Google Apps Script: POST → 302 redirect → GET a URL final
+    // Seguir toda la cadena de redirects manualmente
+    let url = SHEETS_API;
+    let method = 'POST';
+    let body = JSON.stringify(req.body);
+    let finalResponse;
 
-    let finalText;
+    for (let i = 0; i < 5; i++) {
+      const opts = {
+        method,
+        redirect: 'manual',
+        headers: method === 'POST' ? { 'Content-Type': 'text/plain' } : {}
+      };
+      if (method === 'POST') opts.body = body;
 
-    if (response.status >= 300 && response.status < 400) {
-      // Seguir redirect con GET (como hace el navegador)
-      const redirectUrl = response.headers.get('location');
-      if (!redirectUrl) throw new Error('Redirect sin location');
-      const r2 = await fetch(redirectUrl, { method: 'GET', redirect: 'follow' });
-      finalText = await r2.text();
-    } else {
-      finalText = await response.text();
+      const r = await fetch(url, opts);
+
+      if (r.status >= 300 && r.status < 400) {
+        url = r.headers.get('location');
+        if (!url) throw new Error('Redirect sin location');
+        method = 'GET';
+        body = null;
+        continue;
+      }
+
+      finalResponse = r;
+      break;
     }
 
+    if (!finalResponse) throw new Error('Demasiados redirects');
+
+    const text = await finalResponse.text();
     let json;
-    try { json = JSON.parse(finalText); } catch { json = { ok: false, error: finalText.substring(0, 200) }; }
+    try { json = JSON.parse(text); } catch { json = { ok: false, error: text.substring(0, 300) }; }
 
     return res.status(200).json(json);
   } catch (error) {
