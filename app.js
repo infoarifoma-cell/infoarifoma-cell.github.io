@@ -203,8 +203,10 @@ async function doEliminarCamion(data) {
   const id = Number(data.id);
   if (!id || isNaN(id)) return { ok: false, error: 'ID inválido' };
   try {
-    const { error } = await _supabase.from('tblcamiones').delete().eq('id', id);
+    const { data: deleted, error } = await _supabase.from('tblcamiones').delete().eq('id', id).select();
+    console.log('Eliminar camión id:', id, 'deleted:', deleted, 'error:', error);
     if (error) return { ok: false, error: error.message };
+    if (!deleted || deleted.length === 0) return { ok: false, error: 'No se pudo eliminar. Verifica permisos en Supabase (RLS).' };
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e.message };
