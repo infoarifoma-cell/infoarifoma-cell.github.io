@@ -4563,13 +4563,13 @@ async function enviarCajaSheet() {
     });
 
     const rows = filas.map(f => ({
-      codCaja: f.codCaja,
-      numCaja: f.numCaja,
-      facturaBC: f.facturaBC,
-      fechaRegistro: f.fecha,
+      codcaja: f.codCaja,
+      numcaja: f.numCaja,
+      facturabc: f.facturaBC,
+      fecharegistro: f.fecha,
       proveedor: f.proveedor,
       importe: f.importe,
-      factProveedor: f.factProveedor
+      factproveedor: f.factProveedor
     }));
     const { error: sbErr } = await _supabase.from('tblcaja').insert(rows);
     if (sbErr) throw new Error(sbErr.message);
