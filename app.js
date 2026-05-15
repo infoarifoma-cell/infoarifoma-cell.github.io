@@ -4426,7 +4426,11 @@ async function cargarFacturasCompra() {
     if (!invRes.ok) throw new Error('Error obteniendo facturas: ' + invRes.statusText);
     const invJson = await invRes.json();
 
-    cajaFacturas = (invJson.value || []).map(f => ({
+    // Cargar facturas ya registradas en caja (Supabase)
+    const { data: yaRegistradas } = await _supabase.from('tblcaja').select('facturabc');
+    const registradasSet = new Set((yaRegistradas || []).map(r => r.facturabc.trim()));
+
+    cajaFacturas = (invJson.value || []).filter(f => !registradasSet.has((f.number || '').trim())).map(f => ({
       id: f.id,
       number: f.number || '',
       postingDate: f.postingDate || '',
