@@ -4474,6 +4474,7 @@ function renderCajaList() {
     <div style="width:28px"></div>
     <div style="flex:.8">Factura BC</div>
     <div style="flex:.6">F. Registro</div>
+    <div style="flex:.6">F. Emisión</div>
     <div style="flex:2">Proveedor</div>
     <div style="flex:.8;text-align:right">Importe</div>
     <div style="flex:1">Nº Fact. Proveedor</div>
@@ -4481,13 +4482,15 @@ function renderCajaList() {
 
   filtered.forEach(f => {
     const checked = cajaSelected.has(f.id);
-    const dateStr = f.postingDate ? new Date(f.postingDate + 'T00:00:00').toLocaleDateString('es-ES') : '';
+    const dateReg = f.postingDate ? new Date(f.postingDate + 'T00:00:00').toLocaleDateString('es-ES') : '';
+    const dateEmi = f.invoiceDate ? new Date(f.invoiceDate + 'T00:00:00').toLocaleDateString('es-ES') : '';
     html += `<div onclick="toggleCajaItem('${f.id}')" style="display:flex;align-items:center;padding:10px 12px;gap:8px;border-bottom:1px solid rgba(0,0,0,.05);cursor:pointer;background:${checked ? 'rgba(107,125,46,.06)' : 'transparent'};transition:background .15s">
       <div style="width:22px;height:22px;border:2px solid ${checked ? 'var(--accent2)' : 'var(--border)'};border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:${checked ? 'var(--accent2)' : 'transparent'};transition:all .15s">
         ${checked ? '<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" fill="none"/></svg>' : ''}
       </div>
       <div style="flex:.8;font-family:'DM Mono',monospace;font-size:.75rem;color:var(--text)">${f.number}</div>
-      <div style="flex:.6;font-size:.75rem;color:var(--muted)">${dateStr}</div>
+      <div style="flex:.6;font-size:.75rem;color:var(--muted)">${dateReg}</div>
+      <div style="flex:.6;font-size:.75rem;color:var(--muted)">${dateEmi}</div>
       <div style="flex:2;font-size:.78rem;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.vendorName}</div>
       <div style="flex:.8;text-align:right;font-family:'DM Mono',monospace;font-size:.78rem;font-weight:700;color:var(--accent2)">${f.amountInc.toFixed(2)} €</div>
       <div style="flex:1;font-size:.72rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.vendorInvoice}</div>
