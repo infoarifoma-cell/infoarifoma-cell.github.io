@@ -4492,73 +4492,105 @@ async function enviarBCCliente(bcIdx, btn) {
   }
 }
 
-// ── FACTURAR ALBARANES (seleccionar salesOrders → crear salesInvoice en BC) ──
-window._albModalData = { customerNo: '', customerName: '', orders: [], selected: new Set() };
+// ── FACTURAR ALBARANES (seleccionar albaranes locales → crear salesInvoice en BC) ──
+window._albModalData = { customerNo: '', customerName: '', albaranes: [], selected: new Set() };
 
-async function abrirModalAlbaranes(cli) {
+function abrirModalAlbaranes(cli) {
   const modal = document.getElementById('modal-albaranes');
   modal.style.display = 'flex';
   document.getElementById('modal-alb-cliente').textContent = cli;
-  document.getElementById('modal-alb-body').innerHTML = '<div style="color:var(--muted);text-align:center;padding:30px">Cargando albaranes de BC...</div>';
   document.getElementById('modal-alb-btn-facturar').disabled = true;
+  document.getElementById('modal-alb-btn-facturar').textContent = 'Crear factura en BC';
+  document.getElementById('modal-alb-btn-facturar').style.background = '';
   document.getElementById('modal-alb-sel').textContent = '0 albaranes seleccionados';
 
   const pedidoCli = factData?.find(r => (r.nombreCliente || '').trim() === cli.trim());
   const customerNo = pedidoCli?.codigoCliente || '';
 
-  window._albModalData = { customerNo, customerName: cli, orders: [], selected: new Set() };
+  // Filtrar pedidos de este cliente según fechas activas
+  const fechaDesdeStr = document.getElementById('fact-fecha-desde').value;
+  const fechaHastaStr = document.getElementById('fact-fecha-hasta').value;
+  let fechaDesde = null, fechaHasta = null;
+  if (fechaDesdeStr) { const [y, m, d] = fechaDesdeStr.split('-'); fechaDesde = new Date(parseInt(y), parseInt(m) - 1, parseInt(d), 0, 0, 0); }
+  if (fechaHastaStr) { const [y, m, d] = fechaHastaStr.split('-'); fechaHasta = new Date(parseInt(y), parseInt(m) - 1, parseInt(d), 23, 59, 59); }
 
-  try {
-    const token = await getBCToken();
-    const res = await fetch('/api/bc/albaranes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, customerNumber: customerNo })
-    });
-    if (!res.ok) throw new Error(await res.text());
-    const json = await res.json();
-    if (!json.ok) throw new Error(json.error);
+  const pedidosCli = factData.filter(r => {
+    const d = parseFechaFact(r.fechaHora) || parseFechaFact(r.fechaPedido);
+    if (!d) return false;
+    if (fechaDesde && d < fechaDesde) return false;
+    if (fechaHasta && d > fechaHasta) return false;
+    return (r.nombreCliente || '').trim() === cli.trim();
+  });
 
-    window._albModalData.orders = json.orders;
-    renderModalAlbaranes();
-  } catch (e) {
-    document.getElementById('modal-alb-body').innerHTML = `<div style="color:var(--danger);text-align:center;padding:30px">Error: ${e.message}</div>`;
-  }
+  // Agrupar por numPedido (cada numPedido = 1 albarán)
+  const groups = {};
+  pedidosCli.forEach(r => {
+    const key = r.numPedido || r.numalbarancalle?.split('/')[0] || r.id || 'sin-num';
+    if (!groups[key]) groups[key] = { numPedido: key, lineas: [], totalKg: 0, totalEur: 0, fecha: null, proyecto: '' };
+    groups[key].lineas.push(r);
+    const neto = Number(r.pesoNeto) || 0;
+    groups[key].totalKg += neto;
+    const precioTn = getPrecioTn(cli, r.productoNombre || r.productoCod || '');
+    groups[key].totalEur += (neto / 1000) * precioTn;
+    if (!groups[key].fecha) groups[key].fecha = parseFechaFact(r.fechaHora) || parseFechaFact(r.fechaPedido);
+    if (!groups[key].proyecto) groups[key].proyecto = r.proyectoName || r.proyectoCod || '';
+  });
+
+  const albaranes = Object.values(groups).sort((a, b) => (b.fecha || 0) - (a.fecha || 0));
+
+  window._albModalData = { customerNo, customerName: cli, albaranes, selected: new Set() };
+  renderModalAlbaranes();
 }
 
 function renderModalAlbaranes() {
-  const { orders, selected } = window._albModalData;
+  const { albaranes, selected } = window._albModalData;
   const body = document.getElementById('modal-alb-body');
 
-  if (!orders.length) {
-    body.innerHTML = '<div style="color:var(--muted);text-align:center;padding:30px">No hay albaranes pendientes para este cliente</div>';
+  if (!albaranes.length) {
+    body.innerHTML = '<div style="color:var(--muted);text-align:center;padding:30px">No hay albaranes para este cliente en el periodo seleccionado</div>';
     return;
   }
 
   let html = `<div style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
-    <div style="font-size:.72rem;color:var(--muted)">${orders.length} albarán${orders.length > 1 ? 'es' : ''} encontrado${orders.length > 1 ? 's' : ''}</div>
-    <button onclick="toggleAllAlbaranes()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:.68rem;color:var(--accent);cursor:pointer;font-weight:600">Seleccionar todos</button>
+    <div style="font-size:.72rem;color:var(--muted)">${albaranes.length} albarán${albaranes.length > 1 ? 'es' : ''}</div>
+    <button onclick="toggleAllAlbaranes()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:.68rem;color:var(--accent);cursor:pointer;font-weight:600">${selected.size === albaranes.length ? 'Deseleccionar todos' : 'Seleccionar todos'}</button>
   </div>`;
 
-  orders.forEach((ord, i) => {
+  albaranes.forEach((alb, i) => {
     const checked = selected.has(i);
-    const lineSummary = ord.lines.map(l => `${l.description || l.lineObjectNumber} (${l.quantity} × ${l.unitPrice.toFixed(2)}€)`).join(', ');
-    const dateStr = ord.orderDate ? new Date(ord.orderDate).toLocaleDateString('es-ES') : '';
+    const dateStr = alb.fecha ? alb.fecha.toLocaleDateString('es-ES') : '';
+    const prodResumen = {};
+    alb.lineas.forEach(r => {
+      const p = r.productoNombre || r.productoCod || '?';
+      if (!prodResumen[p]) prodResumen[p] = 0;
+      prodResumen[p] += Number(r.pesoNeto) || 0;
+    });
+    const lineSummary = Object.entries(prodResumen).map(([p, kg]) => `${p} ${(kg / 1000).toFixed(2)}Tn`).join(', ');
 
-    html += `<div class="alb-check-item${checked ? ' alb-checked' : ''}" onclick="toggleAlbaran(${i})" style="display:flex;gap:10px;padding:12px;margin-bottom:8px;background:var(--surface);border:1px solid ${checked ? 'var(--accent2)' : 'var(--border)'};border-radius:var(--radius);cursor:pointer;transition:all .15s">
+    html += `<div onclick="toggleAlbaran(${i})" style="display:flex;gap:10px;padding:12px;margin-bottom:8px;background:var(--surface);border:1.5px solid ${checked ? 'var(--accent2)' : 'var(--border)'};border-radius:var(--radius);cursor:pointer;transition:all .15s">
       <div style="width:22px;height:22px;border:2px solid ${checked ? 'var(--accent2)' : 'var(--border)'};border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:${checked ? 'var(--accent2)' : 'transparent'};transition:all .15s;margin-top:2px">
         ${checked ? '<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" fill="none"/></svg>' : ''}
       </div>
       <div style="flex:1;min-width:0">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <div style="font-weight:700;font-size:.82rem;color:var(--text)">Nº ${ord.number}</div>
-          <div style="font-family:'DM Mono',monospace;font-size:.82rem;font-weight:700;color:var(--accent2)">${ord.totalAmount.toFixed(2)} €</div>
+          <div style="font-weight:700;font-size:.82rem;color:var(--text)">Albarán ${alb.numPedido}</div>
+          <div style="font-family:'DM Mono',monospace;font-size:.82rem;font-weight:700;color:var(--accent2)">${alb.totalEur.toFixed(2)} €</div>
         </div>
-        <div style="font-size:.68rem;color:var(--muted);margin-bottom:2px">${dateStr}${ord.externalDocumentNumber ? ' · ' + ord.externalDocumentNumber : ''}</div>
-        <div style="font-size:.68rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ord.lines.length} línea${ord.lines.length !== 1 ? 's' : ''}${lineSummary ? ': ' + lineSummary : ''}</div>
+        <div style="font-size:.68rem;color:var(--muted);margin-bottom:2px">${dateStr}${alb.proyecto ? ' · ' + alb.proyecto : ''} · ${(alb.totalKg / 1000).toFixed(2)} Tn</div>
+        <div style="font-size:.68rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${alb.lineas.length} línea${alb.lineas.length !== 1 ? 's' : ''}: ${lineSummary}</div>
       </div>
     </div>`;
   });
+
+  // Total seleccionado
+  let totalSel = 0, totalKgSel = 0;
+  selected.forEach(i => { totalSel += albaranes[i].totalEur; totalKgSel += albaranes[i].totalKg; });
+  if (selected.size > 0) {
+    html += `<div style="margin-top:8px;padding:10px 12px;background:rgba(107,125,46,.08);border:1px solid rgba(107,125,46,.3);border-radius:var(--radius);display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:.75rem;font-weight:600;color:var(--accent2)">Total seleccionado</div>
+      <div style="font-family:'DM Mono',monospace;font-size:.88rem;font-weight:700;color:var(--accent2)">${(totalKgSel / 1000).toFixed(2)} Tn · ${totalSel.toFixed(2)} €</div>
+    </div>`;
+  }
 
   body.innerHTML = html;
   updateAlbSelCount();
@@ -4572,9 +4604,9 @@ function toggleAlbaran(idx) {
 }
 
 function toggleAllAlbaranes() {
-  const { orders, selected } = window._albModalData;
-  if (selected.size === orders.length) selected.clear();
-  else orders.forEach((_, i) => selected.add(i));
+  const { albaranes, selected } = window._albModalData;
+  if (selected.size === albaranes.length) selected.clear();
+  else albaranes.forEach((_, i) => selected.add(i));
   renderModalAlbaranes();
 }
 
@@ -4589,7 +4621,7 @@ function cerrarModalAlbaranes() {
 }
 
 async function facturarAlbaranesSeleccionados() {
-  const { customerNo, customerName, orders, selected } = window._albModalData;
+  const { customerNo, customerName, albaranes, selected } = window._albModalData;
   if (!selected.size) return;
 
   const btn = document.getElementById('modal-alb-btn-facturar');
@@ -4615,7 +4647,7 @@ async function facturarAlbaranesSeleccionados() {
     const inv = invData.invoice;
     const invId = inv.id;
 
-    // Copiar líneas de los albaranes seleccionados a la factura
+    // Crear líneas en la factura agrupando por proyecto → producto
     const headers2 = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
     const base = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/api/v2.0/companies`;
     const cRes = await fetch(base, { headers: headers2 });
@@ -4623,25 +4655,40 @@ async function facturarAlbaranesSeleccionados() {
     const company = cJson.value.find(c => c.name.trim() === BC_COMPANY.trim());
     const companyId = company.id;
 
-    let lineCount = 0;
-    const selectedOrders = [...selected].map(i => orders[i]);
+    // Agrupar líneas seleccionadas por producto
+    const prodLines = {};
+    [...selected].forEach(i => {
+      const alb = albaranes[i];
+      alb.lineas.forEach(r => {
+        const prod = r.productoNombre || r.productoCod || 'Sin producto';
+        const cod = r.productoCod || '';
+        const proy = r.proyectoName || r.proyectoCod || '';
+        const key = `${cod}||${proy}`;
+        if (!prodLines[key]) prodLines[key] = { cod, prod, proy, kg: 0, viajes: 0, albNums: new Set() };
+        prodLines[key].kg += Number(r.pesoNeto) || 0;
+        prodLines[key].viajes++;
+        prodLines[key].albNums.add(alb.numPedido);
+      });
+    });
 
-    for (const ord of selectedOrders) {
-      for (const line of ord.lines) {
-        const lineRes = await fetch(`${base}(${companyId})/salesInvoices(${invId})/salesInvoiceLines`, {
-          method: 'POST',
-          headers: headers2,
-          body: JSON.stringify({
-            lineType: line.lineType || 'Item',
-            lineObjectNumber: line.lineObjectNumber,
-            description: `${line.description || ''} [Alb.${ord.number}]`,
-            quantity: line.quantity,
-            unitPrice: line.unitPrice
-          })
-        });
-        if (lineRes.ok) lineCount++;
-        else console.error('Línea fallida:', line.description, await lineRes.text());
-      }
+    let lineCount = 0;
+    for (const [, info] of Object.entries(prodLines)) {
+      const tn = info.kg / 1000;
+      const precioTn = getPrecioTn(customerName, info.prod);
+      const albRef = [...info.albNums].join(',');
+      const lineRes = await fetch(`${base}(${companyId})/salesInvoices(${invId})/salesInvoiceLines`, {
+        method: 'POST',
+        headers: headers2,
+        body: JSON.stringify({
+          lineType: 'Item',
+          lineObjectNumber: info.cod,
+          description: `${info.prod} - ${info.proy} [Alb.${albRef}]`,
+          quantity: parseFloat(tn.toFixed(3)),
+          unitPrice: precioTn
+        })
+      });
+      if (lineRes.ok) lineCount++;
+      else console.error('Línea fallida:', info.prod, await lineRes.text());
     }
 
     btn.textContent = '✓ Factura creada';
