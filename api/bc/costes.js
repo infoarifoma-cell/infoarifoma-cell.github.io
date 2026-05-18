@@ -27,22 +27,28 @@ export default async function handler(req, res) {
     const cid = company.id;
 
     // Paginar G/L Entries del año con dimensiones expandidas
-    // Filtro: cuentas 6* y 7* (gastos e ingresos) del año seleccionado
+    // Filtro solo por fecha — filtramos cuentas 6*/7* en backend
     const fechaInicio = `${anyo}-01-01`;
     const fechaFin = `${anyo}-12-31`;
-    const filter = `postingDate ge ${fechaInicio} and postingDate le ${fechaFin} and ((accountNumber ge '6000000000' and accountNumber lt '8000000000') or (accountNumber ge '600' and accountNumber lt '800'))`;
+    const filter = `postingDate ge ${fechaInicio} and postingDate le ${fechaFin}`;
 
     let allEntries = [];
-    let url = `${base}(${cid})/generalLedgerEntries?$filter=${encodeURIComponent(filter)}&$expand=dimensionSetLines&$orderby=postingDate asc&$top=1000`;
+    let url = `${base}(${cid})/generalLedgerEntries?$filter=${encodeURIComponent(filter)}&$expand=dimensionSetLines&$top=1000`;
 
     // Paginación OData
     while (url) {
       const glRes = await fetch(url, { headers });
-      if (!glRes.ok) throw new Error('Error G/L Entries: ' + glRes.statusText);
+      if (!glRes.ok) {
+        const errText = await glRes.text().catch(() => glRes.statusText);
+        throw new Error('Error G/L Entries: ' + errText);
+      }
       const glJson = await glRes.json();
 
-      // Procesar cada entrada: extraer solo lo necesario
+      // Procesar cada entrada: solo cuentas 6* y 7*
       for (const entry of (glJson.value || [])) {
+        const acc = entry.accountNumber || '';
+        if (!acc.startsWith('6') && !acc.startsWith('7')) continue;
+
         const dims = {};
         for (const dim of (entry.dimensionSetLines || [])) {
           dims[dim.code] = { valueCode: dim.valueCode, displayName: dim.valueDisplayName };
