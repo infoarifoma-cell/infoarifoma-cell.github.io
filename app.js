@@ -5663,7 +5663,8 @@ const COSTES_CA_MAP = {
 // Orden de categorías para la tabla
 const COSTES_CAT_ORDER = [
   '1.PLANTA','2.EXTRACCION PIEDRA','3.PERSONAL','4.ADMINISTRACION',
-  '5.TALLER','6.MAQUINARIA','7.COMBUSTIBLE','8.SERVICIOS','AMORTIZACION','INGRESOS'
+  '5.TALLER','6.MAQUINARIA','7.COMBUSTIBLE','8.SERVICIOS','AMORTIZACION','INGRESOS',
+  '0.SIN DEFINIR','#N/D'
 ];
 
 const MESES_NOMBRE = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -5788,10 +5789,10 @@ function renderCostes(){
   let html = '<table class="costes-tbl"><thead><tr><th class="costes-cat-col">Concepto</th>';
   for(const m of mesesActivos){
     const mName = MESES_NOMBRE[m].substring(0,3);
-    html += `<th class="costes-val-col">${mName} €</th><th class="costes-val-col">€/tn</th>`;
+    html += `<th class="costes-val-col">${mName} €</th>`;
   }
   // Total interval
-  html += '<th class="costes-val-col costes-total-col">Total €</th><th class="costes-val-col costes-total-col">€/tn</th>';
+  html += '<th class="costes-val-col costes-total-col">Total €</th>';
   html += '</tr>';
   // Producción row
   html += '<tr class="costes-prod-row"><td>Producción (Tn)</td>';
@@ -5799,9 +5800,9 @@ function renderCostes(){
   for(const m of mesesActivos){
     const prod = vista==='acumulado' ? (prodAcum[m]||0) : (prodMes[m]||0);
     totalProd += (prodMes[m]||0);
-    html += `<td colspan="2" style="text-align:center;font-weight:600">${fmtTn(prod)}</td>`;
+    html += `<td style="text-align:center;font-weight:600">${fmtTn(prod)}</td>`;
   }
-  html += `<td colspan="2" style="text-align:center;font-weight:600">${fmtTn(totalProd)}</td>`;
+  html += `<td style="text-align:center;font-weight:600">${fmtTn(totalProd)}</td>`;
   html += '</tr></thead><tbody>';
 
   // Grand totals for total column
@@ -5829,12 +5830,9 @@ function renderCostes(){
     html += `<tr class="${catClass}"><td class="costes-cat-name">${cat}</td>`;
     for(const m of mesesActivos){
       const v = catTotals[m]||0;
-      const prod = vista==='acumulado' ? (prodAcum[m]||0) : (prodMes[m]||0);
-      const tn = prod ? v/prod : 0;
-      html += `<td class="costes-val">${fmt(v)}</td><td class="costes-val costes-tn">${fmtTn(tn)}</td>`;
+      html += `<td class="costes-val">${fmt(v)}</td>`;
     }
-    const totalTn = totalProd ? catTotal/totalProd : 0;
-    html += `<td class="costes-val costes-total-col">${fmt(catTotal)}</td><td class="costes-val costes-total-col costes-tn">${fmtTn(totalTn)}</td>`;
+    html += `<td class="costes-val costes-total-col">${fmt(catTotal)}</td>`;
     html += '</tr>';
 
     // Subcategory rows
@@ -5854,12 +5852,9 @@ function renderCostes(){
       html += `<tr class="costes-sub-row"><td class="costes-sub-name">${sub.name}</td>`;
       for(const m of mesesActivos){
         const v = subTotals[m]||0;
-        const prod = vista==='acumulado' ? (prodAcum[m]||0) : (prodMes[m]||0);
-        const tn = prod ? v/prod : 0;
-        html += `<td class="costes-val">${fmt(v)}</td><td class="costes-val costes-tn">${fmtTn(tn)}</td>`;
+        html += `<td class="costes-val">${fmt(v)}</td>`;
       }
-      const totalTn = totalProd ? subTotal/totalProd : 0;
-      html += `<td class="costes-val costes-total-col">${fmt(subTotal)}</td><td class="costes-val costes-total-col costes-tn">${fmtTn(totalTn)}</td>`;
+      html += `<td class="costes-val costes-total-col">${fmt(subTotal)}</td>`;
       html += '</tr>';
     }
 
@@ -5884,12 +5879,9 @@ function renderCostes(){
   html += '<tr class="costes-grand-row"><td>TOTAL GENERAL</td>';
   for(const m of mesesActivos){
     const v = gtAccum[m]||0;
-    const prod = vista==='acumulado' ? (prodAcum[m]||0) : (prodMes[m]||0);
-    const tn = prod ? v/prod : 0;
-    html += `<td class="costes-val">${fmt(v)}</td><td class="costes-val costes-tn">${fmtTn(tn)}</td>`;
+    html += `<td class="costes-val">${fmt(v)}</td>`;
   }
-  const gtTn = totalProd ? grandTotal/totalProd : 0;
-  html += `<td class="costes-val costes-total-col">${fmt(grandTotal)}</td><td class="costes-val costes-total-col costes-tn">${fmtTn(gtTn)}</td>`;
+  html += `<td class="costes-val costes-total-col">${fmt(grandTotal)}</td>`;
   html += '</tr></tbody></table>';
 
   wrap.innerHTML = html;
