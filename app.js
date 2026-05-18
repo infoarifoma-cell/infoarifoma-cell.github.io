@@ -550,7 +550,7 @@ const DIAS_LAB_2026=[18,18,22,20,20,21,23,21,22,21,21,18];
 const HORAS_DIA_STD=8; // Jornada estándar convenio
 const PRODS=['ARIDO AF-T-0/4-I','ARIDO AG-T-4/12-I','ARIDO AG-T-12/20-I','ARIDO AG-T-20/40-I','ARIDO AG-T-40/70-I','REVUELTO 0/20','REVUELTO 0/10','PIEDRA PARA MURO (UD)','MATERIAL DE RELLENO 0/4'];
 const PROD_CAT={'ARIDO AF-T-0/4-I':'0/4','ARIDO AG-T-4/12-I':'4/12','ARIDO AG-T-12/20-I':'12/20','ARIDO AG-T-20/40-I':'20/40'};
-const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas',caja:'Caja',produccion:'Producción Planta',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',preventivo:'Mantenimiento Preventivo'};
+const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas',caja:'Caja',costes:'Análisis de Costes',produccion:'Producción Planta',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',preventivo:'Mantenimiento Preventivo'};
 
 // ── PIN ──────────────────────────────────────────────────────
 // ── LOGIN SEGURO CON SUPABASE (server-side) ──────────────────
@@ -696,6 +696,7 @@ function goPage(id){
   if(id==='produccion')initProduccion();
   if(id==='facturacion')initFacturacion();
   if(id==='caja')initCaja();
+  if(id==='costes')initCostes();
 }
 
 function pad(n){return String(n).padStart(2,'0')}
@@ -5603,4 +5604,293 @@ function printOTHistorial(id){
   wrap.style.display='flex';
   wrap.style.position='fixed';
   setTimeout(()=>window.print(),100);
+}
+
+// ── COSTES — Análisis cuentas 600/700 desde BC ──────────────────────────────
+
+// Mapa de códigos CA → categoría (concepto) y nombre
+const COSTES_CA_MAP = {
+  C000:{cat:'0.SIN DEFINIR',name:'SIN DEFINIR',orden:'0.GASTO'},
+  C100:{cat:'1.PLANTA',name:'COSTES DE PLANTA',orden:'0.GASTO'},
+  C101:{cat:'1.PLANTA',name:'INVERSION INICIAL AMORTIZABLE',orden:'0.GASTO'},
+  C102:{cat:'1.PLANTA',name:'ELECTRICIDAD',orden:'0.GASTO'},
+  C103:{cat:'1.PLANTA',name:'PIEZAS DESGASTE',orden:'0.GASTO'},
+  C104:{cat:'1.PLANTA',name:'MANTENIMIENTO',orden:'0.GASTO'},
+  C105:{cat:'1.PLANTA',name:'SUBCONTRATACIONES',orden:'0.GASTO'},
+  C106:{cat:'1.PLANTA',name:'VIGILANCIA Y SEGURIDAD',orden:'0.GASTO'},
+  C107:{cat:'AMORTIZACION',name:'AMORTIZACIONES',orden:'1.AMORTIZA'},
+  C108:{cat:'1.PLANTA',name:'CALIDAD Y MEDIO AMBIENTE',orden:'0.GASTO'},
+  C200:{cat:'2.EXTRACCION PIEDRA',name:'COSTES EXTRACCION DE PIEDRA',orden:'0.GASTO'},
+  C201:{cat:'2.EXTRACCION PIEDRA',name:'VOLADURA',orden:'0.GASTO'},
+  C202:{cat:'2.EXTRACCION PIEDRA',name:'CANON',orden:'0.GASTO'},
+  C203:{cat:'2.EXTRACCION PIEDRA',name:'EXCAVADORA-MARTILLO HIDRAULICO',orden:'0.GASTO'},
+  C204:{cat:'2.EXTRACCION PIEDRA',name:'EXISTENCIAS ARIDOS',orden:'0.GASTO'},
+  C300:{cat:'3.PERSONAL',name:'COSTES DE PERSONAL',orden:'0.GASTO'},
+  C301:{cat:'3.PERSONAL',name:'SALARIOS',orden:'0.GASTO'},
+  C302:{cat:'3.PERSONAL',name:'SEGURIDAD SOCIAL',orden:'0.GASTO'},
+  C303:{cat:'3.PERSONAL',name:'PREV. RIESGOS LABORALES',orden:'0.GASTO'},
+  C304:{cat:'3.PERSONAL',name:'FORMACIONES',orden:'0.GASTO'},
+  C400:{cat:'4.ADMINISTRACION',name:'COSTES ADMINISTRACION',orden:'0.GASTO'},
+  C401:{cat:'4.ADMINISTRACION',name:'COSTES FINANCIEROS',orden:'0.GASTO'},
+  C402:{cat:'4.ADMINISTRACION',name:'MATERIAL OFICINA',orden:'0.GASTO'},
+  C403:{cat:'4.ADMINISTRACION',name:'DIETAS, VIAJES, COMB...',orden:'0.GASTO'},
+  C404:{cat:'4.ADMINISTRACION',name:'GASTOS DE GESTION',orden:'0.GASTO'},
+  C405:{cat:'4.ADMINISTRACION',name:'COSTES OPERATIVOS',orden:'0.GASTO'},
+  C406:{cat:'4.ADMINISTRACION',name:'OFIMATICA',orden:'0.GASTO'},
+  C407:{cat:'4.ADMINISTRACION',name:'PRIMAS DE SEGUROS',orden:'0.GASTO'},
+  C408:{cat:'4.ADMINISTRACION',name:'SEGURIDAD E HIGIENE',orden:'0.GASTO'},
+  C409:{cat:'4.ADMINISTRACION',name:'TASAS Y TRIBUTOS',orden:'0.GASTO'},
+  C500:{cat:'5.TALLER',name:'COSTES TALLER',orden:'0.GASTO'},
+  C501:{cat:'5.TALLER',name:'HERRAMIENTAS TALLER',orden:'0.GASTO'},
+  C502:{cat:'5.TALLER',name:'CONSUMIBLES TALLER',orden:'0.GASTO'},
+  C503:{cat:'5.TALLER',name:'REPUESTOS',orden:'0.GASTO'},
+  C600:{cat:'6.MAQUINARIA',name:'MAQUINARIA MOVIL',orden:'0.GASTO'},
+  C601:{cat:'6.MAQUINARIA',name:'PALA CARGADORA',orden:'0.GASTO'},
+  C602:{cat:'6.MAQUINARIA',name:'EXCAVADORA',orden:'0.GASTO'},
+  C603:{cat:'6.MAQUINARIA',name:'DUMPER',orden:'0.GASTO'},
+  C604:{cat:'6.MAQUINARIA',name:'CAMION',orden:'0.GASTO'},
+  C605:{cat:'6.MAQUINARIA',name:'CUBA DE AGUA',orden:'0.GASTO'},
+  C606:{cat:'6.MAQUINARIA',name:'CAMION GRUA',orden:'0.GASTO'},
+  C607:{cat:'6.MAQUINARIA',name:'OTRA MAQUINARIA',orden:'0.GASTO'},
+  C608:{cat:'7.COMBUSTIBLE',name:'COMBUSTIBLE',orden:'0.GASTO'},
+  C700:{cat:'8.SERVICIOS',name:'PRESTACION SERVICIO',orden:'0.GASTO'},
+  C999:{cat:'8.SERVICIOS',name:'TOTAL COSTES',orden:'0.GASTO'},
+  I000:{cat:'INGRESOS',name:'INGRESOS',orden:'2.INGRESO'},
+  I100:{cat:'INGRESOS',name:'FACTURACION',orden:'2.INGRESO'},
+  I999:{cat:'INGRESOS',name:'TOTAL INGRESOS',orden:'2.INGRESO'}
+};
+
+// Orden de categorías para la tabla
+const COSTES_CAT_ORDER = [
+  '1.PLANTA','2.EXTRACCION PIEDRA','3.PERSONAL','4.ADMINISTRACION',
+  '5.TALLER','6.MAQUINARIA','7.COMBUSTIBLE','8.SERVICIOS','AMORTIZACION','INGRESOS'
+];
+
+const MESES_NOMBRE = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+let costesRawData = [];  // entries from BC
+let costesProduccion = []; // producción from Supabase
+let costesAnyoCargado = null;
+
+function initCostes(){
+  const sel = document.getElementById('costes-anyo');
+  if(!sel.options.length){
+    const y = new Date().getFullYear();
+    for(let i=y;i>=y-3;i--){
+      const o = document.createElement('option');
+      o.value=i; o.textContent=i;
+      sel.appendChild(o);
+    }
+  }
+  // Default mes hasta = current month
+  const curMonth = new Date().getMonth()+1;
+  document.getElementById('costes-mes-hasta').value = curMonth;
+  document.getElementById('costes-mes-desde').value = 1;
+}
+
+async function cargarCostes(){
+  const btn = document.getElementById('costes-btn-cargar');
+  const info = document.getElementById('costes-info');
+  const anyo = document.getElementById('costes-anyo').value;
+  btn.disabled=true; btn.textContent='Cargando...';
+  info.textContent='Conectando con Business Central...';
+
+  try {
+    const token = await getBCToken();
+
+    // Cargar GL entries y producción en paralelo
+    const [bcRes, prodRes] = await Promise.all([
+      fetch('/api/bc/costes', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({token, anyo})
+      }).then(r=>r.json()),
+      getProduccion(null, anyo)
+    ]);
+
+    if(!bcRes.ok) throw new Error(bcRes.error||'Error cargando datos BC');
+
+    costesRawData = bcRes.entries || [];
+    costesProduccion = prodRes.data || [];
+    costesAnyoCargado = anyo;
+
+    info.textContent = `${costesRawData.length} movimientos cargados del ${anyo} · Producción: ${costesProduccion.length} días`;
+    renderCostes();
+  } catch(e){
+    info.textContent = 'Error: '+e.message;
+    console.error('Costes error:', e);
+  } finally {
+    btn.disabled=false; btn.textContent='↻ Cargar de BC';
+  }
+}
+
+function renderCostes(){
+  const wrap = document.getElementById('costes-table-wrap');
+  if(!costesRawData.length){ wrap.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Sin datos. Pulsa "Cargar de BC".</div>'; return; }
+
+  const vista = document.getElementById('costes-vista').value;
+  const mesDesde = parseInt(document.getElementById('costes-mes-desde').value);
+  const mesHasta = parseInt(document.getElementById('costes-mes-hasta').value);
+
+  // Calcular producción por mes
+  const prodMes = {};
+  for(const p of costesProduccion){
+    const m = parseInt(p.fecha.split('-')[1]);
+    if(m>=mesDesde && m<=mesHasta){
+      prodMes[m] = (prodMes[m]||0) + (parseFloat(p.tnDia)||0);
+    }
+  }
+
+  // Agrupar movimientos por CA code + mes
+  // Estructura: { caCode: { mes: importe } }
+  const data = {};
+  const mesesActivos = [];
+  for(let m=mesDesde;m<=mesHasta;m++) mesesActivos.push(m);
+
+  for(const e of costesRawData){
+    const m = parseInt(e.date.split('-')[1]);
+    if(m<mesDesde || m>mesHasta) continue;
+    const ca = e.ca || '#N/D';
+    if(!data[ca]) data[ca]={};
+    const importe = (e.debit||0) - (e.credit||0);
+    data[ca][m] = (data[ca][m]||0) + importe;
+  }
+
+  // Agrupar por categoría
+  const catData = {}; // { cat: { subcats: { caCode: {mes:val} }, totals: {mes:val} } }
+  for(const [ca, meses] of Object.entries(data)){
+    const info = COSTES_CA_MAP[ca] || {cat:'#N/D', name:ca, orden:'0.GASTO'};
+    const cat = info.cat;
+    if(!catData[cat]) catData[cat] = {subcats:{}, totals:{}};
+    catData[cat].subcats[ca] = {name:info.name, meses};
+    for(const [m, v] of Object.entries(meses)){
+      catData[cat].totals[m] = (catData[cat].totals[m]||0) + v;
+    }
+  }
+
+  // Build HTML table
+  const fmt = v => {
+    if(v===0||v===undefined) return '';
+    return v.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
+  };
+  const fmtTn = v => {
+    if(!v || v===0) return '';
+    return v.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
+  };
+
+  // Producción acumulada para vista acumulado
+  const prodAcum = {};
+  if(vista==='acumulado'){
+    let acum = 0;
+    for(const m of mesesActivos){ acum += (prodMes[m]||0); prodAcum[m]=acum; }
+  }
+
+  let html = '<table class="costes-tbl"><thead><tr><th class="costes-cat-col">Concepto</th>';
+  for(const m of mesesActivos){
+    const mName = MESES_NOMBRE[m].substring(0,3);
+    html += `<th class="costes-val-col">${mName} €</th><th class="costes-val-col">€/tn</th>`;
+  }
+  // Total interval
+  html += '<th class="costes-val-col costes-total-col">Total €</th><th class="costes-val-col costes-total-col">€/tn</th>';
+  html += '</tr>';
+  // Producción row
+  html += '<tr class="costes-prod-row"><td>Producción (Tn)</td>';
+  let totalProd = 0;
+  for(const m of mesesActivos){
+    const prod = vista==='acumulado' ? (prodAcum[m]||0) : (prodMes[m]||0);
+    totalProd += (prodMes[m]||0);
+    html += `<td colspan="2" style="text-align:center;font-weight:600">${fmtTn(prod)}</td>`;
+  }
+  html += `<td colspan="2" style="text-align:center;font-weight:600">${fmtTn(totalProd)}</td>`;
+  html += '</tr></thead><tbody>';
+
+  // Grand totals for total column
+  const grandTotals = {};
+
+  for(const cat of COSTES_CAT_ORDER){
+    const cd = catData[cat];
+    if(!cd) continue;
+
+    // Acumulado: sumas progresivas
+    let catTotals = {};
+    if(vista==='acumulado'){
+      let acum = 0;
+      for(const m of mesesActivos){ acum += (cd.totals[m]||0); catTotals[m]=acum; }
+    } else {
+      catTotals = cd.totals;
+    }
+
+    // Category header row
+    let catTotal = 0;
+    for(const m of mesesActivos) catTotal += (cd.totals[m]||0);
+    const isIngreso = cat==='INGRESOS';
+    const catClass = isIngreso ? 'costes-cat-row costes-ingreso' : 'costes-cat-row';
+
+    html += `<tr class="${catClass}"><td class="costes-cat-name">${cat}</td>`;
+    for(const m of mesesActivos){
+      const v = catTotals[m]||0;
+      const prod = vista==='acumulado' ? (prodAcum[m]||0) : (prodMes[m]||0);
+      const tn = prod ? v/prod : 0;
+      html += `<td class="costes-val">${fmt(v)}</td><td class="costes-val costes-tn">${fmtTn(tn)}</td>`;
+    }
+    const totalTn = totalProd ? catTotal/totalProd : 0;
+    html += `<td class="costes-val costes-total-col">${fmt(catTotal)}</td><td class="costes-val costes-total-col costes-tn">${fmtTn(totalTn)}</td>`;
+    html += '</tr>';
+
+    // Subcategory rows
+    const subcats = Object.entries(cd.subcats).sort((a,b)=>a[0].localeCompare(b[0]));
+    for(const [ca, sub] of subcats){
+      let subTotals = {};
+      if(vista==='acumulado'){
+        let acum=0;
+        for(const m of mesesActivos){ acum += (sub.meses[m]||0); subTotals[m]=acum; }
+      } else {
+        subTotals = sub.meses;
+      }
+
+      let subTotal = 0;
+      for(const m of mesesActivos) subTotal += (sub.meses[m]||0);
+
+      html += `<tr class="costes-sub-row"><td class="costes-sub-name">${sub.name}</td>`;
+      for(const m of mesesActivos){
+        const v = subTotals[m]||0;
+        const prod = vista==='acumulado' ? (prodAcum[m]||0) : (prodMes[m]||0);
+        const tn = prod ? v/prod : 0;
+        html += `<td class="costes-val">${fmt(v)}</td><td class="costes-val costes-tn">${fmtTn(tn)}</td>`;
+      }
+      const totalTn = totalProd ? subTotal/totalProd : 0;
+      html += `<td class="costes-val costes-total-col">${fmt(subTotal)}</td><td class="costes-val costes-total-col costes-tn">${fmtTn(totalTn)}</td>`;
+      html += '</tr>';
+    }
+
+    // Accumulate grand totals
+    for(const m of mesesActivos){
+      grandTotals[m] = (grandTotals[m]||0) + (cd.totals[m]||0);
+    }
+  }
+
+  // Grand total row
+  let grandTotal = 0;
+  for(const m of mesesActivos) grandTotal += (grandTotals[m]||0);
+
+  let gtAccum = {};
+  if(vista==='acumulado'){
+    let acum=0;
+    for(const m of mesesActivos){ acum += (grandTotals[m]||0); gtAccum[m]=acum; }
+  } else {
+    gtAccum = grandTotals;
+  }
+
+  html += '<tr class="costes-grand-row"><td>TOTAL GENERAL</td>';
+  for(const m of mesesActivos){
+    const v = gtAccum[m]||0;
+    const prod = vista==='acumulado' ? (prodAcum[m]||0) : (prodMes[m]||0);
+    const tn = prod ? v/prod : 0;
+    html += `<td class="costes-val">${fmt(v)}</td><td class="costes-val costes-tn">${fmtTn(tn)}</td>`;
+  }
+  const gtTn = totalProd ? grandTotal/totalProd : 0;
+  html += `<td class="costes-val costes-total-col">${fmt(grandTotal)}</td><td class="costes-val costes-total-col costes-tn">${fmtTn(gtTn)}</td>`;
+  html += '</tr></tbody></table>';
+
+  wrap.innerHTML = html;
 }
