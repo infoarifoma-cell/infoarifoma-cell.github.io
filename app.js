@@ -1853,16 +1853,16 @@ function renderPedidos(data){
     '<div class="tc" style="flex:.7;text-align:right">Acciones</div>'+
     '</div>'+
     data.map(r=>'<div class="tr">'+
-      '<div class="tc" style="flex:.35;font-family:monospace;color:var(--muted);font-size:.72rem">#'+r.id+'</div>'+
-      '<div class="tc" style="flex:.8;font-family:monospace;font-weight:700;color:var(--accent);font-size:.78rem">'+r.matriculacam+'</div>'+
-      '<div class="tc" style="flex:1.2;color:var(--muted);font-size:.73rem">'+r.nombreCliente+'</div>'+
-      '<div class="tc" style="flex:1;font-size:.71rem">'+r.productoNombre+'</div>'+
-      '<div class="tc" style="flex:.65;text-align:right;font-family:monospace;color:var(--accent2);font-weight:700;font-size:.78rem">'+Number(r.pesoNeto).toLocaleString()+'</div>'+
-      '<div class="tc" style="flex:.75;font-size:.7rem;color:var(--muted)">'+formatFechaHoraPed(r.fechaHora)+'</div>'+
+      '<div class="tc" style="flex:.35;font-family:monospace;color:var(--muted);font-size:.85rem">#'+r.id+'</div>'+
+      '<div class="tc" style="flex:.8;font-family:monospace;font-weight:700;color:var(--accent);font-size:.9rem">'+r.matriculacam+'</div>'+
+      '<div class="tc" style="flex:1.2;color:var(--muted);font-size:.88rem">'+r.nombreCliente+'</div>'+
+      '<div class="tc" style="flex:1;font-size:.85rem">'+r.productoNombre+'</div>'+
+      '<div class="tc" style="flex:.65;text-align:right;font-family:monospace;color:var(--accent2);font-weight:700;font-size:.9rem">'+Number(r.pesoNeto).toLocaleString()+'</div>'+
+      '<div class="tc" style="flex:.75;font-size:.85rem;color:var(--muted)">'+formatFechaHoraPed(r.fechaHora)+'</div>'+
       '<div class="tc" style="flex:.7;text-align:right;gap:4px;display:flex;justify-content:flex-end">'+
-        '<button class="btn-sm" title="Albarán" onclick=\'abrirAlbaranPedido('+r.id+')\' style="padding:3px 7px;font-size:.68rem;color:var(--accent);border-color:var(--accent)">🖨</button>'+
-        '<button class="btn-sm" title="Editar" onclick=\'editarPedidoModal('+r.id+')\' style="padding:3px 7px;font-size:.68rem">✏</button>'+
-        '<button class="btn-sm" title="Eliminar" onclick=\'eliminarPedido('+r.id+')\' style="padding:3px 7px;font-size:.68rem;color:#e05;border-color:#e05">🗑</button>'+
+        '<button class="btn-sm" title="Albarán" onclick=\'abrirAlbaranPedido('+r.id+')\' style="padding:4px 8px;font-size:.8rem;color:var(--accent);border-color:var(--accent)">🖨</button>'+
+        '<button class="btn-sm" title="Editar" onclick=\'editarPedidoModal('+r.id+')\' style="padding:4px 8px;font-size:.8rem">✏</button>'+
+        '<button class="btn-sm" title="Eliminar" onclick=\'eliminarPedido('+r.id+')\' style="padding:4px 8px;font-size:.8rem;color:#e05;border-color:#e05">🗑</button>'+
       '</div>'+
     '</div>').join('')+
   '</div>';
