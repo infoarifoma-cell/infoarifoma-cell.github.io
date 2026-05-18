@@ -73,6 +73,16 @@
     .layout { display: none !important; }
     .bottom-nav { display: none !important; }
   }
+  /* Costes print */
+  @media print {
+    #costes-print-wrap { position: static !important; background: white !important; padding: 0 !important; }
+    #costes-print-wrap .costes-print-btns { display: none !important; }
+    #costes-print-wrap .costes-print-table { font-size: 7.5pt !important; }
+    #costes-print-wrap .costes-print-table th,
+    #costes-print-wrap .costes-print-table td { padding: 2px 4px !important; border: 1px solid #bbb !important; }
+    #costes-print-wrap .costes-print-charts { page-break-before: always; }
+    #costes-print-wrap .costes-print-charts canvas { max-height: 250px !important; }
+  }
 </style>
 
 <!-- OT PRINT STYLES -->
@@ -894,7 +904,10 @@
         <div class="page" id="pg-costes">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
             <div class="sec-title" style="margin:0">Análisis de Costes</div>
-            <button class="btn-sec" id="costes-btn-cargar" style="font-size:.72rem;padding:8px 14px" onclick="cargarCostes()">&#8635; Cargar de BC</button>
+            <div style="display:flex;gap:8px">
+              <button class="btn-sec" id="costes-btn-cargar" style="font-size:.72rem;padding:8px 14px" onclick="cargarCostes()">&#8635; Cargar de BC</button>
+              <button class="btn-sec" id="costes-btn-print" style="font-size:.72rem;padding:8px 14px" onclick="imprimirCostes()">🖨 Imprimir</button>
+            </div>
           </div>
           <!-- Filtros -->
           <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:flex-end">
@@ -963,6 +976,17 @@
           <div id="costes-table-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch">
             <div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Pulsa "Cargar de BC" para traer los movimientos contables del año</div>
           </div>
+        </div>
+
+        <!-- COSTES PRINT OVERLAY -->
+        <div id="costes-print-wrap" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;z-index:999;overflow-y:auto;padding:10mm;box-sizing:border-box">
+          <div class="costes-print-btns" style="display:flex;gap:8px;margin-bottom:12px">
+            <button onclick="window.print()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:.85rem;font-weight:700;cursor:pointer">🖨 Imprimir</button>
+            <button onclick="cerrarImprimirCostes()" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px 20px;font-size:.85rem;cursor:pointer">✕ Cerrar</button>
+          </div>
+          <div id="costes-print-header"></div>
+          <div id="costes-print-body"></div>
+          <div id="costes-print-charts-area" class="costes-print-charts" style="margin-top:15mm"></div>
         </div>
 
         <!-- ══ VENTAS ══ -->

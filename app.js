@@ -6089,3 +6089,88 @@ function renderCostesCharts(catData, mesesActivos, prodMes, prodAcum, totalProd)
     }
   });
 }
+
+// ── COSTES IMPRIMIR ──────────────────────────────────────────────────────────
+
+function imprimirCostes(){
+  if(!costesRawData.length){ alert('Carga datos primero'); return; }
+
+  const wrap = document.getElementById('costes-print-wrap');
+  const anyo = document.getElementById('costes-anyo').value;
+  const mesDesde = parseInt(document.getElementById('costes-mes-desde').value);
+  const mesHasta = parseInt(document.getElementById('costes-mes-hasta').value);
+  const vista = document.getElementById('costes-vista').value;
+
+  // Header
+  document.getElementById('costes-print-header').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:8mm;border-bottom:2px solid #333;padding-bottom:4mm">
+      <div>
+        <div style="font-size:14pt;font-weight:900;letter-spacing:.04em">ARIFOMA</div>
+        <div style="font-size:8pt;color:#666">Áridos Fonolíticos de Maspalomas SL</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:11pt;font-weight:700">${vista==='acumulado'?'ANÁLISIS ACUMULADO':'ANÁLISIS MENSUAL DE COSTES'}</div>
+        <div style="font-size:9pt;color:#666">${MESES_NOMBRE[mesDesde]} — ${MESES_NOMBRE[mesHasta]} ${anyo}</div>
+      </div>
+    </div>`;
+
+  // Copy table from costes-table-wrap
+  const tableHtml = document.getElementById('costes-table-wrap').innerHTML;
+  document.getElementById('costes-print-body').innerHTML = `
+    <div class="costes-print-table" style="font-family:Arial,sans-serif;font-size:8pt;color:#111">
+      ${tableHtml}
+    </div>`;
+
+  // Override table styles for print
+  const printTable = document.querySelector('#costes-print-body .costes-tbl');
+  if(printTable){
+    printTable.style.fontSize = '7.5pt';
+    printTable.style.color = '#111';
+    printTable.querySelectorAll('th,td').forEach(c=>{
+      c.style.border = '1px solid #bbb';
+      c.style.padding = '2px 5px';
+      c.style.color = '#111';
+    });
+    printTable.querySelectorAll('.costes-cat-row td').forEach(c=>{
+      c.style.background = '#e8e8e0';
+      c.style.fontWeight = '700';
+    });
+    printTable.querySelectorAll('.costes-grand-row td').forEach(c=>{
+      c.style.background = '#d4d4c8';
+      c.style.fontWeight = '900';
+    });
+    printTable.querySelectorAll('.costes-ingreso td').forEach(c=>{
+      c.style.color = '#2e7d32';
+    });
+    printTable.querySelectorAll('.costes-tn').forEach(c=>{
+      c.style.color = '#888';
+      c.style.fontSize = '6.5pt';
+    });
+  }
+
+  // Charts as images
+  const chartsArea = document.getElementById('costes-print-charts-area');
+  chartsArea.innerHTML = '<div style="font-size:10pt;font-weight:700;margin-bottom:4mm">GRÁFICOS</div>';
+  const chartIds = ['chart-barras-cat','chart-linea-tn','chart-donut','chart-ing-gas','chart-acumulado'];
+  const chartNames = ['Costes por categoría / mes','€/tn mensual','Distribución de costes','Ingresos vs Gastos / mes','Acumulado Ingresos vs Gastos'];
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8mm';
+  chartIds.forEach((id,i)=>{
+    const canvas = document.getElementById(id);
+    if(!canvas) return;
+    const div = document.createElement('div');
+    div.innerHTML = `<div style="font-size:7.5pt;font-weight:700;margin-bottom:2mm">${chartNames[i]}</div>`;
+    const img = document.createElement('img');
+    img.src = canvas.toDataURL('image/png');
+    img.style.cssText = 'width:100%;max-height:200px;object-fit:contain';
+    div.appendChild(img);
+    grid.appendChild(div);
+  });
+  chartsArea.appendChild(grid);
+
+  wrap.style.display = 'block';
+}
+
+function cerrarImprimirCostes(){
+  document.getElementById('costes-print-wrap').style.display = 'none';
+}
