@@ -916,6 +916,34 @@
           <!-- Info carga -->
           <div id="costes-info" style="margin-bottom:10px;font-size:.75rem;color:var(--muted)"></div>
           <!-- Tabla principal -->
+          <!-- Gráficos -->
+          <div id="costes-charts" style="display:none;margin-bottom:20px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+              <div style="background:var(--card);border-radius:var(--radius);padding:16px;min-height:280px">
+                <div style="font-size:.75rem;font-weight:700;margin-bottom:8px;color:var(--fg)">Costes por categoría / mes</div>
+                <canvas id="chart-barras-cat"></canvas>
+              </div>
+              <div style="background:var(--card);border-radius:var(--radius);padding:16px;min-height:280px">
+                <div style="font-size:.75rem;font-weight:700;margin-bottom:8px;color:var(--fg)">€/tn mensual</div>
+                <canvas id="chart-linea-tn"></canvas>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+              <div style="background:var(--card);border-radius:var(--radius);padding:16px;min-height:280px">
+                <div style="font-size:.75rem;font-weight:700;margin-bottom:8px;color:var(--fg)">Distribución de costes</div>
+                <canvas id="chart-donut"></canvas>
+              </div>
+              <div style="background:var(--card);border-radius:var(--radius);padding:16px;min-height:280px">
+                <div style="font-size:.75rem;font-weight:700;margin-bottom:8px;color:var(--fg)">Ingresos vs Gastos / mes</div>
+                <canvas id="chart-ing-gas"></canvas>
+              </div>
+              <div style="background:var(--card);border-radius:var(--radius);padding:16px;min-height:280px">
+                <div style="font-size:.75rem;font-weight:700;margin-bottom:8px;color:var(--fg)">Acumulado Ingresos vs Gastos</div>
+                <canvas id="chart-acumulado"></canvas>
+              </div>
+            </div>
+          </div>
+          <!-- Tabla -->
           <div id="costes-table-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch">
             <div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Pulsa "Cargar de BC" para traer los movimientos contables del año</div>
           </div>

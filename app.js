@@ -5893,4 +5893,199 @@ function renderCostes(){
   html += '</tr></tbody></table>';
 
   wrap.innerHTML = html;
+
+  // Renderizar gráficos
+  renderCostesCharts(catData, mesesActivos, prodMes, prodAcum, totalProd);
+}
+
+// ── COSTES CHARTS ────────────────────────────────────────────────────────────
+
+const COSTES_COLORS = [
+  '#6b7d2e','#d4a017','#2e7d6b','#7d2e6b','#2e4a7d',
+  '#a0522d','#4682b4','#8b4513','#556b2f','#8b008b'
+];
+let costesCharts = {};
+
+function destroyCostesCharts(){
+  Object.values(costesCharts).forEach(c=>{ try{c.destroy();}catch(e){} });
+  costesCharts = {};
+}
+
+function renderCostesCharts(catData, mesesActivos, prodMes, prodAcum, totalProd){
+  if(typeof Chart==='undefined') return;
+  destroyCostesCharts();
+  document.getElementById('costes-charts').style.display='block';
+
+  const labels = mesesActivos.map(m=>MESES_NOMBRE[m].substring(0,3));
+  const gastoCats = COSTES_CAT_ORDER.filter(c=>c!=='INGRESOS'&&c!=='AMORTIZACION');
+
+  // Defaults Chart.js dark theme
+  Chart.defaults.color = '#aaa';
+  Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+
+  // ── 1. Barras apiladas: coste por categoría/mes ──
+  const stackedDatasets = gastoCats.map((cat,i)=>{
+    const cd = catData[cat];
+    return {
+      label: cat,
+      data: mesesActivos.map(m=> cd ? (cd.totals[m]||0) : 0),
+      backgroundColor: COSTES_COLORS[i % COSTES_COLORS.length],
+      borderWidth: 0
+    };
+  }).filter(ds=>ds.data.some(v=>v!==0));
+
+  costesCharts.barras = new Chart(document.getElementById('chart-barras-cat'),{
+    type:'bar',
+    data:{ labels, datasets: stackedDatasets },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:true, position:'bottom', labels:{boxWidth:10,font:{size:9}} } },
+      scales:{
+        x:{ stacked:true },
+        y:{ stacked:true, ticks:{ callback:v=>v.toLocaleString('es-ES')+'€' } }
+      }
+    }
+  });
+
+  // ── 2. Línea: €/tn mensual por categoría ──
+  const lineDatasets = gastoCats.map((cat,i)=>{
+    const cd = catData[cat];
+    if(!cd) return null;
+    const vals = mesesActivos.map(m=>{
+      const v = cd.totals[m]||0;
+      const p = prodMes[m]||0;
+      return p ? +(v/p).toFixed(2) : 0;
+    });
+    if(vals.every(v=>v===0)) return null;
+    return {
+      label: cat,
+      data: vals,
+      borderColor: COSTES_COLORS[i % COSTES_COLORS.length],
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      tension: 0.3,
+      pointRadius: 3
+    };
+  }).filter(Boolean);
+
+  // Add total €/tn line
+  const totalTnLine = mesesActivos.map(m=>{
+    const p = prodMes[m]||0;
+    if(!p) return 0;
+    let total = 0;
+    for(const cat of gastoCats){ const cd=catData[cat]; if(cd) total+=(cd.totals[m]||0); }
+    return +(total/p).toFixed(2);
+  });
+  lineDatasets.push({
+    label:'TOTAL',
+    data:totalTnLine,
+    borderColor:'#fff',
+    backgroundColor:'transparent',
+    borderWidth:3,
+    borderDash:[6,3],
+    tension:0.3,
+    pointRadius:4
+  });
+
+  costesCharts.linea = new Chart(document.getElementById('chart-linea-tn'),{
+    type:'line',
+    data:{ labels, datasets: lineDatasets },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:true, position:'bottom', labels:{boxWidth:10,font:{size:9}} } },
+      scales:{
+        y:{ ticks:{ callback:v=>v.toFixed(1)+'€/tn' } }
+      }
+    }
+  });
+
+  // ── 3. Donut: distribución de costes total ──
+  const donutLabels = [];
+  const donutValues = [];
+  const donutColors = [];
+  gastoCats.forEach((cat,i)=>{
+    const cd = catData[cat];
+    if(!cd) return;
+    let total = 0;
+    mesesActivos.forEach(m=> total += (cd.totals[m]||0));
+    if(total > 0){
+      donutLabels.push(cat);
+      donutValues.push(+total.toFixed(2));
+      donutColors.push(COSTES_COLORS[i % COSTES_COLORS.length]);
+    }
+  });
+
+  costesCharts.donut = new Chart(document.getElementById('chart-donut'),{
+    type:'doughnut',
+    data:{
+      labels: donutLabels,
+      datasets:[{ data:donutValues, backgroundColor:donutColors, borderWidth:0 }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ display:true, position:'right', labels:{boxWidth:10,font:{size:9}} },
+        tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+ctx.parsed.toLocaleString('es-ES',{minimumFractionDigits:2})+'€' } }
+      }
+    }
+  });
+
+  // ── 4. Barras: Ingresos vs Gastos por mes ──
+  const gastosMes = mesesActivos.map(m=>{
+    let total=0;
+    gastoCats.forEach(cat=>{ const cd=catData[cat]; if(cd) total+=(cd.totals[m]||0); });
+    return +total.toFixed(2);
+  });
+  const ingresosMes = mesesActivos.map(m=>{
+    const cd = catData['INGRESOS'];
+    return cd ? +Math.abs(cd.totals[m]||0).toFixed(2) : 0;
+  });
+
+  costesCharts.inggas = new Chart(document.getElementById('chart-ing-gas'),{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        { label:'Gastos', data:gastosMes, backgroundColor:'#d4a017', borderWidth:0 },
+        { label:'Ingresos', data:ingresosMes, backgroundColor:'#4caf50', borderWidth:0 }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:true, position:'bottom', labels:{boxWidth:10,font:{size:9}} } },
+      scales:{
+        y:{ ticks:{ callback:v=>v.toLocaleString('es-ES')+'€' } }
+      }
+    }
+  });
+
+  // ── 5. Línea: Acumulado ingresos vs gastos ──
+  let acumGas=0, acumIng=0;
+  const acumGasArr=[], acumIngArr=[], acumBenArr=[];
+  mesesActivos.forEach((m,i)=>{
+    acumGas += gastosMes[i];
+    acumIng += ingresosMes[i];
+    acumGasArr.push(+acumGas.toFixed(2));
+    acumIngArr.push(+acumIng.toFixed(2));
+    acumBenArr.push(+(acumIng-acumGas).toFixed(2));
+  });
+
+  costesCharts.acumulado = new Chart(document.getElementById('chart-acumulado'),{
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        { label:'Gastos acum.', data:acumGasArr, borderColor:'#d4a017', backgroundColor:'rgba(212,160,23,0.1)', fill:true, borderWidth:2, tension:0.3 },
+        { label:'Ingresos acum.', data:acumIngArr, borderColor:'#4caf50', backgroundColor:'rgba(76,175,80,0.1)', fill:true, borderWidth:2, tension:0.3 },
+        { label:'Resultado', data:acumBenArr, borderColor:'#fff', backgroundColor:'transparent', borderWidth:2, borderDash:[6,3], tension:0.3, pointRadius:4 }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:true, position:'bottom', labels:{boxWidth:10,font:{size:9}} } },
+      scales:{
+        y:{ ticks:{ callback:v=>v.toLocaleString('es-ES')+'€' } }
+      }
+    }
+  });
 }
