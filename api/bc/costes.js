@@ -1,6 +1,7 @@
 // POST /api/bc/costes
 // Proxy: obtiene movimientos contables (G/L Entries) de cuentas 600-799
 // con dimensiones CA y PROYECTO expandidas, filtrado por año
+// Consulta mes a mes para evitar límite de 1000 registros de BC
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -26,49 +27,52 @@ export default async function handler(req, res) {
     if (!company) throw new Error('Company no encontrada: ' + BC_COMPANY);
     const cid = company.id;
 
-    // Paginar G/L Entries del año con dimensiones expandidas
-    // Filtro solo por fecha — filtramos cuentas 6*/7* en backend
-    const fechaInicio = `${anyo}-01-01`;
-    const fechaFin = `${anyo}-12-31`;
-    const filter = `postingDate ge ${fechaInicio} and postingDate le ${fechaFin}`;
-
     let allEntries = [];
-    let url = `${base}(${cid})/generalLedgerEntries?$filter=${encodeURIComponent(filter)}&$expand=dimensionSetLines&$top=1000`;
 
-    // Paginación OData
-    while (url) {
-      const glRes = await fetch(url, { headers });
-      if (!glRes.ok) {
-        const errText = await glRes.text().catch(() => glRes.statusText);
-        throw new Error('Error G/L Entries: ' + errText);
-      }
-      const glJson = await glRes.json();
+    // Consultar mes a mes para no superar el límite de 1000 de BC
+    for (let mes = 1; mes <= 12; mes++) {
+      const mm = String(mes).padStart(2, '0');
+      const lastDay = new Date(Number(anyo), mes, 0).getDate();
+      const fechaInicio = `${anyo}-${mm}-01`;
+      const fechaFin = `${anyo}-${mm}-${String(lastDay).padStart(2, '0')}`;
+      const filter = `postingDate ge ${fechaInicio} and postingDate le ${fechaFin}`;
 
-      // Procesar cada entrada: solo cuentas 6* y 7*
-      for (const entry of (glJson.value || [])) {
-        const acc = entry.accountNumber || '';
-        if (!acc.startsWith('6') && !acc.startsWith('7')) continue;
+      let url = `${base}(${cid})/generalLedgerEntries?$filter=${encodeURIComponent(filter)}&$expand=dimensionSetLines&$top=1000`;
 
-        const dims = {};
-        for (const dim of (entry.dimensionSetLines || [])) {
-          dims[dim.code] = { valueCode: dim.valueCode, displayName: dim.valueDisplayName };
+      while (url) {
+        const glRes = await fetch(url, { headers });
+        if (!glRes.ok) {
+          const errText = await glRes.text().catch(() => glRes.statusText);
+          throw new Error(`Error G/L Entries mes ${mes}: ` + errText);
+        }
+        const glJson = await glRes.json();
+
+        // Procesar cada entrada: solo cuentas 6* y 7*
+        for (const entry of (glJson.value || [])) {
+          const acc = entry.accountNumber || '';
+          if (!acc.startsWith('6') && !acc.startsWith('7')) continue;
+
+          const dims = {};
+          for (const dim of (entry.dimensionSetLines || [])) {
+            dims[dim.code] = { valueCode: dim.valueCode, displayName: dim.valueDisplayName };
+          }
+
+          allEntries.push({
+            date: entry.postingDate,
+            account: entry.accountNumber,
+            description: entry.description,
+            debit: entry.debitAmount,
+            credit: entry.creditAmount,
+            ca: dims.CA?.valueCode || null,
+            caName: dims.CA?.displayName || null,
+            proyecto: dims.PROYECTO?.valueCode || null,
+            proyectoName: dims.PROYECTO?.displayName || null,
+            docNumber: entry.documentNumber
+          });
         }
 
-        allEntries.push({
-          date: entry.postingDate,
-          account: entry.accountNumber,
-          description: entry.description,
-          debit: entry.debitAmount,
-          credit: entry.creditAmount,
-          ca: dims.CA?.valueCode || null,
-          caName: dims.CA?.displayName || null,
-          proyecto: dims.PROYECTO?.valueCode || null,
-          proyectoName: dims.PROYECTO?.displayName || null,
-          docNumber: entry.documentNumber
-        });
+        url = glJson['@odata.nextLink'] || null;
       }
-
-      url = glJson['@odata.nextLink'] || null;
     }
 
     return res.status(200).json({ ok: true, count: allEntries.length, entries: allEntries });
