@@ -5919,9 +5919,9 @@ function renderCostesCharts(catData, mesesActivos, prodMes, prodAcum, totalProd)
   const labels = mesesActivos.map(m=>MESES_NOMBRE[m].substring(0,3));
   const gastoCats = COSTES_CAT_ORDER.filter(c=>c!=='INGRESOS'&&c!=='AMORTIZACION');
 
-  // Defaults Chart.js dark theme
-  Chart.defaults.color = '#aaa';
-  Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+  // Defaults Chart.js
+  Chart.defaults.color = '#707070';
+  Chart.defaults.borderColor = 'rgba(0,0,0,0.08)';
 
   // ── 1. Barras apiladas: coste por categoría/mes ──
   const stackedDatasets = gastoCats.map((cat,i)=>{
@@ -5979,7 +5979,7 @@ function renderCostesCharts(catData, mesesActivos, prodMes, prodAcum, totalProd)
   lineDatasets.push({
     label:'TOTAL',
     data:totalTnLine,
-    borderColor:'#fff',
+    borderColor:'#1a1a1a',
     backgroundColor:'transparent',
     borderWidth:3,
     borderDash:[6,3],
@@ -6077,7 +6077,7 @@ function renderCostesCharts(catData, mesesActivos, prodMes, prodAcum, totalProd)
       datasets:[
         { label:'Gastos acum.', data:acumGasArr, borderColor:'#d4a017', backgroundColor:'rgba(212,160,23,0.1)', fill:true, borderWidth:2, tension:0.3 },
         { label:'Ingresos acum.', data:acumIngArr, borderColor:'#4caf50', backgroundColor:'rgba(76,175,80,0.1)', fill:true, borderWidth:2, tension:0.3 },
-        { label:'Resultado', data:acumBenArr, borderColor:'#fff', backgroundColor:'transparent', borderWidth:2, borderDash:[6,3], tension:0.3, pointRadius:4 }
+        { label:'Resultado', data:acumBenArr, borderColor:'#1a1a1a', backgroundColor:'transparent', borderWidth:2, borderDash:[6,3], tension:0.3, pointRadius:4 }
       ]
     },
     options:{

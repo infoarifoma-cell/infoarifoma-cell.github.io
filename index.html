@@ -81,8 +81,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .snav-btn.active .snav-icon{opacity:1}
 .snav-divider{height:1px;background:var(--border);margin:8px 0}
 .main{flex:1;overflow-y:auto}
-.pw{max-width:680px;margin:0 auto;padding:20px 16px 60px}
-@media(min-width:900px){.pw{max-width:1200px;padding:24px 32px 60px}}
+.pw{max-width:100%;margin:0 auto;padding:20px 12px 60px}
+@media(min-width:900px){.pw{max-width:calc(100% - 40px);padding:24px 20px 60px}}
+@media(min-width:1400px){.pw{max-width:1600px}}
 .page{display:none}.page.active{display:block}
 
 /* ── SHARED COMPONENTS ── */

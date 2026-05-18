@@ -84,30 +84,46 @@
   }
 </style>
 
-<!-- COSTES TABLE STYLES -->
+<!-- COSTES STYLES -->
 <style>
-  .costes-tbl{width:100%;border-collapse:collapse;font-size:.72rem;white-space:nowrap}
-  .costes-tbl th,.costes-tbl td{padding:4px 8px;border:1px solid rgba(255,255,255,.06)}
-  .costes-tbl thead th{background:var(--card);color:var(--fg);font-weight:700;position:sticky;top:0;z-index:2;font-size:.68rem;text-align:center}
-  .costes-cat-col{text-align:left!important;min-width:180px;position:sticky;left:0;z-index:3;background:var(--card)}
-  .costes-val-col{min-width:70px;text-align:right}
+  /* Charts layout */
+  .costes-charts-top,.costes-charts-bottom{display:grid;gap:10px;margin-bottom:10px}
+  .costes-charts-top{grid-template-columns:1fr 1fr}
+  .costes-charts-bottom{grid-template-columns:1fr 1fr 1fr}
+  .costes-chart-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;position:relative}
+  .costes-chart-lg{height:45vh;min-height:300px}
+  .costes-chart-sm{height:40vh;min-height:280px}
+  .costes-chart-title{font-size:.75rem;font-weight:700;margin-bottom:6px;color:var(--text)}
+  .costes-chart-canvas{position:relative;height:calc(100% - 24px)}
+  @media(max-width:899px){
+    .costes-charts-top,.costes-charts-bottom{grid-template-columns:1fr}
+    .costes-chart-lg,.costes-chart-sm{height:55vw;min-height:250px}
+  }
+
+  /* Table */
+  .costes-tbl{width:100%;border-collapse:collapse;font-size:.78rem;white-space:nowrap}
+  .costes-tbl th,.costes-tbl td{padding:5px 10px;border:1px solid var(--border)}
+  .costes-tbl thead th{background:var(--surface2);color:var(--text);font-weight:700;position:sticky;top:0;z-index:2;font-size:.72rem;text-align:center}
+  .costes-cat-col{text-align:left!important;min-width:200px;position:sticky;left:0;z-index:3;background:var(--surface2)}
+  .costes-val-col{min-width:80px;text-align:right}
   .costes-total-col{background:rgba(107,125,46,.08)!important;font-weight:700}
   .costes-val{text-align:right;font-variant-numeric:tabular-nums}
-  .costes-tn{color:var(--muted);font-size:.65rem}
-  .costes-prod-row td{background:rgba(107,125,46,.06);font-size:.7rem;color:var(--accent2)}
-  .costes-cat-row{background:var(--card);font-weight:700}
-  .costes-cat-row td{border-top:2px solid rgba(255,255,255,.1)}
-  .costes-cat-name{position:sticky;left:0;z-index:1;background:var(--card)}
-  .costes-sub-row td{font-size:.7rem}
-  .costes-sub-name{padding-left:20px!important;position:sticky;left:0;z-index:1;background:var(--bg)}
-  .costes-ingreso td{color:#4caf50}
-  .costes-grand-row{font-weight:900;font-size:.78rem}
+  .costes-tn{color:var(--muted);font-size:.68rem}
+  .costes-prod-row td{background:rgba(107,125,46,.06);font-size:.74rem;color:var(--accent2)}
+  .costes-cat-row{background:var(--surface);font-weight:700}
+  .costes-cat-row td{border-top:2px solid var(--border)}
+  .costes-cat-name{position:sticky;left:0;z-index:1;background:var(--surface)}
+  .costes-sub-row td{font-size:.74rem}
+  .costes-sub-name{padding-left:24px!important;position:sticky;left:0;z-index:1;background:var(--bg)}
+  .costes-ingreso td{color:#2e7d32}
+  .costes-grand-row{font-weight:900;font-size:.82rem}
   .costes-grand-row td{border-top:3px double var(--accent);background:rgba(107,125,46,.1)}
   .costes-grand-row td:first-child{position:sticky;left:0;z-index:1;background:rgba(107,125,46,.15)}
   @media(max-width:600px){
-    .costes-tbl{font-size:.62rem}
-    .costes-cat-col{min-width:120px}
-    .costes-val-col{min-width:55px}
+    .costes-tbl{font-size:.65rem}
+    .costes-cat-col{min-width:130px}
+    .costes-val-col{min-width:60px}
+    .costes-sub-name{padding-left:14px!important}
   }
 </style>
 
@@ -917,29 +933,29 @@
           <div id="costes-info" style="margin-bottom:10px;font-size:.75rem;color:var(--muted)"></div>
           <!-- Tabla principal -->
           <!-- Gráficos -->
-          <div id="costes-charts" style="display:none;margin-bottom:20px;margin-left:-16px;margin-right:-16px">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;padding:0 8px">
-              <div style="background:var(--card);border-radius:var(--radius);padding:12px;height:45vh;min-height:300px;position:relative">
-                <div style="font-size:.75rem;font-weight:700;margin-bottom:6px;color:var(--fg)">Costes por categoría / mes</div>
-                <div style="position:relative;height:calc(100% - 24px)"><canvas id="chart-barras-cat"></canvas></div>
+          <div id="costes-charts" style="display:none;margin-bottom:20px">
+            <div class="costes-charts-top">
+              <div class="costes-chart-box costes-chart-lg">
+                <div class="costes-chart-title">Costes por categoría / mes</div>
+                <div class="costes-chart-canvas"><canvas id="chart-barras-cat"></canvas></div>
               </div>
-              <div style="background:var(--card);border-radius:var(--radius);padding:12px;height:45vh;min-height:300px;position:relative">
-                <div style="font-size:.75rem;font-weight:700;margin-bottom:6px;color:var(--fg)">€/tn mensual</div>
-                <div style="position:relative;height:calc(100% - 24px)"><canvas id="chart-linea-tn"></canvas></div>
+              <div class="costes-chart-box costes-chart-lg">
+                <div class="costes-chart-title">€/tn mensual</div>
+                <div class="costes-chart-canvas"><canvas id="chart-linea-tn"></canvas></div>
               </div>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:0 8px">
-              <div style="background:var(--card);border-radius:var(--radius);padding:12px;height:40vh;min-height:280px;position:relative">
-                <div style="font-size:.75rem;font-weight:700;margin-bottom:6px;color:var(--fg)">Distribución de costes</div>
-                <div style="position:relative;height:calc(100% - 24px)"><canvas id="chart-donut"></canvas></div>
+            <div class="costes-charts-bottom">
+              <div class="costes-chart-box costes-chart-sm">
+                <div class="costes-chart-title">Distribución de costes</div>
+                <div class="costes-chart-canvas"><canvas id="chart-donut"></canvas></div>
               </div>
-              <div style="background:var(--card);border-radius:var(--radius);padding:12px;height:40vh;min-height:280px;position:relative">
-                <div style="font-size:.75rem;font-weight:700;margin-bottom:6px;color:var(--fg)">Ingresos vs Gastos / mes</div>
-                <div style="position:relative;height:calc(100% - 24px)"><canvas id="chart-ing-gas"></canvas></div>
+              <div class="costes-chart-box costes-chart-sm">
+                <div class="costes-chart-title">Ingresos vs Gastos / mes</div>
+                <div class="costes-chart-canvas"><canvas id="chart-ing-gas"></canvas></div>
               </div>
-              <div style="background:var(--card);border-radius:var(--radius);padding:12px;height:40vh;min-height:280px;position:relative">
-                <div style="font-size:.75rem;font-weight:700;margin-bottom:6px;color:var(--fg)">Acumulado Ingresos vs Gastos</div>
-                <div style="position:relative;height:calc(100% - 24px)"><canvas id="chart-acumulado"></canvas></div>
+              <div class="costes-chart-box costes-chart-sm">
+                <div class="costes-chart-title">Acumulado Ingresos vs Gastos</div>
+                <div class="costes-chart-canvas"><canvas id="chart-acumulado"></canvas></div>
               </div>
             </div>
           </div>
