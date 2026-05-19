@@ -5781,14 +5781,15 @@ function renderCostes(){
   }
 
   // Build HTML table
-  const fmt = v => {
-    if(v===0||v===undefined) return '';
-    return v.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const fmtES = (v, dec=2) => {
+    if(v===0||v===undefined||v===null) return '';
+    const neg = v < 0;
+    const [ent, dec2] = Math.abs(v).toFixed(dec).split('.');
+    const miles = ent.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return (neg ? '-' : '') + miles + ',' + dec2;
   };
-  const fmtTn = v => {
-    if(!v || v===0) return '';
-    return v.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
-  };
+  const fmt = v => fmtES(v, 2);
+  const fmtTn = v => (!v || v===0) ? '' : fmtES(v, 2);
 
   // Producción acumulada para vista acumulado
   const prodAcum = {};
@@ -5977,7 +5978,7 @@ function renderCostesCharts(catData, mesesActivos, prodMes, prodAcum, totalProd)
       },
       scales:{
         x:{ stacked:true },
-        y:{ stacked:true, ticks:{ callback:v=>v.toLocaleString('es-ES',{maximumFractionDigits:0})+'€' } }
+        y:{ stacked:true, ticks:{ callback:v=>{const n=Math.abs(v);const s=Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'.');return (v<0?'-':'')+s+'€';} } }
       }
     }
   });
@@ -6095,7 +6096,7 @@ function renderCostesCharts(catData, mesesActivos, prodMes, prodAcum, totalProd)
         tooltip:{ callbacks:{ label:ctx=>ctx.dataset.label+': '+ctx.parsed.y.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+'€' } }
       },
       scales:{
-        y:{ ticks:{ callback:v=>v.toLocaleString('es-ES',{maximumFractionDigits:0})+'€' } }
+        y:{ ticks:{ callback:v=>{const n=Math.abs(v);const s=Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'.');return (v<0?'-':'')+s+'€';} } }
       }
     }
   });
@@ -6128,7 +6129,7 @@ function renderCostesCharts(catData, mesesActivos, prodMes, prodAcum, totalProd)
         tooltip:{ callbacks:{ label:ctx=>ctx.dataset.label+': '+ctx.parsed.y.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+'€' } }
       },
       scales:{
-        y:{ ticks:{ callback:v=>v.toLocaleString('es-ES',{maximumFractionDigits:0})+'€' } }
+        y:{ ticks:{ callback:v=>{const n=Math.abs(v);const s=Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'.');return (v<0?'-':'')+s+'€';} } }
       }
     }
   });
