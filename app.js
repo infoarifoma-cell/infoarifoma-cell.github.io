@@ -196,8 +196,10 @@ async function doNuevoCamion(data) {
 }
 async function doEditarCamion(data) {
   const { id, tipo, ...updates } = data;
-  const { error } = await _supabase.from('tblcamiones').update(updates).eq('id', id);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  const { data: rows, error } = await _supabase.from('tblcamiones').update(updates).eq('id', id).select();
+  if(error) return { ok: false, error: error.message };
+  if(!rows || rows.length === 0) return { ok: false, error: 'No se pudo editar. Verifica permisos en Supabase (RLS).' };
+  return { ok: true };
 }
 async function doEliminarCamion(data) {
   const id = Number(data.id);
