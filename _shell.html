@@ -120,9 +120,12 @@
   .costes-val{text-align:right;font-variant-numeric:tabular-nums}
   .costes-tn{color:var(--muted);font-size:.68rem}
   .costes-prod-row td{background:rgba(107,125,46,.06);font-size:.74rem;color:var(--accent2)}
-  .costes-cat-row{background:var(--surface);font-weight:700}
+  .costes-cat-row{background:var(--surface);font-weight:700;cursor:pointer;user-select:none}
   .costes-cat-row td{border-top:2px solid var(--border)}
   .costes-cat-name{position:sticky;left:0;z-index:1;background:var(--surface)}
+  .costes-cat-toggle{display:inline-block;width:16px;font-size:.7rem;transition:transform .15s}
+  .costes-cat-toggle.open{transform:rotate(90deg)}
+  .costes-sub-row.collapsed{display:none}
   .costes-sub-row td{font-size:.74rem}
   .costes-sub-name{padding-left:24px!important;position:sticky;left:0;z-index:1;background:var(--bg)}
   .costes-ingreso td{color:#2e7d32}
@@ -944,9 +947,16 @@
           </div>
           <!-- Info carga -->
           <div id="costes-info" style="margin-bottom:10px;font-size:.75rem;color:var(--muted)"></div>
-          <!-- Tabla principal -->
-          <!-- Gráficos -->
-          <div id="costes-charts" style="display:none;margin-bottom:20px">
+          <!-- Botón expandir/contraer -->
+          <div id="costes-toggle-wrap" style="display:none;margin-bottom:8px">
+            <button class="btn-sec" id="costes-toggle-all" style="font-size:.7rem;padding:5px 12px" onclick="toggleAllCostesRows()">▶ Expandir todo</button>
+          </div>
+          <!-- Tabla -->
+          <div id="costes-table-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+            <div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Pulsa "Cargar de BC" para traer los movimientos contables del año</div>
+          </div>
+          <!-- Gráficos (debajo de tabla) -->
+          <div id="costes-charts" style="display:none;margin-top:20px">
             <div class="costes-charts-top">
               <div class="costes-chart-box costes-chart-lg">
                 <div class="costes-chart-title">Costes por categoría / mes</div>
@@ -971,10 +981,6 @@
                 <div class="costes-chart-canvas"><canvas id="chart-acumulado"></canvas></div>
               </div>
             </div>
-          </div>
-          <!-- Tabla -->
-          <div id="costes-table-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-            <div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Pulsa "Cargar de BC" para traer los movimientos contables del año</div>
           </div>
         </div>
 

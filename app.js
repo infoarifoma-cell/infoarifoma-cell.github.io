@@ -5827,7 +5827,8 @@ function renderCostes(){
     const isIngreso = cat==='INGRESOS';
     const catClass = isIngreso ? 'costes-cat-row costes-ingreso' : 'costes-cat-row';
 
-    html += `<tr class="${catClass}"><td class="costes-cat-name">${cat}</td>`;
+    const catId = cat.replace(/[^A-Za-z0-9]/g,'_');
+    html += `<tr class="${catClass}" data-cat="${catId}" onclick="toggleCostesCat('${catId}')"><td class="costes-cat-name"><span class="costes-cat-toggle open" id="tog-${catId}">▶</span>${cat}</td>`;
     for(const m of mesesActivos){
       const v = catTotals[m]||0;
       html += `<td class="costes-val">${fmt(v)}</td>`;
@@ -5849,7 +5850,7 @@ function renderCostes(){
       let subTotal = 0;
       for(const m of mesesActivos) subTotal += (sub.meses[m]||0);
 
-      html += `<tr class="costes-sub-row"><td class="costes-sub-name">${sub.name}</td>`;
+      html += `<tr class="costes-sub-row" data-parent="${catId}"><td class="costes-sub-name">${sub.name}</td>`;
       for(const m of mesesActivos){
         const v = subTotals[m]||0;
         html += `<td class="costes-val">${fmt(v)}</td>`;
@@ -5886,8 +5887,36 @@ function renderCostes(){
 
   wrap.innerHTML = html;
 
+  // Show toggle button
+  const tw = document.getElementById('costes-toggle-wrap');
+  if(tw) tw.style.display='';
+
   // Renderizar gráficos
   renderCostesCharts(catData, mesesActivos, prodMes, prodAcum, totalProd);
+}
+
+// ── COSTES COLLAPSE/EXPAND ───────────────────────────────────────────────────
+function toggleCostesCat(catId){
+  const rows = document.querySelectorAll(`.costes-sub-row[data-parent="${catId}"]`);
+  const tog = document.getElementById('tog-'+catId);
+  const collapsed = !rows[0]?.classList.contains('collapsed');
+  rows.forEach(r=>r.classList.toggle('collapsed',collapsed));
+  if(tog) tog.classList.toggle('open',!collapsed);
+  updateCostesToggleBtn();
+}
+function toggleAllCostesRows(){
+  const allSub = document.querySelectorAll('.costes-sub-row');
+  const anyVisible = [...allSub].some(r=>!r.classList.contains('collapsed'));
+  allSub.forEach(r=>r.classList.toggle('collapsed',anyVisible));
+  document.querySelectorAll('.costes-cat-toggle').forEach(t=>t.classList.toggle('open',!anyVisible));
+  updateCostesToggleBtn();
+}
+function updateCostesToggleBtn(){
+  const btn = document.getElementById('costes-toggle-all');
+  if(!btn) return;
+  const allSub = document.querySelectorAll('.costes-sub-row');
+  const anyVisible = [...allSub].some(r=>!r.classList.contains('collapsed'));
+  btn.textContent = anyVisible ? '▼ Contraer todo' : '▶ Expandir todo';
 }
 
 // ── COSTES CHARTS ────────────────────────────────────────────────────────────
