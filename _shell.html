@@ -539,7 +539,10 @@
                 <div><span style="color:var(--muted)">Tara: </span><span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--text)" id="hdr-tara">—</span></div>
                 <div><span style="color:var(--muted)">Neto: </span><span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--accent2)" id="hdr-neto">—</span></div>
               </div>
-              <button onclick="cancelarPesada()" style="padding:6px 14px;background:rgba(255,80,80,.15);border:1px solid rgba(255,80,80,.4);border-radius:6px;color:#ff5050;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">✕ Cancelar</button>
+              <div style="display:flex;gap:6px;flex-shrink:0">
+                <button onclick="guardarLinea()" id="hdr-btn-guardar" style="display:none;padding:6px 14px;background:var(--accent2);border:none;border-radius:6px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">&#10003; Guardar</button>
+                <button onclick="cancelarPesada()" style="padding:6px 14px;background:rgba(255,80,80,.15);border:1px solid rgba(255,80,80,.4);border-radius:6px;color:#ff5050;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">✕ Cancelar</button>
+              </div>
             </div>
           </div>
           <div id="bas-step-label" style="display:none">PESADA</div>

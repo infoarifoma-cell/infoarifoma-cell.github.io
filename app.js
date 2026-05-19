@@ -1250,6 +1250,8 @@ function basGoStep(n){
   });
   const labels={1:'PESADA',2:'CLIENTE',3:'ALBARÁN'};
   document.getElementById('bas-step-label').textContent=labels[n];
+  const hdrGuardar=document.getElementById('hdr-btn-guardar');
+  if(hdrGuardar) hdrGuardar.style.display=n===3?'inline-block':'none';
 
   if(n===2){
     // Only reset client/pedido when navigating FORWARD (new weighing, not going back from step 3)
