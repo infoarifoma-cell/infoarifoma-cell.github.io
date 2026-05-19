@@ -4624,7 +4624,13 @@ async function getMsalApp() {
   return msalApp;
 }
 
+let _bcTokenPromise = null;
 async function getBCToken() {
+  if(_bcTokenPromise) return _bcTokenPromise;
+  _bcTokenPromise = _getBCTokenInner().finally(()=>{ _bcTokenPromise=null; });
+  return _bcTokenPromise;
+}
+async function _getBCTokenInner() {
   const app = await getMsalApp();
   const req = { scopes: [BC_SCOPE] };
   try {
