@@ -1,0 +1,23 @@
+# Claude Code local memory
+.claude/
+
+# Archivos de configuración y secretos
+.env
+.env.local
+.env.*.local
+
+# IDE
+.DS_Store
+.vscode/
+.idea/
+
+# Node modules (si aplica)
+node_modules/
+package-lock.json
+yarn.lock
+
+# Archivos temporales
+*.tmp
+*.log
+VERCEL_SECURITY_CHECK.md
+funciones_original.js
