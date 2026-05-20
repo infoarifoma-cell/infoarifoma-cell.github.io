@@ -49,7 +49,7 @@ async function sheetsPost(payload) {
 async function getFichajes() {
   const { data, error } = await _supabase
     .from('tblFichaje').select('*')
-    .order('fentrada', { ascending: false }).limit(300);
+    .order('fentrada', { ascending: false }).limit(1500);
   return error ? { ok: false, error: error.message } : { ok: true, data };
 }
 async function doPostEntrada(data) {
