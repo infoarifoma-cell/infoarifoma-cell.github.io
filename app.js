@@ -1418,26 +1418,66 @@ async function seleccionarPedidoExistente(numPedido, nombreCliente, allData, fue
   event.currentTarget.style.borderColor='var(--accent2)';
 }
 
-// CLIENTE
+// CLIENTE — Favoritos
+function _getFavClientes(){try{return JSON.parse(localStorage.getItem('cli_favs')||'[]');}catch(e){return[];}}
+function _setFavClientes(arr){localStorage.setItem('cli_favs',JSON.stringify(arr));}
+function _isCliFav(nombre){return _getFavClientes().includes(nombre);}
+function toggleCliFav(nombre,e){
+  if(e)e.stopPropagation();
+  let favs=_getFavClientes();
+  if(favs.includes(nombre))favs=favs.filter(n=>n!==nombre);
+  else favs.unshift(nombre);
+  _setFavClientes(favs);
+  const q=document.getElementById('bas-cli-search');
+  renderCliDropdown(q?q.value:'');
+}
+
 function toggleCliDropdown(){
   const dd=document.getElementById('bas-cli-dropdown');
   dd.style.display=dd.style.display==='none'?'block':'none';
-  if(dd.style.display==='block')document.getElementById('bas-cli-search').focus();
+  if(dd.style.display==='block'){document.getElementById('bas-cli-search').focus();renderCliDropdown('');}
+}
+
+function _renderCliRow(c,container){
+  const div=document.createElement('div');
+  div.style.cssText='padding:12px 14px;cursor:pointer;font-size:1.05rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px';
+  const nameSpan=document.createElement('span');
+  nameSpan.textContent=c.nombre;
+  nameSpan.style.cssText='flex:1;font-weight:500';
+  const star=document.createElement('span');
+  star.textContent=_isCliFav(c.nombre)?'★':'☆';
+  star.style.cssText='font-size:1.3rem;color:'+(_isCliFav(c.nombre)?'var(--accent)':'var(--muted)')+';cursor:pointer;padding:0 4px;flex-shrink:0';
+  star.onclick=(e)=>toggleCliFav(c.nombre,e);
+  div.appendChild(nameSpan);
+  div.appendChild(star);
+  div.onmouseover=()=>div.style.background='var(--surface2)';
+  div.onmouseout=()=>div.style.background='transparent';
+  div.onclick=()=>seleccionarCliente(c.nombre,c.codigo);
+  container.appendChild(div);
 }
 
 function renderCliDropdown(q){
   const list=document.getElementById('bas-cli-list');if(!list)return;
   const filtered=q?CLIENTES.filter(c=>c.nombre.toUpperCase().includes(q.toUpperCase())):CLIENTES;
   list.innerHTML='';
-  filtered.forEach(c=>{
-    const div=document.createElement('div');
-    div.style.cssText='padding:10px 14px;cursor:pointer;font-size:.85rem;border-bottom:1px solid var(--border)';
-    div.textContent=c.nombre;
-    div.onmouseover=()=>div.style.background='var(--surface2)';
-    div.onmouseout=()=>div.style.background='transparent';
-    div.onclick=()=>seleccionarCliente(c.nombre,c.codigo);
-    list.appendChild(div);
-  });
+  const favs=_getFavClientes();
+  // Favoritos section
+  const favClientes=filtered.filter(c=>favs.includes(c.nombre)).sort((a,b)=>favs.indexOf(a.nombre)-favs.indexOf(b.nombre));
+  const noFavClientes=filtered.filter(c=>!favs.includes(c.nombre));
+  if(favClientes.length&&!q){
+    const hdr=document.createElement('div');
+    hdr.style.cssText='padding:8px 14px;font-size:.75rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;background:var(--surface2)';
+    hdr.textContent='★ Favoritos';
+    list.appendChild(hdr);
+    favClientes.forEach(c=>_renderCliRow(c,list));
+    if(noFavClientes.length){
+      const sep=document.createElement('div');
+      sep.style.cssText='padding:8px 14px;font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;background:var(--surface2);border-top:2px solid var(--border)';
+      sep.textContent='Todos los clientes';
+      list.appendChild(sep);
+    }
+  }
+  (q?filtered:noFavClientes).forEach(c=>_renderCliRow(c,list));
 }
 
 function filtrarClientes(){
@@ -1690,6 +1730,8 @@ function mostrarAlbaranUltimaLinea(){
   const aw=document.getElementById('albaran-wrap');
   aw.style.display='flex';
   aw.classList.add('print-active');
+  const notasBtn=document.getElementById('btn-notas-float');
+  if(notasBtn)notasBtn.style.display='none';
   // BC en segundo plano
   if(p.codigoCliente){
     _cargarDatosFiscalesBC(p.codigoCliente).then(d=>{
@@ -1778,6 +1820,8 @@ async function mostrarAlbaran(id,p){
     aw.style.display='flex';
     aw.style.position='fixed';
     aw.classList.add('print-active');
+    const notasBtn=document.getElementById('btn-notas-float');
+    if(notasBtn)notasBtn.style.display='none';
     setTimeout(()=>window.print(),100);
   }
   // Cargar datos fiscales BC en segundo plano (deshabilitado por error MSAL)
@@ -1794,6 +1838,8 @@ function cerrarAlbaran(){
   const aw=document.getElementById('albaran-wrap');
   aw.style.display='none';
   aw.classList.remove('print-active');
+  const notasBtn=document.getElementById('btn-notas-float');
+  if(notasBtn)notasBtn.style.display='flex';
   // Limpiar peso anterior para siguiente pesada
   document.getElementById('bas-peso-input').value='';
   basActualizarPeso();
