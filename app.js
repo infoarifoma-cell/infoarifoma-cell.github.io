@@ -1434,8 +1434,8 @@ function toggleCliFav(nombre,e){
 
 function toggleCliDropdown(){
   const dd=document.getElementById('bas-cli-dropdown');
-  const isOpen=dd.style.display==='flex';
-  dd.style.display=isOpen?'none':'flex';
+  const isOpen=dd.style.display!=='none';
+  dd.style.display=isOpen?'none':'block';
   if(!isOpen){document.getElementById('bas-cli-search').value='';document.getElementById('bas-cli-search').focus();renderCliDropdown('');}
 }
 
@@ -1509,7 +1509,12 @@ function seleccionarCliente(nombre,codigo){
   if(btn)btn.style.display='block';
 }
 
-/* Click-outside no needed — fullscreen dropdown closes via ✕ or selection */
+document.addEventListener('click',function(e){
+  const dd=document.getElementById('bas-cli-dropdown');
+  if(dd&&!e.target.closest('#bas-cli-display')&&!e.target.closest('#bas-cli-dropdown')){
+    dd.style.display='none';
+  }
+});
 
 async function crearCabeceraPedido(){
   if(!basSelCliente){alert('Selecciona un cliente primero.');return;}
