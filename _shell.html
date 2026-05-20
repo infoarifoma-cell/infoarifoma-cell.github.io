@@ -612,9 +612,9 @@
                     <span id="bas-cli-text" style="color:var(--muted)">Seleccionar cliente...</span>
                     <span style="color:var(--muted);font-size:1.2rem">▼</span>
                   </div>
-                  <div id="bas-cli-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);border:2px solid var(--border);border-radius:10px;max-height:60vh;overflow-y:auto;z-index:50;margin-top:4px">
-                    <div style="padding:10px;position:sticky;top:0;background:var(--surface);z-index:1"><input type="text" class="inp" id="bas-cli-search" placeholder="Buscar cliente..." oninput="filtrarClientes()" style="font-size:1.15rem;padding:14px"></div>
-                    <div id="bas-cli-list"></div>
+                  <div id="bas-cli-dropdown" style="display:none;position:fixed;left:16px;right:16px;background:var(--surface);border:2px solid var(--border);border-radius:12px;max-height:55vh;z-index:200;box-shadow:0 8px 30px rgba(0,0,0,.18);flex-direction:column">
+                    <div style="padding:10px;flex-shrink:0;border-bottom:1px solid var(--border)"><input type="text" class="inp" id="bas-cli-search" placeholder="Buscar cliente..." oninput="filtrarClientes()" style="font-size:1.15rem;padding:14px"></div>
+                    <div id="bas-cli-list" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
                   </div>
                 </div>
                 <input type="date" class="inp" id="bas-fecha-pedido" style="margin-top:12px;font-size:1.15rem;padding:14px">

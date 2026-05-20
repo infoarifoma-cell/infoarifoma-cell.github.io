@@ -1434,9 +1434,16 @@ function toggleCliFav(nombre,e){
 
 function toggleCliDropdown(){
   const dd=document.getElementById('bas-cli-dropdown');
-  const isOpen=dd.style.display!=='none';
-  dd.style.display=isOpen?'none':'block';
-  if(!isOpen){document.getElementById('bas-cli-search').value='';document.getElementById('bas-cli-search').focus();renderCliDropdown('');}
+  const isOpen=dd.style.display==='flex';
+  if(isOpen){dd.style.display='none';return;}
+  // Position below the display button
+  const btn=document.getElementById('bas-cli-display');
+  const r=btn.getBoundingClientRect();
+  dd.style.top=(r.bottom+4)+'px';
+  dd.style.display='flex';
+  document.getElementById('bas-cli-search').value='';
+  document.getElementById('bas-cli-search').focus();
+  renderCliDropdown('');
 }
 
 function _renderCliRow(c,container){
