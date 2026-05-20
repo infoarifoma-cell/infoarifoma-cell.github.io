@@ -3383,19 +3383,22 @@ function showOT(id){['screen1','screen2','screen3','screen4','screen5','screenOK
 function setSteps(active){for(let n=1;n<=5;n++){const el=document.getElementById('s'+n);el.style.opacity='1';el.classList.remove('active','done');if(n<active)el.classList.add('done');else if(n===active)el.classList.add('active');else el.style.opacity='0.4';}for(let n=1;n<=4;n++)document.getElementById('l'+n).classList.toggle('done',n<active);}
 function goStep1(){showOT('screen1');setSteps(1);}
 async function goStep2(){if(!selMachine)return;const grid=document.getElementById('gamaGrid');grid.innerHTML='<div class="no-results">Cargando gamas...</div>';showOT('screen2');setSteps(2);
-  // Gamas hardcoded por modelo
-  let gamas=(MODEL_TO_GAMAS[selMachine.modelo]||[]).map(g=>({...g,_src:'local'}));
-  // Gamas dinámicas de Supabase (tblGamasNormas) por modelo del activo
+  // Gamas: Supabase tiene prioridad, hardcoded como fallback
+  let gamas=[];
   try{
-    if(!normasData.length){const json=await apiFetch('?accion=gamasNormas').catch(()=>({ok:false}));if(json.ok)normasData=json.data||[];}
+    // Forzar recarga desde Supabase siempre
+    const json=await apiFetch('?accion=gamasNormas').catch(()=>({ok:false}));
+    if(json.ok)normasData=json.data||[];
     const dynGamas=normasData.filter(n=>n.Modelo===selMachine.modelo);
     dynGamas.forEach(n=>{
-      // No duplicar si ya existe con mismo id/nombre
-      if(gamas.some(g=>g.id===n.Numero||g.nombre===(n.Gama||n.Numero)))return;
       const checks=[];for(let i=1;i<=60;i++)if(n['n'+i])checks.push(n['n'+i]);
       gamas.push({id:n.Numero||'DB-'+n.id,modelo:n.Modelo,nombre:n.Gama||n.Numero||'Gama '+n.id,intervalo:n.Intervalo||0,checks,_src:'db',_dbId:n.id});
     });
   }catch(e){console.warn('Error cargando gamas dinámicas:',e);}
+  // Hardcoded solo como fallback si no hay nada en Supabase para este modelo
+  if(!gamas.length){
+    gamas=(MODEL_TO_GAMAS[selMachine.modelo]||[]).map(g=>({...g,_src:'local'}));
+  }
   if(!gamas.length){grid.innerHTML='<div class="no-results">No hay gamas definidas para '+selMachine.modelo+'.</div>';}else{grid.innerHTML='';gamas.forEach(g=>{const d=document.createElement('div');d.className='gama-btn'+(selGama&&selGama.id===g.id?' selected':'');d.innerHTML=`<div><div class="gama-name">${g.nombre}</div><div class="gama-meta">${g.checks.length} puntos</div></div><div class="gama-interval">${g.intervalo===1?'Diario':g.intervalo+'h'}</div>`;d.onclick=()=>{selGama=g;document.querySelectorAll('.gama-btn').forEach(x=>x.classList.remove('selected'));d.classList.add('selected');document.getElementById('btnS2').disabled=false;};grid.appendChild(d);});}}
 function goStep3(){showOT('screen3');setSteps(3);}
 function checkStep3(){document.getElementById('btnS3').disabled=false;}
