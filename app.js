@@ -219,16 +219,19 @@ async function doEliminarCamion(data) {
 
 // ── OT (Órdenes de Trabajo) ──────────────────────────────────
 async function doPostOT(data) {
+  // Calcular siguiente número OT
+  const { data: maxRow } = await _supabase.from('tblGamasOT').select('Ot').order('Ot', { ascending: false }).limit(1);
+  const nextOt = (maxRow && maxRow.length && maxRow[0].Ot ? maxRow[0].Ot : 0) + 1;
   const row = {
     Activo: data.activo, Fecha: data.fecha, Operario: data.operario,
     Tiempo: data.tiempo, Texto: data.texto, Estado: data.estado,
-    Gama: data.gama, Medicion: data.medicion
+    Gama: data.gama, Medicion: data.medicion, Ot: nextOt
   };
   if (data.checks && Array.isArray(data.checks)) {
     data.checks.forEach((v, i) => { row['n' + (i + 1)] = !!v; });
   }
-  const { data: inserted, error } = await _supabase.from('tblGamasOT').insert([row]).select('id').single();
-  return error ? { ok: false, error: error.message } : { ok: true, ot: inserted?.id };
+  const { data: inserted, error } = await _supabase.from('tblGamasOT').insert([row]).select('id,Ot').single();
+  return error ? { ok: false, error: error.message } : { ok: true, ot: inserted?.Ot || inserted?.id };
 }
 async function getHistorialOT() {
   const { data, error } = await _supabase.from('tblGamasOT').select('*')
