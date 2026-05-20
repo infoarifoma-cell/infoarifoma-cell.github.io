@@ -262,6 +262,10 @@ async function doEditarOT(data) {
   const { error } = await _supabase.from('tblGamasOT').update(updates).eq('id', id);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
+async function doDeleteOT(data) {
+  const { error } = await _supabase.from('tblGamasOT').delete().eq('id', data.id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
 
 // ── AUSENCIAS ────────────────────────────────────────────────
 async function getAusencias() {
@@ -516,6 +520,7 @@ async function apiPost(payload) {
   if (t === 'editAusencia')    return doEditAusencia(payload);
   if (t === 'delAusencia')     return doDeleteAusencia(payload);
   if (t === 'editarOT')            return doEditarOT(payload);
+  if (t === 'deleteOT')            return doDeleteOT(payload);
   if (t === 'postGamaNorma')       return doPostGamaNorma(payload);
   if (t === 'editGamaNorma')       return doEditGamaNorma(payload);
   if (t === 'delGamaNorma')        return doDeleteGamaNorma(payload.id);
@@ -3491,18 +3496,35 @@ function filtrarHistorialOT(){
   if(fm)data=data.filter(r=>r.activo===fm);
   if(fo)data=data.filter(r=>r.operario===fo);
   if(q)data=data.filter(r=>{const txt=[r.activo,r.gama,r.operario,r.texto,String(r.ot||r.id)].join(' ').toUpperCase();return txt.includes(q);});
-  // Sort by fecha descending (newest first)
-  data=[...data].sort((a,b)=>{const da=a.fecha||'',db=b.fecha||'';return da>db?-1:da<db?1:0;});
+  // Sort by fecha descending (newest first) — handle dd/mm/yyyy and yyyy-mm-dd
+  function _otFechaToNum(f){
+    if(!f)return 0;
+    const p=f.split(/[\/\-]/);
+    if(p.length===3){
+      // dd/mm/yyyy
+      if(p[0].length===4)return parseInt(p[0]+p[1]+p[2]);
+      return parseInt(p[2]+p[1]+p[0]);
+    }
+    return 0;
+  }
+  data=[...data].sort((a,b)=>_otFechaToNum(b.fecha)-_otFechaToNum(a.fecha));
   const el=document.getElementById('ot-hist-list');
   if(!data.length){el.innerHTML='<div class="tbl"><div class="empty">Sin resultados</div></div>';return;}
   el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:.5">OT</div><div class="tc" style="flex:1.2">Máquina</div><div class="tc" style="flex:1">Gama</div><div class="tc" style="flex:.8">Fecha</div><div class="tc" style="flex:.8">Operario</div><div class="tc" style="flex:.4;text-align:center">Estado</div><div class="tc" style="flex:.6"></div></div>'+
-  data.map(r=>`<div class="tr"><div class="tc" style="flex:.5;font-family:monospace;color:var(--muted)">#${String(r.ot||r.id).padStart(4,'0')}</div><div class="tc" style="flex:1.2;font-size:.78rem">${r.activo}</div><div class="tc" style="flex:1;color:var(--muted);font-size:.72rem">${r.gama}</div><div class="tc" style="flex:.8;color:var(--muted);font-size:.72rem">${r.fecha}</div><div class="tc" style="flex:.8;font-size:.75rem">${r.operario||'—'}</div><div class="tc" style="flex:.4;text-align:center"><span class="badge ${r.estado===true||r.estado==='TRUE'?'badge-ok':'badge-pend'}">${r.estado===true||r.estado==='TRUE'?'OK':'Pend'}</span></div><div class="tc" style="flex:.6;text-align:right;display:flex;gap:4px;justify-content:flex-end"><button class="btn-sm" onclick="printOTHistorial(${r.id})" title="Imprimir" style="font-size:.65rem;padding:2px 5px">🖨</button><button class="btn-sm" onclick="openOTEditModal(${r.id})">Editar</button></div></div>`).join('')+'</div>';
+  data.map(r=>`<div class="tr"><div class="tc" style="flex:.5;font-family:monospace;color:var(--muted)">#${String(r.ot||r.id).padStart(4,'0')}</div><div class="tc" style="flex:1.2;font-size:.78rem">${r.activo}</div><div class="tc" style="flex:1;color:var(--muted);font-size:.72rem">${r.gama}</div><div class="tc" style="flex:.8;color:var(--muted);font-size:.72rem">${r.fecha}</div><div class="tc" style="flex:.8;font-size:.75rem">${r.operario||'—'}</div><div class="tc" style="flex:.4;text-align:center"><span class="badge ${r.estado===true||r.estado==='TRUE'?'badge-ok':'badge-pend'}">${r.estado===true||r.estado==='TRUE'?'OK':'Pend'}</span></div><div class="tc" style="flex:.6;text-align:right;display:flex;gap:4px;justify-content:flex-end"><button class="btn-sm" onclick="printOTHistorial(${r.id})" title="Imprimir" style="font-size:.65rem;padding:2px 5px">🖨</button><button class="btn-sm" onclick="openOTEditModal(${r.id})">Editar</button><button class="btn-sm" onclick="eliminarOT(${r.id})" title="Eliminar" style="font-size:.65rem;padding:2px 5px;color:#e05;border-color:#e05">🗑</button></div></div>`).join('')+'</div>';
 }
 function openOTEditModal(id){const r=otHistData.find(x=>x.id==id);if(!r)return;otEditingId=id;document.getElementById('ot-edit-modal').classList.add('open');document.getElementById('oem-fecha').value=r.fecha||'';document.getElementById('oem-operario').value=r.operario||'';document.getElementById('oem-medicion').value=r.medicion||'';document.getElementById('oem-texto').value=r.texto||'';}
 function closeOTEditModal(){document.getElementById('ot-edit-modal').classList.remove('open');otEditingId=null;}
 async function saveOTEdit(){
   const payload={tipo:'editarOT',id:otEditingId,fecha:document.getElementById('oem-fecha').value,operario:document.getElementById('oem-operario').value,medicion:document.getElementById('oem-medicion').value,texto:document.getElementById('oem-texto').value};
   try{const json=await apiPost(payload);if(json.ok){closeOTEditModal();cargarHistorialOT();}else alert('Error: '+json.error);}catch(e){alert('Error de conexión');}
+}
+async function eliminarOT(id){
+  const r=otHistData.find(x=>x.id==id);if(!r)return;
+  if(!confirm('¿Eliminar OT #'+String(r.ot||r.id).padStart(4,'0')+'?\n'+r.activo+' — '+r.gama))return;
+  try{const json=await apiPost({tipo:'deleteOT',id:Number(id)});if(!json.ok){alert('Error: '+json.error);return;}
+    otHistData=otHistData.filter(x=>x.id!=id);filtrarHistorialOT();
+  }catch(e){alert('Error de conexión');}
 }
 
 // ── GASOIL ────────────────────────────────────────────────────
