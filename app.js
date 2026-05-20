@@ -3389,7 +3389,8 @@ async function goStep2(){if(!selMachine)return;const grid=document.getElementByI
     // Forzar recarga desde Supabase siempre
     const json=await apiFetch('?accion=gamasNormas').catch(()=>({ok:false}));
     if(json.ok)normasData=json.data||[];
-    const dynGamas=normasData.filter(n=>n.Modelo===selMachine.modelo);
+    console.log('goStep2: modelo buscado='+selMachine.modelo+', modelos en BD='+[...new Set(normasData.map(n=>n.Modelo))].join(', '));
+    const dynGamas=normasData.filter(n=>(n.Modelo||'').trim().toUpperCase()===(selMachine.modelo||'').trim().toUpperCase());
     dynGamas.forEach(n=>{
       const checks=[];for(let i=1;i<=60;i++)if(n['n'+i])checks.push(n['n'+i]);
       gamas.push({id:n.Numero||'DB-'+n.id,modelo:n.Modelo,nombre:n.Gama||n.Numero||'Gama '+n.id,intervalo:n.Intervalo||0,checks,_src:'db',_dbId:n.id});
