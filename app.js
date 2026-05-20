@@ -2901,7 +2901,7 @@ function getExpectedMonth(nombre,y,m){
   }
   return dias*HORAS_DIA_STD*3600000;
 }
-// Horas de una lista (vacaciones/bajas/libres): 8h/día laborable. start y end inclusivos
+// Horas de una lista (vacaciones/bajas/libres): 8h/día (todos los días del rango). start y end inclusivos
 function _msListaMes(lista,y,m){
   let ms=0;
   (lista||[]).forEach(item=>{
@@ -2909,9 +2909,7 @@ function _msListaMes(lista,y,m){
     let cur=new Date(item.start+'T00:00:00');
     const fin=item.end?new Date(item.end+'T00:00:00'):new Date(item.start+'T00:00:00');
     while(cur<=fin){
-      const dow=cur.getDay();
-      const ds=cur.getFullYear()+'-'+pad(cur.getMonth()+1)+'-'+pad(cur.getDate());
-      if(cur.getFullYear()===y&&cur.getMonth()===m&&dow!==0&&dow!==6&&!FESTIVOS.includes(ds))ms+=HORAS_DIA_STD*3600000;
+      if(cur.getFullYear()===y&&cur.getMonth()===m)ms+=HORAS_DIA_STD*3600000;
       cur.setDate(cur.getDate()+1);
     }
   });
