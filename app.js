@@ -3486,7 +3486,13 @@ async function cargarHistorialOT(){
 }
 function filtrarHistorialOT(){
   const fm=document.getElementById('filt-ot-maquina').value;const fo=document.getElementById('filt-ot-operario').value;
-  let data=otHistData;if(fm)data=data.filter(r=>r.activo===fm);if(fo)data=data.filter(r=>r.operario===fo);
+  const q=(document.getElementById('filt-ot-buscar')?document.getElementById('filt-ot-buscar').value:'').toUpperCase();
+  let data=otHistData;
+  if(fm)data=data.filter(r=>r.activo===fm);
+  if(fo)data=data.filter(r=>r.operario===fo);
+  if(q)data=data.filter(r=>{const txt=[r.activo,r.gama,r.operario,r.texto,String(r.ot||r.id)].join(' ').toUpperCase();return txt.includes(q);});
+  // Sort by fecha descending (newest first)
+  data=[...data].sort((a,b)=>{const da=a.fecha||'',db=b.fecha||'';return da>db?-1:da<db?1:0;});
   const el=document.getElementById('ot-hist-list');
   if(!data.length){el.innerHTML='<div class="tbl"><div class="empty">Sin resultados</div></div>';return;}
   el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:.5">OT</div><div class="tc" style="flex:1.2">Máquina</div><div class="tc" style="flex:1">Gama</div><div class="tc" style="flex:.8">Fecha</div><div class="tc" style="flex:.8">Operario</div><div class="tc" style="flex:.4;text-align:center">Estado</div><div class="tc" style="flex:.6"></div></div>'+

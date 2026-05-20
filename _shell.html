@@ -1629,6 +1629,7 @@
             <div class="sec-title" style="margin:0">Historial de OT</div>
             <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="cargarHistorialOT()">&#8635; Actualizar</button>
           </div>
+          <div style="margin-bottom:8px"><input type="text" class="inp" id="filt-ot-buscar" placeholder="Buscar OT, máquina, gama, operario..." oninput="filtrarHistorialOT()" style="font-size:.95rem;padding:10px 14px"></div>
           <div class="frow">
             <select class="fsel" id="filt-ot-maquina" onchange="filtrarHistorialOT()"><option value="">Todas las máquinas</option></select>
             <select class="fsel" id="filt-ot-operario" onchange="filtrarHistorialOT()"><option value="">Todos los operarios</option></select>
