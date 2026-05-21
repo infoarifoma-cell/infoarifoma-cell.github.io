@@ -559,7 +559,7 @@ const DIAS_LAB_2026=[18,18,22,20,20,21,23,21,22,21,21,18];
 const HORAS_DIA_STD=8; // Jornada estándar convenio
 const PRODS=['ARIDO AF-T-0/4-I','ARIDO AG-T-4/12-I','ARIDO AG-T-12/20-I','ARIDO AG-T-20/40-I','ARIDO AG-T-40/70-I','REVUELTO 0/20','REVUELTO 0/10','PIEDRA PARA MURO (UD)','MATERIAL DE RELLENO 0/4'];
 const PROD_CAT={'ARIDO AF-T-0/4-I':'0/4','ARIDO AG-T-4/12-I':'4/12','ARIDO AG-T-12/20-I':'12/20','ARIDO AG-T-20/40-I':'20/40'};
-const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas',caja:'Caja',costes:'Análisis de Costes',produccion:'Producción Planta',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',preventivo:'Mantenimiento Preventivo'};
+const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas','historico-ventas':'Histórico de Ventas',caja:'Caja',costes:'Análisis de Costes',produccion:'Producción Planta',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',preventivo:'Mantenimiento Preventivo'};
 
 // Login via Google OAuth — ver funciones.js: googleLogin() y checkGoogleSession()
 
@@ -620,6 +620,7 @@ function goPage(id){
   if(id==='facturacion')initFacturacion();
   if(id==='caja')initCaja();
   if(id==='costes')initCostes();
+  if(id==='historico-ventas')initHistoricoVentas();
 }
 
 function pad(n){return String(n).padStart(2,'0')}
@@ -6242,6 +6243,245 @@ function imprimirCostes(){
 
 function cerrarImprimirCostes(){
   document.getElementById('costes-print-wrap').style.display = 'none';
+}
+
+// ── HISTÓRICO DE VENTAS — Facturas registradas + estado pago desde BC ────────
+let hvData = [];
+let hvLoaded = false;
+
+function initHistoricoVentas() {
+  if (!hvLoaded) {
+    // Defaults: último año
+    const hoy = new Date();
+    const desde = new Date(hoy.getFullYear(), 0, 1);
+    document.getElementById('hv-fecha-desde').value = desde.toISOString().slice(0, 10);
+    document.getElementById('hv-fecha-hasta').value = hoy.toISOString().slice(0, 10);
+  }
+  if (hvData.length === 0) cargarHistoricoVentas();
+  else renderHistoricoVentas();
+}
+
+async function cargarHistoricoVentas() {
+  const tbody = document.getElementById('hv-tbody');
+  tbody.innerHTML = '<tr><td colspan="8" style="padding:30px;text-align:center;color:var(--muted)">Cargando facturas de BC...</td></tr>';
+  document.getElementById('hv-alertas').style.display = 'none';
+  document.getElementById('hv-kpis').innerHTML = '';
+
+  try {
+    const token = await getBCToken();
+    const fechaDesde = document.getElementById('hv-fecha-desde').value || undefined;
+    const fechaHasta = document.getElementById('hv-fecha-hasta').value || undefined;
+
+    const res = await fetch('/api/bc/historico-ventas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, fechaDesde, fechaHasta })
+    });
+
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || 'Error cargando facturas');
+
+    hvData = json.data || [];
+    hvLoaded = true;
+    renderHistoricoVentas();
+  } catch (e) {
+    console.error('Histórico ventas error:', e);
+    tbody.innerHTML = `<tr><td colspan="8" style="padding:30px;text-align:center;color:#c62828">${escapeHTML(e.message)}</td></tr>`;
+  }
+}
+
+function renderHistoricoVentas() {
+  const buscar = (document.getElementById('hv-buscar').value || '').toLowerCase().trim();
+  const estado = document.getElementById('hv-estado').value;
+  const desde = document.getElementById('hv-fecha-desde').value;
+  const hasta = document.getElementById('hv-fecha-hasta').value;
+
+  let filtered = hvData.filter(f => {
+    if (estado && f.estado !== estado) return false;
+    if (desde && f.fecha < desde) return false;
+    if (hasta && f.fecha > hasta) return false;
+    if (buscar) {
+      const hay = (f.clienteNombre + ' ' + f.numero + ' ' + f.clienteCod).toLowerCase().includes(buscar);
+      if (!hay) return false;
+    }
+    return true;
+  });
+
+  // KPIs
+  renderHvKpis(filtered);
+
+  // Alertas vencidas
+  renderHvAlertas(filtered);
+
+  // Aging
+  renderHvAging(filtered);
+
+  // Tabla
+  const tbody = document.getElementById('hv-tbody');
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="padding:20px;text-align:center;color:var(--muted)">Sin facturas para los filtros seleccionados</td></tr>';
+    return;
+  }
+
+  // Ordenar: vencidas primero, luego pendientes, luego pagadas
+  const orden = { vencida: 0, parcial: 1, pendiente: 2, pagada: 3, desconocido: 4 };
+  filtered.sort((a, b) => (orden[a.estado] ?? 4) - (orden[b.estado] ?? 4) || b.fecha.localeCompare(a.fecha));
+
+  tbody.innerHTML = filtered.map(f => {
+    const badge = hvBadge(f.estado);
+    const diasTxt = f.estado === 'vencida' && f.diasVencido > 0
+      ? `<span style="color:#c62828;font-weight:700">${f.diasVencido}d</span>`
+      : (f.estado === 'pendiente' && f.vencimiento ? diasHastaVenc(f.vencimiento) : '—');
+    const rowBg = f.estado === 'vencida' ? 'background:rgba(198,40,40,.06)' :
+                  f.estado === 'parcial' ? 'background:rgba(255,152,0,.06)' : '';
+    return `<tr style="${rowBg}">
+      <td style="padding:8px 12px;border-bottom:1px solid var(--border);font-weight:600">${escapeHTML(f.numero)}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--border)">${fmtDateISO(f.fecha)}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--border)">${f.vencimiento ? fmtDateISO(f.vencimiento) : '—'}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--border)">${escapeHTML(f.clienteNombre)}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:right;font-variant-numeric:tabular-nums">${fmtEur(f.importe)}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:right;font-variant-numeric:tabular-nums;${f.pendiente > 0 ? 'color:#c62828;font-weight:600' : ''}">${fmtEur(f.pendiente)}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center">${badge}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center">${diasTxt}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderHvKpis(data) {
+  const total = data.length;
+  const totalImporte = data.reduce((s, f) => s + f.importe, 0);
+  const pendientes = data.filter(f => f.estado !== 'pagada');
+  const totalPendiente = pendientes.reduce((s, f) => s + f.pendiente, 0);
+  const vencidas = data.filter(f => f.estado === 'vencida');
+  const totalVencido = vencidas.reduce((s, f) => s + f.pendiente, 0);
+
+  document.getElementById('hv-kpis').innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;text-align:center">
+      <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:4px">Facturas</div>
+      <div style="font-family:'DM Mono',monospace;font-size:1.3rem;font-weight:700;color:var(--text)">${total}</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;text-align:center">
+      <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:4px">Facturado</div>
+      <div style="font-family:'DM Mono',monospace;font-size:1.3rem;font-weight:700;color:var(--accent)">${fmtEur(totalImporte)}</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;text-align:center">
+      <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:4px">Pendiente cobro</div>
+      <div style="font-family:'DM Mono',monospace;font-size:1.3rem;font-weight:700;color:${totalPendiente > 0 ? '#e65100' : 'var(--text)'}">${fmtEur(totalPendiente)}</div>
+    </div>
+    <div style="background:${totalVencido > 0 ? 'rgba(198,40,40,.08)' : 'var(--surface)'};border:1px solid ${totalVencido > 0 ? 'rgba(198,40,40,.3)' : 'var(--border)'};border-radius:var(--radius);padding:14px;text-align:center">
+      <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:${totalVencido > 0 ? '#c62828' : 'var(--muted)'};margin-bottom:4px">Vencido</div>
+      <div style="font-family:'DM Mono',monospace;font-size:1.3rem;font-weight:700;color:${totalVencido > 0 ? '#c62828' : 'var(--text)'}">${fmtEur(totalVencido)}</div>
+    </div>`;
+}
+
+function renderHvAlertas(data) {
+  const vencidas = data.filter(f => f.estado === 'vencida').sort((a, b) => b.diasVencido - a.diasVencido);
+  const el = document.getElementById('hv-alertas');
+
+  if (vencidas.length === 0) {
+    el.style.display = 'none';
+    return;
+  }
+
+  // Agrupar por cliente
+  const porCliente = {};
+  for (const f of vencidas) {
+    if (!porCliente[f.clienteNombre]) porCliente[f.clienteNombre] = { facturas: [], total: 0, maxDias: 0 };
+    porCliente[f.clienteNombre].facturas.push(f);
+    porCliente[f.clienteNombre].total += f.pendiente;
+    porCliente[f.clienteNombre].maxDias = Math.max(porCliente[f.clienteNombre].maxDias, f.diasVencido);
+  }
+
+  const clientes = Object.entries(porCliente).sort((a, b) => b[1].maxDias - a[1].maxDias);
+
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div style="background:rgba(198,40,40,.08);border:1px solid rgba(198,40,40,.3);border-radius:var(--radius);padding:14px 16px">
+      <div style="font-size:.82rem;font-weight:700;color:#c62828;margin-bottom:8px">⚠ ${vencidas.length} factura${vencidas.length > 1 ? 's' : ''} vencida${vencidas.length > 1 ? 's' : ''} — Recordatorios de cobro</div>
+      ${clientes.map(([cli, info]) => `
+        <div style="margin-bottom:6px;padding:8px 12px;background:rgba(255,255,255,.5);border-radius:6px;font-size:.78rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">
+            <span style="font-weight:700;color:#b71c1c">${escapeHTML(cli)}</span>
+            <span style="font-weight:600">${fmtEur(info.total)} · ${info.facturas.length} fact. · máx ${info.maxDias} días</span>
+          </div>
+          <div style="font-size:.72rem;color:var(--muted);margin-top:2px">
+            ${info.facturas.map(f => `${escapeHTML(f.numero)} (${f.diasVencido}d · ${fmtEur(f.pendiente)})`).join(' · ')}
+          </div>
+        </div>
+      `).join('')}
+    </div>`;
+}
+
+function renderHvAging(data) {
+  const pendientes = data.filter(f => f.estado !== 'pagada' && f.pendiente > 0);
+  const agingEl = document.getElementById('hv-aging');
+  const gridEl = document.getElementById('hv-aging-grid');
+
+  if (pendientes.length === 0) {
+    agingEl.style.display = 'none';
+    return;
+  }
+
+  const hoy = new Date();
+  const buckets = [
+    { label: 'Al día', min: -Infinity, max: 0, color: '#2e7d32', bg: 'rgba(46,125,50,.08)', total: 0, count: 0 },
+    { label: '1-30 días', min: 1, max: 30, color: '#e65100', bg: 'rgba(230,81,0,.08)', total: 0, count: 0 },
+    { label: '31-60 días', min: 31, max: 60, color: '#c62828', bg: 'rgba(198,40,40,.08)', total: 0, count: 0 },
+    { label: '61-90 días', min: 61, max: 90, color: '#b71c1c', bg: 'rgba(183,28,28,.12)', total: 0, count: 0 },
+    { label: '>90 días', min: 91, max: Infinity, color: '#880e4f', bg: 'rgba(136,14,79,.12)', total: 0, count: 0 }
+  ];
+
+  for (const f of pendientes) {
+    let dias = 0;
+    if (f.vencimiento) {
+      dias = Math.floor((hoy.getTime() - new Date(f.vencimiento).getTime()) / 86400000);
+    }
+    for (const b of buckets) {
+      if (dias >= b.min && dias <= b.max) {
+        b.total += f.pendiente;
+        b.count++;
+        break;
+      }
+    }
+  }
+
+  agingEl.style.display = 'block';
+  gridEl.innerHTML = buckets.map(b => `
+    <div style="background:${b.bg};border:1px solid ${b.color}33;border-radius:var(--radius);padding:12px;text-align:center">
+      <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:${b.color};margin-bottom:4px">${b.label}</div>
+      <div style="font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:700;color:${b.color}">${fmtEur(b.total)}</div>
+      <div style="font-size:.68rem;color:var(--muted);margin-top:2px">${b.count} factura${b.count !== 1 ? 's' : ''}</div>
+    </div>
+  `).join('');
+}
+
+function hvBadge(estado) {
+  const map = {
+    pagada: { bg: 'rgba(46,125,50,.12)', color: '#2e7d32', text: 'Pagada' },
+    pendiente: { bg: 'rgba(230,81,0,.1)', color: '#e65100', text: 'Pendiente' },
+    vencida: { bg: 'rgba(198,40,40,.12)', color: '#c62828', text: 'Vencida' },
+    parcial: { bg: 'rgba(255,152,0,.12)', color: '#f57c00', text: 'Parcial' },
+    desconocido: { bg: 'var(--surface2)', color: 'var(--muted)', text: '—' }
+  };
+  const s = map[estado] || map.desconocido;
+  return `<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:.68rem;font-weight:700;background:${s.bg};color:${s.color}">${s.text}</span>`;
+}
+
+function fmtDateISO(d) {
+  if (!d) return '—';
+  const p = d.slice(0, 10).split('-');
+  return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : d;
+}
+
+function fmtEur(n) {
+  return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n || 0);
+}
+
+function diasHastaVenc(venc) {
+  const dias = Math.ceil((new Date(venc).getTime() - Date.now()) / 86400000);
+  if (dias < 0) return `<span style="color:#c62828;font-weight:700">${Math.abs(dias)}d venc.</span>`;
+  if (dias <= 7) return `<span style="color:#e65100;font-weight:600">${dias}d</span>`;
+  return `<span style="color:var(--muted)">${dias}d</span>`;
 }
 
 // ── NOTAS DEL SISTEMA ────────────────────────────────────────────────────────
