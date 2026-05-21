@@ -869,6 +869,31 @@
           <div id="fact-resumen" style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap"></div>
           <!-- Desglose por cliente -->
           <div id="fact-desglose"></div>
+
+          <!-- Informe mensual por cliente -->
+          <div style="margin-top:24px;border-top:2px solid var(--border);padding-top:20px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+              <div class="sec-title" style="margin:0">Informe mensual por cliente</div>
+              <div style="display:flex;gap:8px;align-items:flex-end">
+                <div>
+                  <div class="label">Mes</div>
+                  <select class="inp" id="fact-informe-mes" onchange="renderInformeMensual()" style="min-width:140px">
+                    <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+                    <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+                    <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
+                    <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
+                  </select>
+                </div>
+                <div>
+                  <div class="label">Año</div>
+                  <select class="inp" id="fact-informe-anyo" onchange="renderInformeMensual()" style="min-width:90px"></select>
+                </div>
+              </div>
+            </div>
+            <div id="fact-informe-body" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+              <div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">Carga datos para ver el informe</div>
+            </div>
+          </div>
         </div>
 
         <!-- ══ MODAL ALBARANES → FACTURA ══ -->

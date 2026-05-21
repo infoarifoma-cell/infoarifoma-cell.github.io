@@ -4056,10 +4056,11 @@ function initFacturacion(){
     const primerDia=new Date(hoy.getFullYear(),hoy.getMonth(),1);
     document.getElementById('fact-fecha-desde').value=primerDia.getFullYear()+'-'+pad(primerDia.getMonth()+1)+'-'+pad(primerDia.getDate());
     document.getElementById('fact-fecha-hasta').value=hoy.getFullYear()+'-'+pad(hoy.getMonth()+1)+'-'+pad(hoy.getDate());
+    initInformeMensual();
     factInited=true;
   }
   if(factData.length===0) cargarFacturacion();
-  else renderFacturacion();
+  else { renderFacturacion(); renderInformeMensual(); }
 }
 
 async function cargarFacturacion(){
@@ -4069,6 +4070,7 @@ async function cargarFacturacion(){
     if(!json.ok)throw new Error(json.error);
     factData=json.data;
     renderFacturacion();
+    renderInformeMensual();
   }catch(e){
     document.getElementById('fact-desglose').innerHTML='<div style="color:var(--danger);padding:20px;text-align:center">Error: '+e.message+'</div>';
   }
@@ -4254,6 +4256,117 @@ function renderFacturacion(){
     html+=`</div>`;
   });
   document.getElementById('fact-desglose').innerHTML=html;
+}
+
+// ── INFORME MENSUAL POR CLIENTE ──────────────────────────────
+function initInformeMensual() {
+  const hoy = new Date();
+  const selMes = document.getElementById('fact-informe-mes');
+  const selAnyo = document.getElementById('fact-informe-anyo');
+  selMes.value = hoy.getMonth();
+  // Años disponibles
+  const anyoActual = hoy.getFullYear();
+  selAnyo.innerHTML = '';
+  for (let y = anyoActual; y >= anyoActual - 3; y--) {
+    const o = document.createElement('option');
+    o.value = y; o.textContent = y;
+    selAnyo.appendChild(o);
+  }
+  selAnyo.value = anyoActual;
+}
+
+function renderInformeMensual() {
+  const mes = parseInt(document.getElementById('fact-informe-mes').value);
+  const anyo = parseInt(document.getElementById('fact-informe-anyo').value);
+  const body = document.getElementById('fact-informe-body');
+  const MESES_NOMBRE = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  if (!factData.length) {
+    body.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">Carga datos para ver el informe</div>';
+    return;
+  }
+
+  // Filtrar pedidos del mes/año seleccionado
+  const pedidosMes = factData.filter(r => {
+    const d = parseFechaFact(r.fechaHora) || parseFechaFact(r.fechaPedido);
+    if (!d) return false;
+    return d.getMonth() === mes && d.getFullYear() === anyo;
+  });
+
+  if (!pedidosMes.length) {
+    body.innerHTML = `<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">Sin pedidos en ${MESES_NOMBRE[mes]} ${anyo}</div>`;
+    return;
+  }
+
+  // Agrupar por cliente
+  const clientes = {};
+  pedidosMes.forEach(r => {
+    const cli = (r.nombreCliente || 'Sin cliente').trim();
+    if (!clientes[cli]) clientes[cli] = { viajes: 0, kg: 0, importe: 0 };
+    clientes[cli].viajes++;
+    const neto = Number(r.pesoNeto) || 0;
+    clientes[cli].kg += neto;
+    const precioTn = getPrecioTn(cli, r.productoNombre || r.productoCod || '');
+    clientes[cli].importe += (neto / 1000) * precioTn;
+  });
+
+  // Ordenar por importe desc
+  const sorted = Object.entries(clientes).sort((a, b) => b[1].importe - a[1].importe);
+  const totalKg = sorted.reduce((s, [, c]) => s + c.kg, 0);
+  const totalImporte = sorted.reduce((s, [, c]) => s + c.importe, 0);
+  const totalIgic = totalImporte * IGIC_PCT / 100;
+  const totalViajes = sorted.reduce((s, [, c]) => s + c.viajes, 0);
+
+  let html = `<div style="padding:12px 16px;background:rgba(107,125,46,.06);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <div style="font-size:.85rem;font-weight:700;color:var(--accent)">${MESES_NOMBRE[mes]} ${anyo}</div>
+    <div style="font-size:.78rem;color:var(--text);font-weight:600">${sorted.length} clientes · ${totalViajes} viajes · ${(totalKg/1000).toFixed(2)} Tn · <span style="color:var(--accent2)">${totalImporte.toFixed(2)} € + ${totalIgic.toFixed(2)} € IGIC</span></div>
+  </div>`;
+
+  html += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.78rem">
+    <thead><tr style="background:var(--surface2)">
+      <th style="padding:10px 14px;text-align:left;font-weight:700;font-size:.7rem;text-transform:uppercase;color:var(--muted);letter-spacing:.04em">Cliente</th>
+      <th style="padding:10px 14px;text-align:right;font-weight:700;font-size:.7rem;text-transform:uppercase;color:var(--muted)">Viajes</th>
+      <th style="padding:10px 14px;text-align:right;font-weight:700;font-size:.7rem;text-transform:uppercase;color:var(--muted)">Toneladas</th>
+      <th style="padding:10px 14px;text-align:right;font-weight:700;font-size:.7rem;text-transform:uppercase;color:var(--muted)">Base imp.</th>
+      <th style="padding:10px 14px;text-align:right;font-weight:700;font-size:.7rem;text-transform:uppercase;color:var(--muted)">IGIC</th>
+      <th style="padding:10px 14px;text-align:right;font-weight:700;font-size:.7rem;text-transform:uppercase;color:var(--muted)">Total</th>
+      <th style="padding:10px 14px;text-align:right;font-weight:700;font-size:.7rem;text-transform:uppercase;color:var(--muted)">% Factur.</th>
+    </tr></thead><tbody>`;
+
+  sorted.forEach(([cli, c]) => {
+    const tn = c.kg / 1000;
+    const igic = c.importe * IGIC_PCT / 100;
+    const pct = totalImporte > 0 ? (c.importe / totalImporte * 100) : 0;
+    const barW = Math.max(pct, 1);
+    html += `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:9px 14px;font-weight:600">${escapeHTML(cli)}</td>
+      <td style="padding:9px 14px;text-align:right;font-family:'DM Mono',monospace">${c.viajes}</td>
+      <td style="padding:9px 14px;text-align:right;font-family:'DM Mono',monospace;font-weight:600;color:var(--accent)">${tn.toFixed(2)}</td>
+      <td style="padding:9px 14px;text-align:right;font-family:'DM Mono',monospace">${c.importe.toFixed(2)} €</td>
+      <td style="padding:9px 14px;text-align:right;font-family:'DM Mono',monospace;color:var(--muted)">${igic.toFixed(2)} €</td>
+      <td style="padding:9px 14px;text-align:right;font-family:'DM Mono',monospace;font-weight:700;color:var(--accent2)">${(c.importe + igic).toFixed(2)} €</td>
+      <td style="padding:9px 14px;text-align:right">
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px">
+          <div style="width:60px;height:6px;background:var(--border);border-radius:3px;overflow:hidden"><div style="width:${barW}%;height:100%;background:var(--accent2);border-radius:3px"></div></div>
+          <span style="font-family:'DM Mono',monospace;font-size:.72rem;min-width:38px;text-align:right">${pct.toFixed(1)}%</span>
+        </div>
+      </td>
+    </tr>`;
+  });
+
+  // Fila totales
+  html += `<tr style="background:rgba(107,125,46,.08);font-weight:700;border-top:2px solid var(--accent)">
+    <td style="padding:10px 14px;font-size:.82rem">TOTAL</td>
+    <td style="padding:10px 14px;text-align:right;font-family:'DM Mono',monospace">${totalViajes}</td>
+    <td style="padding:10px 14px;text-align:right;font-family:'DM Mono',monospace;color:var(--accent)">${(totalKg/1000).toFixed(2)}</td>
+    <td style="padding:10px 14px;text-align:right;font-family:'DM Mono',monospace">${totalImporte.toFixed(2)} €</td>
+    <td style="padding:10px 14px;text-align:right;font-family:'DM Mono',monospace">${totalIgic.toFixed(2)} €</td>
+    <td style="padding:10px 14px;text-align:right;font-family:'DM Mono',monospace;color:var(--accent2)">${(totalImporte + totalIgic).toFixed(2)} €</td>
+    <td style="padding:10px 14px;text-align:right;font-family:'DM Mono',monospace">100%</td>
+  </tr>`;
+
+  html += '</tbody></table></div>';
+  body.innerHTML = html;
 }
 
 // ── EXPORTAR EXCEL ───────────────────────────────────────────
@@ -6693,9 +6806,7 @@ Le agradeceríamos que nos indicase cuándo podemos esperar recibir el pago, o s
 
 Quedamos a su disposición para cualquier consulta.
 
-Un saludo,
-ARIFOMA
-Cantera Mesa de las Cañadas`;
+Un saludo,`;
 
   // Abrir en Outlook web — URL directa que no redirige a app de escritorio
   const outlookUrl = 'https://outlook.office365.com/owa/?path=/mail/action/compose&to=' + encodeURIComponent(email)
