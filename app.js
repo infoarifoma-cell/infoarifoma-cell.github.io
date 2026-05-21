@@ -3324,7 +3324,7 @@ function goStep4Real(){checkStates=new Array(selGama.checks.length).fill(false);
 function updateProg(){const done=checkStates.filter(Boolean).length,total=checkStates.length;document.getElementById('progBar').style.width=(total?done/total*100:0)+'%';document.getElementById('progLabel').textContent=`${done} / ${total} completados`;document.getElementById('btnS4').disabled=false;}
 function goStep5(){const tipos={preventivo:'Preventivo programado',correctivo:'Correctivo',revision:'Revisión rápida'};const tipo=document.getElementById('inputTipo').value;const horas=document.getElementById('inputHoras').value;const obs=document.getElementById('inputObs').value;const fechaRaw=document.getElementById('inputFecha').value;const fecha=fechaRaw?new Date(fechaRaw).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';document.getElementById('summaryMain').innerHTML=`<div class="sum-box"><div class="sum-row"><span class="sum-key">Máquina</span><span class="sum-val">${selMachine.name}</span></div><div class="sum-row"><span class="sum-key">Código</span><span class="sum-val">${selMachine.id}</span></div><div class="sum-row"><span class="sum-key">Fecha</span><span class="sum-val">${fecha}</span></div><div class="sum-row"><span class="sum-key">Horómetro</span><span class="sum-val">${horas} h</span></div><div class="sum-row"><span class="sum-key">Gama</span><span class="sum-val">${selGama.nombre}</span></div><div class="sum-row"><span class="sum-key">Tipo</span><span class="sum-val">${tipos[tipo]}</span></div>${obs?`<div class="sum-row"><span class="sum-key">Obs.</span><span class="sum-val">${obs}</span></div>`:''}</div>`;document.getElementById('summaryChecks').innerHTML=`<div class="sum-box">${selGama.checks.map((c,i)=>`<div class="sum-row"><span class="sum-key" style="max-width:70%;font-size:.62rem">${c}</span><span class="sum-val" style="color:${checkStates[i]?'var(--accent2)':'var(--muted)'}">${checkStates[i]?'✓ OK':'— Pendiente'}</span></div>`).join('')}</div>`;showOT('screen5');setSteps(5);}
 async function submitOT(){
-  const fechaRaw=document.getElementById('inputFecha').value;const fecha=fechaRaw?new Date(fechaRaw).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';const horas=document.getElementById('inputHoras').value;const obs=document.getElementById('inputObs').value;const todosOk=checkStates.every(Boolean);const checks60=Array(60).fill(false);checkStates.forEach((v,i)=>{checks60[i]=v;});
+  const fechaRaw=document.getElementById('inputFecha').value;const fecha=fechaRaw?new Date(fechaRaw).toISOString():'';const horas=document.getElementById('inputHoras').value;const obs=document.getElementById('inputObs').value;const todosOk=checkStates.every(Boolean);const checks60=Array(60).fill(false);checkStates.forEach((v,i)=>{checks60[i]=v;});
   const payload={activo:selMachine.id,fecha:fecha||null,operario:null,tiempo:null,texto:obs||null,estado:todosOk,gama:selGama.id,medicion:horas?Number(horas):null,checks:checks60};
   document.getElementById('stepsBar').style.display='none';showOT('screenOK');document.getElementById('okRef').textContent='Enviando...';
   document.getElementById('okSummary').innerHTML=`<div class="sum-row"><span class="sum-key">Máquina</span><span class="sum-val">${selMachine.name}</span></div><div class="sum-row"><span class="sum-key">Gama</span><span class="sum-val">${selGama.nombre}</span></div><div class="sum-row"><span class="sum-key">Horómetro</span><span class="sum-val">${horas} h</span></div>`;
@@ -4367,6 +4367,102 @@ function renderInformeMensual() {
 
   html += '</tbody></table></div>';
   body.innerHTML = html;
+}
+
+function imprimirInformeMensual() {
+  const MESES_NOMBRE = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const mes = parseInt(document.getElementById('fact-informe-mes').value);
+  const anyo = parseInt(document.getElementById('fact-informe-anyo').value);
+  const contenido = document.getElementById('fact-informe-body').innerHTML;
+  if (!factData.length) return;
+
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>Informe ${MESES_NOMBRE[mes]} ${anyo} - ARIFOMA</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:Arial,Helvetica,sans-serif;font-size:9pt;color:#111;padding:12mm 15mm}
+  .header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #6b7d2e}
+  .logo{font-size:16pt;font-weight:900;color:#6b7d2e;letter-spacing:.05em}
+  .subtitle{font-size:8pt;color:#666}
+  .title{font-size:13pt;font-weight:700;color:#333;text-align:right}
+  .date{font-size:8pt;color:#888;text-align:right;margin-top:2px}
+  table{width:100%;border-collapse:collapse;margin-top:8px}
+  th{background:#f5f5f0;font-size:7.5pt;font-weight:700;text-transform:uppercase;color:#555;padding:7px 10px;border:1px solid #ccc;letter-spacing:.03em}
+  td{padding:6px 10px;border:1px solid #ddd;font-size:8.5pt}
+  .r{text-align:right;font-family:'Courier New',monospace}
+  .b{font-weight:700}
+  .accent{color:#6b7d2e}
+  .total-row{background:#f0f2e6;font-weight:700;border-top:2px solid #6b7d2e}
+  .total-row td{font-size:9pt}
+  .bar-cell{width:90px}
+  .bar-bg{width:60px;height:5px;background:#e0e0e0;border-radius:3px;display:inline-block;vertical-align:middle}
+  .bar-fg{height:5px;background:#6b7d2e;border-radius:3px;display:block}
+  .footer{margin-top:20px;font-size:7pt;color:#999;text-align:center;border-top:1px solid #ddd;padding-top:8px}
+  @media print{body{padding:8mm 10mm}.no-print{display:none!important}}
+</style></head><body>
+<div class="header">
+  <div><div class="logo">ARIFOMA</div><div class="subtitle">Cantera Mesa de las Cañadas</div></div>
+  <div><div class="title">Informe Mensual · ${MESES_NOMBRE[mes]} ${anyo}</div><div class="date">Generado el ${new Date().toLocaleDateString('es-ES')}</div></div>
+</div>
+<div class="no-print" style="margin-bottom:12px"><button onclick="window.print()" style="background:#6b7d2e;color:#fff;border:none;border-radius:6px;padding:8px 20px;font-size:10pt;font-weight:700;cursor:pointer">🖨 Imprimir</button> <button onclick="window.close()" style="background:#eee;color:#333;border:1px solid #ccc;border-radius:6px;padding:8px 20px;font-size:10pt;cursor:pointer;margin-left:8px">Cerrar</button></div>`);
+
+  // Rebuild table for print (clean, no CSS vars)
+  const pedidosMes = factData.filter(r => {
+    const d = parseFechaFact(r.fechaHora) || parseFechaFact(r.fechaPedido);
+    if (!d) return false;
+    return d.getMonth() === mes && d.getFullYear() === anyo;
+  });
+
+  const clientes = {};
+  pedidosMes.forEach(r => {
+    const cli = (r.nombreCliente || 'Sin cliente').trim();
+    if (!clientes[cli]) clientes[cli] = { viajes: 0, kg: 0, importe: 0 };
+    clientes[cli].viajes++;
+    const neto = Number(r.pesoNeto) || 0;
+    clientes[cli].kg += neto;
+    clientes[cli].importe += (neto / 1000) * getPrecioTn(cli, r.productoNombre || r.productoCod || '');
+  });
+
+  const sorted = Object.entries(clientes).sort((a, b) => b[1].importe - a[1].importe);
+  const totalKg = sorted.reduce((s, [, c]) => s + c.kg, 0);
+  const totalImporte = sorted.reduce((s, [, c]) => s + c.importe, 0);
+  const totalIgic = totalImporte * IGIC_PCT / 100;
+  const totalViajes = sorted.reduce((s, [, c]) => s + c.viajes, 0);
+
+  let tbl = `<table><thead><tr>
+    <th style="text-align:left">Cliente</th><th>Viajes</th><th>Toneladas</th><th>Base imp.</th><th>IGIC (${IGIC_PCT}%)</th><th>Total</th><th>%</th>
+  </tr></thead><tbody>`;
+
+  sorted.forEach(([cli, c]) => {
+    const tn = c.kg / 1000;
+    const igic = c.importe * IGIC_PCT / 100;
+    const pct = totalImporte > 0 ? (c.importe / totalImporte * 100) : 0;
+    tbl += `<tr>
+      <td class="b">${cli}</td>
+      <td class="r">${c.viajes}</td>
+      <td class="r b accent">${tn.toFixed(2)}</td>
+      <td class="r">${c.importe.toFixed(2)} €</td>
+      <td class="r" style="color:#888">${igic.toFixed(2)} €</td>
+      <td class="r b accent">${(c.importe + igic).toFixed(2)} €</td>
+      <td class="r bar-cell"><div class="bar-bg"><div class="bar-fg" style="width:${Math.max(pct, 1)}%"></div></div> ${pct.toFixed(1)}%</td>
+    </tr>`;
+  });
+
+  tbl += `<tr class="total-row">
+    <td>TOTAL</td>
+    <td class="r">${totalViajes}</td>
+    <td class="r accent">${(totalKg/1000).toFixed(2)}</td>
+    <td class="r">${totalImporte.toFixed(2)} €</td>
+    <td class="r">${totalIgic.toFixed(2)} €</td>
+    <td class="r accent">${(totalImporte + totalIgic).toFixed(2)} €</td>
+    <td class="r">100%</td>
+  </tr></tbody></table>`;
+
+  win.document.write(tbl);
+  win.document.write(`<div class="footer">ARIFOMA · Cantera Mesa de las Cañadas · ${MESES_NOMBRE[mes]} ${anyo} · ${sorted.length} clientes · ${totalViajes} viajes · ${(totalKg/1000).toFixed(2)} Tn</div>`);
+  win.document.write('</body></html>');
+  win.document.close();
+  setTimeout(() => win.print(), 300);
 }
 
 // ── EXPORTAR EXCEL ───────────────────────────────────────────

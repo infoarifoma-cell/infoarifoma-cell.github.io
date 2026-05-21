@@ -874,7 +874,7 @@
           <div style="margin-top:24px;border-top:2px solid var(--border);padding-top:20px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
               <div class="sec-title" style="margin:0">Informe mensual por cliente</div>
-              <div style="display:flex;gap:8px;align-items:flex-end">
+              <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
                 <div>
                   <div class="label">Mes</div>
                   <select class="inp" id="fact-informe-mes" onchange="renderInformeMensual()" style="min-width:140px">
@@ -888,6 +888,7 @@
                   <div class="label">Año</div>
                   <select class="inp" id="fact-informe-anyo" onchange="renderInformeMensual()" style="min-width:90px"></select>
                 </div>
+                <button class="btn-sec" style="font-size:.72rem;padding:8px 14px" onclick="imprimirInformeMensual()">🖨 Imprimir</button>
               </div>
             </div>
             <div id="fact-informe-body" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
