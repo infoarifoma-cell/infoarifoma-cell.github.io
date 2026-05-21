@@ -1,6 +1,6 @@
 // POST /api/bc/historico-ventas
-// Proxy: obtiene facturas de venta registradas (Posted Sales Invoices) de BC
-// con información de pagos pendientes via Customer Ledger Entries
+// Proxy: obtiene facturas de venta de BC con estado de pago
+// Usa salesInvoices (v2.0) que incluye status, remainingAmount, dueDate
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -26,23 +26,14 @@ export default async function handler(req, res) {
     const cid = company.id;
 
     // Construir filtro de fechas
-    let filter = '';
-    if (fechaDesde && fechaHasta) {
-      filter = `invoiceDate ge ${fechaDesde} and invoiceDate le ${fechaHasta}`;
-    } else if (fechaDesde) {
-      filter = `invoiceDate ge ${fechaDesde}`;
-    } else if (fechaHasta) {
-      filter = `invoiceDate le ${fechaHasta}`;
-    }
+    const filters = [];
+    if (fechaDesde) filters.push(`invoiceDate ge ${fechaDesde}`);
+    if (fechaHasta) filters.push(`invoiceDate le ${fechaHasta}`);
+    const filterStr = filters.length ? '$filter=' + encodeURIComponent(filters.join(' and ')) + '&' : '';
 
-    // Obtener facturas de venta registradas (Posted Sales Invoices)
+    // 1. Obtener salesInvoices (posted = status Open/Paid, draft = Draft)
     let allInvoices = [];
-    let url = `${base}(${cid})/salesInvoices?$filter=${encodeURIComponent(filter + (filter ? ' and ' : '') + "status eq 'Paid' or status eq 'Open' or status eq 'Draft'")}&$top=500&$orderby=invoiceDate desc`;
-
-    // BC salesInvoices API devuelve solo facturas registradas (posted)
-    // Alternativa: usar endpoint de posted sales invoices si disponible
-    // Primero intentar con salesInvoices que incluye totalAmountIncludingTax
-    url = `${base}(${cid})/salesInvoices?${filter ? '$filter=' + encodeURIComponent(filter) + '&' : ''}$top=500&$orderby=invoiceDate desc`;
+    let url = `${base}(${cid})/salesInvoices?${filterStr}$top=500&$orderby=invoiceDate desc`;
 
     while (url) {
       const invRes = await fetch(url, { headers });
@@ -55,66 +46,76 @@ export default async function handler(req, res) {
       url = invJson['@odata.nextLink'] || null;
     }
 
-    // Obtener Customer Ledger Entries para info de pagos
-    // Filtramos por Document Type = Invoice
-    let ledgerFilter = "documentType eq 'Invoice'";
-    if (fechaDesde) ledgerFilter += ` and postingDate ge ${fechaDesde}`;
-    if (fechaHasta) ledgerFilter += ` and postingDate le ${fechaHasta}`;
+    // Excluir borradores — solo registradas (Open/Paid)
+    allInvoices = allInvoices.filter(inv => inv.status === 'Open' || inv.status === 'Paid');
 
-    let allLedger = [];
-    let ledgerUrl = `${base}(${cid})/customerLedgerEntries?$filter=${encodeURIComponent(ledgerFilter)}&$top=500`;
+    // 2. Intentar Customer Ledger Entries como fuente complementaria
+    let ledgerMap = {};
+    try {
+      const ledgerFilters = ["documentType eq 'Invoice'"];
+      if (fechaDesde) ledgerFilters.push(`postingDate ge ${fechaDesde}`);
+      if (fechaHasta) ledgerFilters.push(`postingDate le ${fechaHasta}`);
 
-    while (ledgerUrl) {
-      const lRes = await fetch(ledgerUrl, { headers });
-      if (!lRes.ok) {
-        // Si falla customer ledger entries, continuar sin info de pagos
-        console.warn('Customer Ledger Entries no disponible, continuando sin datos de pago');
-        break;
+      let allLedger = [];
+      let ledgerUrl = `${base}(${cid})/customerLedgerEntries?$filter=${encodeURIComponent(ledgerFilters.join(' and '))}&$top=500`;
+
+      while (ledgerUrl) {
+        const lRes = await fetch(ledgerUrl, { headers });
+        if (!lRes.ok) break; // No disponible, seguir sin datos extra
+        const lJson = await lRes.json();
+        if (lJson.value) allLedger = allLedger.concat(lJson.value);
+        ledgerUrl = lJson['@odata.nextLink'] || null;
       }
-      const lJson = await lRes.json();
-      if (lJson.value) allLedger = allLedger.concat(lJson.value);
-      ledgerUrl = lJson['@odata.nextLink'] || null;
+
+      for (const le of allLedger) {
+        ledgerMap[le.documentNumber] = {
+          amount: le.amount || 0,
+          remainingAmount: le.remainingAmount || 0,
+          dueDate: le.dueDate || null,
+          open: le.open !== undefined ? le.open : true,
+        };
+      }
+    } catch (e) {
+      console.warn('Customer Ledger Entries fallback:', e.message);
     }
 
-    // Mapear ledger entries por documentNumber para cruzar
-    const ledgerMap = {};
-    for (const le of allLedger) {
-      ledgerMap[le.documentNumber] = {
-        amount: le.amount || 0,
-        remainingAmount: le.remainingAmount || 0,
-        dueDate: le.dueDate || null,
-        open: le.open || false,
-        closedAtDate: le.closedAtDate || null
-      };
-    }
+    const now = new Date();
 
-    // Combinar info de facturas con info de pagos
     const result = allInvoices.map(inv => {
       const ledger = ledgerMap[inv.number] || null;
-      const importe = inv.totalAmountIncludingTax || inv.totalAmountExcludingTax || 0;
-      const pendiente = ledger ? Math.abs(ledger.remainingAmount) : null;
-      const vencimiento = ledger ? ledger.dueDate : (inv.dueDate || null);
-      const abierta = ledger ? ledger.open : null;
 
-      let estado = 'desconocido';
-      if (ledger) {
-        if (!ledger.open || ledger.remainingAmount === 0) {
-          estado = 'pagada';
-        } else if (Math.abs(ledger.remainingAmount) < Math.abs(ledger.amount)) {
-          estado = 'parcial';
-        } else {
-          // Comprobar si vencida
-          if (vencimiento && new Date(vencimiento) < new Date()) {
-            estado = 'vencida';
-          } else {
-            estado = 'pendiente';
-          }
-        }
+      // Importe: usar totalAmountIncludingTax de la factura
+      const importe = inv.totalAmountIncludingTax || inv.totalAmountExcludingTax || 0;
+
+      // Pendiente: preferir remainingAmount del ledger, luego de la factura
+      let pendiente;
+      if (ledger && ledger.remainingAmount !== undefined) {
+        pendiente = Math.abs(ledger.remainingAmount);
+      } else if (inv.remainingAmount !== undefined) {
+        pendiente = Math.abs(inv.remainingAmount);
       } else {
-        // Sin ledger entry: asumir estado de la factura
-        if (inv.status === 'Paid') estado = 'pagada';
-        else if (inv.status === 'Open' || inv.status === 'Draft') estado = 'pendiente';
+        // Sin dato de remaining: deducir del status
+        pendiente = inv.status === 'Paid' ? 0 : Math.abs(importe);
       }
+
+      // Vencimiento: preferir ledger, luego factura
+      const vencimiento = (ledger && ledger.dueDate) || inv.dueDate || null;
+
+      // Estado
+      let estado;
+      if (pendiente === 0 || inv.status === 'Paid') {
+        estado = 'pagada';
+      } else if (pendiente > 0 && pendiente < Math.abs(importe)) {
+        estado = 'parcial';
+      } else if (vencimiento && new Date(vencimiento) < now) {
+        estado = 'vencida';
+      } else {
+        estado = 'pendiente';
+      }
+
+      const diasVencido = (estado === 'vencida' && vencimiento)
+        ? Math.floor((now.getTime() - new Date(vencimiento).getTime()) / 86400000)
+        : 0;
 
       return {
         numero: inv.number || '',
@@ -123,11 +124,9 @@ export default async function handler(req, res) {
         clienteNombre: inv.customerName || inv.sellToCustomerName || '',
         clienteCod: inv.customerNumber || inv.sellToCustomerNumber || '',
         importe,
-        pendiente: pendiente !== null ? pendiente : importe,
+        pendiente,
         estado,
-        diasVencido: (estado === 'vencida' && vencimiento)
-          ? Math.floor((Date.now() - new Date(vencimiento).getTime()) / 86400000)
-          : 0
+        diasVencido
       };
     });
 

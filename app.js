@@ -6510,26 +6510,30 @@ function poblarHvClientes() {
   updateHvClientesLabel();
 }
 
-function toggleHvClientes() {
+let _hvDdOpen = false;
+
+function toggleHvClientes(evt) {
+  if (evt) evt.stopPropagation();
   const dd = document.getElementById('hv-clientes-dd');
-  const visible = dd.style.display !== 'none';
-  dd.style.display = visible ? 'none' : 'block';
-  if (!visible) {
+  _hvDdOpen = !_hvDdOpen;
+  dd.style.display = _hvDdOpen ? 'block' : 'none';
+  if (_hvDdOpen) {
     document.getElementById('hv-clientes-search').value = '';
     renderHvClientesList();
-    document.getElementById('hv-clientes-search').focus();
-    // Cerrar al hacer click fuera
-    setTimeout(() => document.addEventListener('click', _hvClickOutside, { once: true }), 0);
+    setTimeout(() => document.getElementById('hv-clientes-search').focus(), 50);
+    document.addEventListener('mousedown', _hvClickOutside);
+  } else {
+    document.removeEventListener('mousedown', _hvClickOutside);
   }
 }
 
 function _hvClickOutside(e) {
   const dd = document.getElementById('hv-clientes-dd');
   const btn = document.getElementById('hv-clientes-btn');
-  if (dd && !dd.contains(e.target) && !btn.contains(e.target)) {
+  if (dd && !dd.contains(e.target) && btn && !btn.contains(e.target)) {
     dd.style.display = 'none';
-  } else if (dd && dd.style.display !== 'none') {
-    document.addEventListener('click', _hvClickOutside, { once: true });
+    _hvDdOpen = false;
+    document.removeEventListener('mousedown', _hvClickOutside);
   }
 }
 
@@ -6542,18 +6546,40 @@ function renderHvClientesList() {
   const list = document.getElementById('hv-clientes-list');
   const filtered = search ? _hvClientesList.filter(n => n.toLowerCase().includes(search)) : _hvClientesList;
 
-  list.innerHTML = filtered.map(name => {
-    const checked = hvSelectedClientes.size === 0 || hvSelectedClientes.has(name);
-    const count = hvData.filter(f => f.clienteNombre === name).length;
-    return `<label style="display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;font-size:.75rem;transition:background .1s;border-bottom:1px solid var(--border)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
-      <input type="checkbox" ${checked ? 'checked' : ''} onchange="hvToggleCliente('${escapeHTML(name.replace(/'/g, "\\'"))}', this.checked)" style="accent-color:var(--accent2);flex-shrink:0">
-      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHTML(name)}</span>
-      <span style="font-size:.65rem;color:var(--muted);flex-shrink:0">${count}</span>
-    </label>`;
-  }).join('');
-
+  // Build DOM instead of innerHTML to avoid quote escaping issues
+  list.innerHTML = '';
   if (filtered.length === 0) {
     list.innerHTML = '<div style="padding:12px;text-align:center;color:var(--muted);font-size:.75rem">Sin resultados</div>';
+    return;
+  }
+
+  for (const name of filtered) {
+    const checked = hvSelectedClientes.size === 0 || hvSelectedClientes.has(name);
+    const count = hvData.filter(f => f.clienteNombre === name).length;
+
+    const label = document.createElement('label');
+    label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;font-size:.75rem;transition:background .1s;border-bottom:1px solid var(--border)';
+    label.onmouseover = function() { this.style.background = 'var(--surface2)'; };
+    label.onmouseout = function() { this.style.background = ''; };
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = checked;
+    cb.style.cssText = 'accent-color:var(--accent2);flex-shrink:0';
+    cb.addEventListener('change', function() { hvToggleCliente(name, this.checked); });
+
+    const span = document.createElement('span');
+    span.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    span.textContent = name;
+
+    const cnt = document.createElement('span');
+    cnt.style.cssText = 'font-size:.65rem;color:var(--muted);flex-shrink:0';
+    cnt.textContent = count;
+
+    label.appendChild(cb);
+    label.appendChild(span);
+    label.appendChild(cnt);
+    list.appendChild(label);
   }
 }
 
@@ -6620,12 +6646,18 @@ function renderHvClientesChips() {
     return;
   }
   el.style.display = 'flex';
-  el.innerHTML = [...hvSelectedClientes].sort((a, b) => a.localeCompare(b, 'es')).map(name =>
-    `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px 3px 8px;background:rgba(107,125,46,.1);border:1px solid rgba(107,125,46,.25);border-radius:20px;font-size:.68rem;font-weight:600;color:var(--accent2)">
-      ${escapeHTML(name)}
-      <span onclick="hvRemoveCliente('${escapeHTML(name.replace(/'/g, "\\'"))}')" style="cursor:pointer;font-size:.8rem;line-height:1;opacity:.6;margin-left:2px">&times;</span>
-    </span>`
-  ).join('');
+  el.innerHTML = '';
+  for (const name of [...hvSelectedClientes].sort((a, b) => a.localeCompare(b, 'es'))) {
+    const chip = document.createElement('span');
+    chip.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 10px 3px 8px;background:rgba(107,125,46,.1);border:1px solid rgba(107,125,46,.25);border-radius:20px;font-size:.68rem;font-weight:600;color:var(--accent2)';
+    chip.textContent = name;
+    const x = document.createElement('span');
+    x.style.cssText = 'cursor:pointer;font-size:.8rem;line-height:1;opacity:.6;margin-left:2px';
+    x.textContent = '\u00d7';
+    x.addEventListener('click', () => hvRemoveCliente(name));
+    chip.appendChild(x);
+    el.appendChild(chip);
+  }
 }
 
 function hvRemoveCliente(name) {

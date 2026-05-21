@@ -1125,7 +1125,7 @@
             </div>
             <div style="min-width:220px;position:relative">
               <div class="label">Clientes</div>
-              <div class="inp" id="hv-clientes-btn" onclick="toggleHvClientes()" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:6px;min-height:36px;user-select:none">
+              <div class="inp" id="hv-clientes-btn" onclick="toggleHvClientes(event)" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:6px;min-height:36px;user-select:none">
                 <span id="hv-clientes-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.78rem">Todos los clientes</span>
                 <span style="font-size:.6rem;flex-shrink:0">&#9660;</span>
               </div>
@@ -1155,7 +1155,7 @@
             </div>
           </div>
           <!-- Chips de clientes seleccionados -->
-          <div id="hv-clientes-chips" style="display:none;margin-bottom:10px;display:flex;flex-wrap:wrap;gap:4px"></div>
+          <div id="hv-clientes-chips" style="display:none;margin-bottom:10px;flex-wrap:wrap;gap:4px"></div>
 
           <!-- Tabla -->
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1.2rem">
