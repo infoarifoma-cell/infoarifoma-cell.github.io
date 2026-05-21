@@ -101,12 +101,10 @@ export default async function handler(req, res) {
       // Vencimiento: preferir ledger, luego factura
       const vencimiento = (ledger && ledger.dueDate) || inv.dueDate || null;
 
-      // Estado
+      // Estado: pagada, pendiente o vencida (sin parcial)
       let estado;
       if (pendiente === 0 || inv.status === 'Paid') {
         estado = 'pagada';
-      } else if (pendiente > 0 && pendiente < Math.abs(importe)) {
-        estado = 'parcial';
       } else if (vencimiento && new Date(vencimiento) < now) {
         estado = 'vencida';
       } else {

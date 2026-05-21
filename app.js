@@ -6339,17 +6339,15 @@ function renderHistoricoVentas() {
     return;
   }
 
-  // Ordenar: vencidas primero, luego pendientes, luego pagadas
-  const orden = { vencida: 0, parcial: 1, pendiente: 2, pagada: 3, desconocido: 4 };
-  filtered.sort((a, b) => (orden[a.estado] ?? 4) - (orden[b.estado] ?? 4) || b.fecha.localeCompare(a.fecha));
+  // Ordenar por fecha de registro (más reciente primero)
+  filtered.sort((a, b) => b.fecha.localeCompare(a.fecha));
 
   tbody.innerHTML = filtered.map(f => {
     const badge = hvBadge(f.estado);
     const diasTxt = f.estado === 'vencida' && f.diasVencido > 0
       ? `<span style="color:#c62828;font-weight:700">${f.diasVencido}d</span>`
       : (f.estado === 'pendiente' && f.vencimiento ? diasHastaVenc(f.vencimiento) : '—');
-    const rowBg = f.estado === 'vencida' ? 'background:rgba(198,40,40,.06)' :
-                  f.estado === 'parcial' ? 'background:rgba(255,152,0,.06)' : '';
+    const rowBg = f.estado === 'vencida' ? 'background:rgba(198,40,40,.06)' : '';
     return `<tr style="${rowBg}">
       <td style="padding:8px 12px;border-bottom:1px solid var(--border);font-weight:600">${escapeHTML(f.numero)}</td>
       <td style="padding:8px 12px;border-bottom:1px solid var(--border)">${fmtDateISO(f.fecha)}</td>
@@ -6476,7 +6474,6 @@ function hvBadge(estado) {
     pagada: { bg: 'rgba(46,125,50,.12)', color: '#2e7d32', text: 'Pagada' },
     pendiente: { bg: 'rgba(230,81,0,.1)', color: '#e65100', text: 'Pendiente' },
     vencida: { bg: 'rgba(198,40,40,.12)', color: '#c62828', text: 'Vencida' },
-    parcial: { bg: 'rgba(255,152,0,.12)', color: '#f57c00', text: 'Parcial' },
     desconocido: { bg: 'var(--surface2)', color: 'var(--muted)', text: '—' }
   };
   const s = map[estado] || map.desconocido;
