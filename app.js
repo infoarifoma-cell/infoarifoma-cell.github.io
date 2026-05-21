@@ -119,9 +119,19 @@ async function doDeleteFichaje(data) {
 async function getPedidos(diasAtras = 90) {
   const corte = new Date();
   corte.setDate(corte.getDate() - diasAtras);
-  const { data, error } = await _supabase.from('tblpedidos').select('*')
-    .gte('fechaHora', corte.toISOString()).order('fechaHora', { ascending: false });
-  return error ? { ok: false, error: error.message } : { ok: true, data };
+  const all = [];
+  let from = 0;
+  const PAGE = 1000;
+  while (true) {
+    const { data, error } = await _supabase.from('tblpedidos').select('*')
+      .gte('fechaHora', corte.toISOString()).order('fechaHora', { ascending: false })
+      .range(from, from + PAGE - 1);
+    if (error) return { ok: false, error: error.message };
+    all.push(...data);
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+  return { ok: true, data: all };
 }
 async function doPostPesada(data) {
   const { data: inserted, error } = await _supabase.from('tblpedidos').insert([{
@@ -2025,12 +2035,6 @@ function renderVentas(){
   const dataMesSel=ventasData.filter(r=>{const d=parseFechaHoraObj(r.fechaHora);return d&&d.getMonth()===selM&&d.getFullYear()===curY;});
   const dataAnyo=ventasData.filter(r=>{const d=parseFechaHoraObj(r.fechaHora);return d&&d.getFullYear()===curY;});
   const dataDia=ventasData.filter(r=>{const d=parseFechaHoraObj(r.fechaHora);return d&&dateStr(d)===dateStr(now);});
-  // DEBUG ventas — borrar después
-  const sinFecha=ventasData.filter(r=>!parseFechaHoraObj(r.fechaHora));
-  if(sinFecha.length)console.warn('⚠ Ventas sin fecha parseable:',sinFecha.length,sinFecha.slice(0,5));
-  const abrilAll=ventasData.filter(r=>{const d=parseFechaHoraObj(r.fechaHora);return d&&d.getMonth()===3&&d.getFullYear()===curY;});
-  const abrilSum=abrilAll.reduce((s,r)=>s+Number(r.pesoNeto||0),0);
-  console.log(`📊 DEBUG Abril: ${abrilAll.length} registros, ${(abrilSum/1000).toFixed(2)} T, total ventasData: ${ventasData.length}`);
 
   renderTarjetaVentas(document.getElementById('v-mesactual'),'Mes actual ('+MESES[curM]+')',dataMesAct);
   renderTarjetaVentas(document.getElementById('v-messelec'),MESES[selM],dataMesSel);
