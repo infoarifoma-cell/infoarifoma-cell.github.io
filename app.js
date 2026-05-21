@@ -6697,11 +6697,12 @@ Un saludo,
 ARIFOMA
 Cantera Mesa de las Cañadas`;
 
-  const mailtoUrl = 'mailto:' + encodeURIComponent(email)
-    + '?subject=' + encodeURIComponent(asunto)
+  // Abrir en Outlook web (Office 365) directamente
+  const outlookUrl = 'https://outlook.office.com/mail/deeplink/compose?to=' + encodeURIComponent(email)
+    + '&subject=' + encodeURIComponent(asunto)
     + '&body=' + encodeURIComponent(cuerpo);
 
-  window.open(mailtoUrl, '_blank');
+  window.open(outlookUrl, '_blank');
 }
 
 // ── NOTIFICACIONES FACTURAS VENCIDAS ──────────────────────────────────────────
