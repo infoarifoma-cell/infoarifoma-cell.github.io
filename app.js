@@ -734,6 +734,8 @@ async function initApp(){
   apiFetch('?accion=historialOT').then(j=>{if(j.ok){prevData=j.data;renderInicioMant();}}).catch(()=>{});
   goPage('inicio');
   cargarNotas();
+  // Comprobar facturas vencidas en segundo plano
+  checkFacturasVencidasBackground().catch(() => {});
   ['filt-w','filt-mes-w','filt-edit'].forEach(id=>{const s=document.getElementById(id);if(!s)return;WORKERS.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;s.appendChild(o);});});
   ['vm-worker','em-worker','bm-worker','lm-worker','xm-worker'].forEach(id=>{const s=document.getElementById(id);if(!s)return;WORKERS.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;s.appendChild(o);});});
   document.getElementById('ventas-mes-sel').value=new Date().getMonth();
@@ -6248,6 +6250,7 @@ function cerrarImprimirCostes(){
 // ── HISTÓRICO DE VENTAS — Facturas registradas + estado pago desde BC ────────
 let hvData = [];
 let hvLoaded = false;
+let hvSelectedClientes = new Set(); // vacío = todos
 
 function initHistoricoVentas() {
   if (!hvLoaded) {
@@ -6283,7 +6286,10 @@ async function cargarHistoricoVentas() {
 
     hvData = json.data || [];
     hvLoaded = true;
+    hvSelectedClientes = new Set();
+    poblarHvClientes();
     renderHistoricoVentas();
+    notificarFacturasVencidas();
   } catch (e) {
     console.error('Histórico ventas error:', e);
     tbody.innerHTML = `<tr><td colspan="8" style="padding:30px;text-align:center;color:#c62828">${escapeHTML(e.message)}</td></tr>`;
@@ -6297,15 +6303,25 @@ function renderHistoricoVentas() {
   const hasta = document.getElementById('hv-fecha-hasta').value;
 
   let filtered = hvData.filter(f => {
-    if (estado && f.estado !== estado) return false;
+    if (estado) {
+      if (estado === 'vencida') { if (f.estado !== 'vencida') return false; }
+      else if (estado === 'vencida30') { if (f.estado !== 'vencida' || f.diasVencido < 30) return false; }
+      else if (estado === 'vencida60') { if (f.estado !== 'vencida' || f.diasVencido < 60) return false; }
+      else if (estado === 'vencida90') { if (f.estado !== 'vencida' || f.diasVencido < 90) return false; }
+      else { if (f.estado !== estado) return false; }
+    }
     if (desde && f.fecha < desde) return false;
     if (hasta && f.fecha > hasta) return false;
     if (buscar) {
-      const hay = (f.clienteNombre + ' ' + f.numero + ' ' + f.clienteCod).toLowerCase().includes(buscar);
+      const hay = (f.numero + ' ' + f.clienteCod).toLowerCase().includes(buscar);
       if (!hay) return false;
     }
+    // Filtro multi-cliente
+    if (hvSelectedClientes.size > 0 && !hvSelectedClientes.has(f.clienteNombre)) return false;
     return true;
   });
+
+  renderHvClientesChips();
 
   // KPIs
   renderHvKpis(filtered);
@@ -6482,6 +6498,217 @@ function diasHastaVenc(venc) {
   if (dias < 0) return `<span style="color:#c62828;font-weight:700">${Math.abs(dias)}d venc.</span>`;
   if (dias <= 7) return `<span style="color:#e65100;font-weight:600">${dias}d</span>`;
   return `<span style="color:var(--muted)">${dias}d</span>`;
+}
+
+// ── HISTÓRICO VENTAS — MULTI-SELECT CLIENTES ──────────────────────────────────
+let _hvClientesList = []; // lista ordenada de nombres únicos
+
+function poblarHvClientes() {
+  const nombres = [...new Set(hvData.map(f => f.clienteNombre).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+  _hvClientesList = nombres;
+  renderHvClientesList();
+  updateHvClientesLabel();
+}
+
+function toggleHvClientes() {
+  const dd = document.getElementById('hv-clientes-dd');
+  const visible = dd.style.display !== 'none';
+  dd.style.display = visible ? 'none' : 'block';
+  if (!visible) {
+    document.getElementById('hv-clientes-search').value = '';
+    renderHvClientesList();
+    document.getElementById('hv-clientes-search').focus();
+    // Cerrar al hacer click fuera
+    setTimeout(() => document.addEventListener('click', _hvClickOutside, { once: true }), 0);
+  }
+}
+
+function _hvClickOutside(e) {
+  const dd = document.getElementById('hv-clientes-dd');
+  const btn = document.getElementById('hv-clientes-btn');
+  if (dd && !dd.contains(e.target) && !btn.contains(e.target)) {
+    dd.style.display = 'none';
+  } else if (dd && dd.style.display !== 'none') {
+    document.addEventListener('click', _hvClickOutside, { once: true });
+  }
+}
+
+function filtrarHvClientes() {
+  renderHvClientesList();
+}
+
+function renderHvClientesList() {
+  const search = (document.getElementById('hv-clientes-search').value || '').toLowerCase().trim();
+  const list = document.getElementById('hv-clientes-list');
+  const filtered = search ? _hvClientesList.filter(n => n.toLowerCase().includes(search)) : _hvClientesList;
+
+  list.innerHTML = filtered.map(name => {
+    const checked = hvSelectedClientes.size === 0 || hvSelectedClientes.has(name);
+    const count = hvData.filter(f => f.clienteNombre === name).length;
+    return `<label style="display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;font-size:.75rem;transition:background .1s;border-bottom:1px solid var(--border)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+      <input type="checkbox" ${checked ? 'checked' : ''} onchange="hvToggleCliente('${escapeHTML(name.replace(/'/g, "\\'"))}', this.checked)" style="accent-color:var(--accent2);flex-shrink:0">
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHTML(name)}</span>
+      <span style="font-size:.65rem;color:var(--muted);flex-shrink:0">${count}</span>
+    </label>`;
+  }).join('');
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div style="padding:12px;text-align:center;color:var(--muted);font-size:.75rem">Sin resultados</div>';
+  }
+}
+
+function hvToggleCliente(name, checked) {
+  if (hvSelectedClientes.size === 0 && checked) {
+    // Transitioning from "all" → need to add all except unchecked
+    // Actually if size=0 means all are selected, and user unchecks one:
+    // We need to handle this differently
+  }
+
+  if (hvSelectedClientes.size === 0) {
+    // "Todos" mode — user unchecked one, so select all EXCEPT that one
+    if (!checked) {
+      for (const n of _hvClientesList) hvSelectedClientes.add(n);
+      hvSelectedClientes.delete(name);
+    }
+    // If checked while in "all" mode, nothing to do
+  } else {
+    if (checked) hvSelectedClientes.add(name);
+    else hvSelectedClientes.delete(name);
+    // Si todos seleccionados, volver a modo "todos" (set vacío)
+    if (hvSelectedClientes.size === _hvClientesList.length) hvSelectedClientes.clear();
+  }
+
+  updateHvClientesLabel();
+  renderHistoricoVentas();
+}
+
+function hvClientesSelectAll() {
+  hvSelectedClientes.clear();
+  renderHvClientesList();
+  updateHvClientesLabel();
+  renderHistoricoVentas();
+}
+
+function hvClientesSelectNone() {
+  hvSelectedClientes.clear();
+  hvSelectedClientes.add('__none__'); // sentinel para que no matchee nada
+  renderHvClientesList();
+  updateHvClientesLabel();
+  renderHistoricoVentas();
+}
+
+function updateHvClientesLabel() {
+  const label = document.getElementById('hv-clientes-label');
+  if (hvSelectedClientes.size === 0) {
+    label.textContent = 'Todos los clientes';
+    label.style.color = '';
+  } else if (hvSelectedClientes.has('__none__')) {
+    label.textContent = 'Ningún cliente';
+    label.style.color = 'var(--muted)';
+  } else {
+    const n = hvSelectedClientes.size;
+    label.textContent = n === 1 ? [...hvSelectedClientes][0] : `${n} clientes`;
+    label.style.color = 'var(--accent2)';
+  }
+}
+
+function renderHvClientesChips() {
+  const el = document.getElementById('hv-clientes-chips');
+  if (!el) return;
+  if (hvSelectedClientes.size === 0 || hvSelectedClientes.has('__none__')) {
+    el.style.display = 'none';
+    return;
+  }
+  el.style.display = 'flex';
+  el.innerHTML = [...hvSelectedClientes].sort((a, b) => a.localeCompare(b, 'es')).map(name =>
+    `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px 3px 8px;background:rgba(107,125,46,.1);border:1px solid rgba(107,125,46,.25);border-radius:20px;font-size:.68rem;font-weight:600;color:var(--accent2)">
+      ${escapeHTML(name)}
+      <span onclick="hvRemoveCliente('${escapeHTML(name.replace(/'/g, "\\'"))}')" style="cursor:pointer;font-size:.8rem;line-height:1;opacity:.6;margin-left:2px">&times;</span>
+    </span>`
+  ).join('');
+}
+
+function hvRemoveCliente(name) {
+  hvSelectedClientes.delete(name);
+  if (hvSelectedClientes.size === 0) hvSelectedClientes.clear(); // back to "all"
+  renderHvClientesList();
+  updateHvClientesLabel();
+  renderHistoricoVentas();
+}
+
+// ── NOTIFICACIONES FACTURAS VENCIDAS ──────────────────────────────────────────
+function notificarFacturasVencidas() {
+  const vencidas = hvData.filter(f => f.estado === 'vencida');
+  if (!vencidas.length) return;
+
+  const totalPendiente = vencidas.reduce((s, f) => s + f.pendiente, 0);
+  const maxDias = Math.max(...vencidas.map(f => f.diasVencido));
+
+  // Agrupar por cliente
+  const clientes = {};
+  for (const f of vencidas) {
+    if (!clientes[f.clienteNombre]) clientes[f.clienteNombre] = { count: 0, total: 0 };
+    clientes[f.clienteNombre].count++;
+    clientes[f.clienteNombre].total += f.pendiente;
+  }
+  const topClientes = Object.entries(clientes).sort((a, b) => b[1].total - a[1].total).slice(0, 3);
+
+  const lines = [`${vencidas.length} factura${vencidas.length > 1 ? 's' : ''} vencida${vencidas.length > 1 ? 's' : ''} · ${fmtEur(totalPendiente)}`];
+  if (maxDias > 30) lines.push(`Máximo retraso: ${maxDias} días`);
+  for (const [cli, info] of topClientes) {
+    lines.push(`${cli}: ${info.count} fact. · ${fmtEur(info.total)}`);
+  }
+  const msg = lines.join('\n');
+
+  // Browser Notification
+  if ('Notification' in window) {
+    if (Notification.permission === 'granted') {
+      new Notification('Facturas vencidas', { body: msg, icon: '', tag: 'facturas-vencidas' });
+    } else if (Notification.permission !== 'denied') {
+      Notification.requestPermission().then(p => {
+        if (p === 'granted') new Notification('Facturas vencidas', { body: msg, icon: '', tag: 'facturas-vencidas' });
+      });
+    }
+  }
+
+  // In-app alert en inicio si está visible
+  const inicioAlert = document.getElementById('inicio-facturas-alert');
+  if (inicioAlert) {
+    inicioAlert.style.display = 'block';
+    inicioAlert.innerHTML = `
+      <div style="background:rgba(198,40,40,.08);border:1px solid rgba(198,40,40,.3);border-radius:var(--radius);padding:14px 16px;cursor:pointer" onclick="goPage('historico-ventas');document.getElementById('hv-estado').value='vencida';renderHistoricoVentas()">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <div>
+            <div style="font-size:.82rem;font-weight:700;color:#c62828">⚠ ${vencidas.length} factura${vencidas.length > 1 ? 's' : ''} vencida${vencidas.length > 1 ? 's' : ''}</div>
+            <div style="font-size:.72rem;color:var(--muted);margin-top:2px">${fmtEur(totalPendiente)} pendiente · máx ${maxDias} días</div>
+          </div>
+          <div style="font-size:.72rem;color:var(--accent2);font-weight:600">Ver detalle →</div>
+        </div>
+      </div>`;
+  }
+}
+
+// Comprobar facturas vencidas en segundo plano al cargar la app
+async function checkFacturasVencidasBackground() {
+  try {
+    const token = await getBCToken();
+    // Solo últimos 6 meses
+    const desde = new Date();
+    desde.setMonth(desde.getMonth() - 6);
+    const res = await fetch('/api/bc/historico-ventas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, fechaDesde: desde.toISOString().slice(0, 10) })
+    });
+    const json = await res.json();
+    if (json.ok) {
+      hvData = json.data || [];
+      hvLoaded = true;
+      notificarFacturasVencidas();
+    }
+  } catch (e) {
+    console.warn('Check facturas vencidas background:', e.message);
+  }
 }
 
 // ── NOTAS DEL SISTEMA ────────────────────────────────────────────────────────

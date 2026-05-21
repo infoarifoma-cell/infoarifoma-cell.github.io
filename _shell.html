@@ -519,6 +519,7 @@
           </div>
           <div id="inicio-docs-alert" style="display:none;margin-top:16px"></div>
           <div id="inicio-mant-alert" style="display:none"></div>
+          <div id="inicio-facturas-alert" style="display:none;margin-top:12px"></div>
         </div>
 
         <div class="page" id="pg-bascula">
@@ -1119,8 +1120,25 @@
               <input type="date" class="inp" id="hv-fecha-hasta" onchange="renderHistoricoVentas()">
             </div>
             <div style="flex:1;min-width:200px">
-              <div class="label">Buscar cliente / nº factura</div>
+              <div class="label">Buscar nº factura</div>
               <input type="text" class="inp" id="hv-buscar" placeholder="Filtrar..." oninput="renderHistoricoVentas()">
+            </div>
+            <div style="min-width:220px;position:relative">
+              <div class="label">Clientes</div>
+              <div class="inp" id="hv-clientes-btn" onclick="toggleHvClientes()" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:6px;min-height:36px;user-select:none">
+                <span id="hv-clientes-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.78rem">Todos los clientes</span>
+                <span style="font-size:.6rem;flex-shrink:0">&#9660;</span>
+              </div>
+              <div id="hv-clientes-dd" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 8px 24px rgba(0,0,0,.18);max-height:280px;overflow-y:auto;margin-top:2px">
+                <div style="padding:6px 10px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:1">
+                  <input type="text" class="inp" id="hv-clientes-search" placeholder="Buscar cliente..." oninput="filtrarHvClientes()" style="font-size:.75rem;padding:5px 8px">
+                </div>
+                <div id="hv-clientes-list" style="padding:4px 0"></div>
+                <div style="display:flex;gap:6px;padding:8px 10px;border-top:1px solid var(--border);position:sticky;bottom:0;background:var(--bg)">
+                  <button onclick="hvClientesSelectAll()" style="flex:1;font-size:.68rem;padding:5px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text)">Todos</button>
+                  <button onclick="hvClientesSelectNone()" style="flex:1;font-size:.68rem;padding:5px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text)">Ninguno</button>
+                </div>
+              </div>
             </div>
             <div style="min-width:140px">
               <div class="label">Estado</div>
@@ -1128,11 +1146,16 @@
                 <option value="">Todos</option>
                 <option value="pagada">Pagadas</option>
                 <option value="pendiente">Pendientes</option>
-                <option value="vencida">Vencidas</option>
+                <option value="vencida">Vencidas (todas)</option>
+                <option value="vencida30">Vencidas &gt;30 días</option>
+                <option value="vencida60">Vencidas &gt;60 días</option>
+                <option value="vencida90">Vencidas &gt;90 días</option>
                 <option value="parcial">Pago parcial</option>
               </select>
             </div>
           </div>
+          <!-- Chips de clientes seleccionados -->
+          <div id="hv-clientes-chips" style="display:none;margin-bottom:10px;display:flex;flex-wrap:wrap;gap:4px"></div>
 
           <!-- Tabla -->
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1.2rem">
