@@ -6266,7 +6266,7 @@ function initHistoricoVentas() {
 
 async function cargarHistoricoVentas() {
   const tbody = document.getElementById('hv-tbody');
-  tbody.innerHTML = '<tr><td colspan="8" style="padding:30px;text-align:center;color:var(--muted)">Cargando facturas de BC...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="9" style="padding:30px;text-align:center;color:var(--muted)">Cargando facturas de BC...</td></tr>';
   document.getElementById('hv-alertas').style.display = 'none';
   document.getElementById('hv-kpis').innerHTML = '';
 
@@ -6292,7 +6292,7 @@ async function cargarHistoricoVentas() {
     notificarFacturasVencidas();
   } catch (e) {
     console.error('Histórico ventas error:', e);
-    tbody.innerHTML = `<tr><td colspan="8" style="padding:30px;text-align:center;color:#c62828">${escapeHTML(e.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="padding:30px;text-align:center;color:#c62828">${escapeHTML(e.message)}</td></tr>`;
   }
 }
 
@@ -6335,19 +6335,23 @@ function renderHistoricoVentas() {
   // Tabla
   const tbody = document.getElementById('hv-tbody');
   if (filtered.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" style="padding:20px;text-align:center;color:var(--muted)">Sin facturas para los filtros seleccionados</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="padding:20px;text-align:center;color:var(--muted)">Sin facturas para los filtros seleccionados</td></tr>';
     return;
   }
 
   // Ordenar por fecha de registro (más reciente primero)
   filtered.sort((a, b) => b.fecha.localeCompare(a.fecha));
 
-  tbody.innerHTML = filtered.map(f => {
+  window._hvFiltered = filtered;
+  tbody.innerHTML = filtered.map((f, idx) => {
     const badge = hvBadge(f.estado);
     const diasTxt = f.estado === 'vencida' && f.diasVencido > 0
       ? `<span style="color:#c62828;font-weight:700">${f.diasVencido}d</span>`
       : (f.estado === 'pendiente' && f.vencimiento ? diasHastaVenc(f.vencimiento) : '—');
     const rowBg = f.estado === 'vencida' ? 'background:rgba(198,40,40,.06)' : '';
+    const reminderBtn = f.estado !== 'pagada'
+      ? `<td style="padding:8px 6px;border-bottom:1px solid var(--border);text-align:center"><button data-hv-idx="${idx}" onclick="hvEnviarRecordatorio(this.dataset.hvIdx)" style="background:none;border:none;cursor:pointer;font-size:1.1rem;padding:2px 6px;border-radius:6px;transition:background .15s" title="Enviar recordatorio de cobro">🔔</button></td>`
+      : `<td style="padding:8px 6px;border-bottom:1px solid var(--border);text-align:center"></td>`;
     return `<tr style="${rowBg}">
       <td style="padding:8px 12px;border-bottom:1px solid var(--border);font-weight:600">${escapeHTML(f.numero)}</td>
       <td style="padding:8px 12px;border-bottom:1px solid var(--border)">${fmtDateISO(f.fecha)}</td>
@@ -6357,6 +6361,7 @@ function renderHistoricoVentas() {
       <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:right;font-variant-numeric:tabular-nums;${f.pendiente > 0 ? 'color:#c62828;font-weight:600' : ''}">${fmtEur(f.pendiente)}</td>
       <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center">${badge}</td>
       <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center">${diasTxt}</td>
+      ${reminderBtn}
     </tr>`;
   }).join('');
 }
@@ -6663,6 +6668,40 @@ function hvRemoveCliente(name) {
   renderHvClientesList();
   updateHvClientesLabel();
   renderHistoricoVentas();
+}
+
+// ── RECORDATORIO COBRO POR EMAIL ──────────────────────────────────────────────
+function hvEnviarRecordatorio(idx) {
+  const f = window._hvFiltered[idx];
+  if (!f) return;
+
+  const email = f.clienteEmail || '';
+  const asunto = `Recordatorio de pago - Factura ${f.numero}`;
+  const vencTxt = f.vencimiento ? fmtDateISO(f.vencimiento) : 'no especificada';
+  const diasTxt = f.diasVencido > 0 ? ` (${f.diasVencido} días de retraso)` : '';
+
+  const cuerpo = `Estimado/a cliente,
+
+Le escribimos desde ARIFOMA para recordarle que la siguiente factura se encuentra pendiente de pago:
+
+  - Nº Factura: ${f.numero}
+  - Fecha emisión: ${fmtDateISO(f.fecha)}
+  - Fecha vencimiento: ${vencTxt}${diasTxt}
+  - Importe pendiente: ${fmtEur(f.pendiente)}
+
+Le agradeceríamos que nos indicase cuándo podemos esperar recibir el pago, o si existe alguna incidencia con esta factura.
+
+Quedamos a su disposición para cualquier consulta.
+
+Un saludo,
+ARIFOMA
+Cantera Mesa de las Cañadas`;
+
+  const mailtoUrl = 'mailto:' + encodeURIComponent(email)
+    + '?subject=' + encodeURIComponent(asunto)
+    + '&body=' + encodeURIComponent(cuerpo);
+
+  window.open(mailtoUrl, '_blank');
 }
 
 // ── NOTIFICACIONES FACTURAS VENCIDAS ──────────────────────────────────────────

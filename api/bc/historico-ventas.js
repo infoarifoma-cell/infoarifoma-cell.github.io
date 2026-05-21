@@ -49,7 +49,24 @@ export default async function handler(req, res) {
     // Excluir borradores — solo registradas (Open/Paid)
     allInvoices = allInvoices.filter(inv => inv.status === 'Open' || inv.status === 'Paid');
 
-    // 2. Intentar Customer Ledger Entries como fuente complementaria
+    // 2. Cargar emails de clientes desde BC customers
+    let customerEmails = {};
+    try {
+      let custUrl = `${base}(${cid})/customers?$select=number,displayName,email&$top=500`;
+      while (custUrl) {
+        const custRes = await fetch(custUrl, { headers });
+        if (!custRes.ok) break;
+        const custJson = await custRes.json();
+        for (const c of (custJson.value || [])) {
+          if (c.number) customerEmails[c.number] = c.email || '';
+        }
+        custUrl = custJson['@odata.nextLink'] || null;
+      }
+    } catch (e) {
+      console.warn('No se pudieron cargar emails de clientes:', e.message);
+    }
+
+    // 3. Intentar Customer Ledger Entries como fuente complementaria
     let ledgerMap = {};
     try {
       const ledgerFilters = ["documentType eq 'Invoice'"];
@@ -115,12 +132,15 @@ export default async function handler(req, res) {
         ? Math.floor((now.getTime() - new Date(vencimiento).getTime()) / 86400000)
         : 0;
 
+      const custNum = inv.customerNumber || inv.sellToCustomerNumber || '';
+
       return {
         numero: inv.number || '',
         fecha: inv.invoiceDate || '',
         vencimiento: vencimiento || '',
         clienteNombre: inv.customerName || inv.sellToCustomerName || '',
-        clienteCod: inv.customerNumber || inv.sellToCustomerNumber || '',
+        clienteCod: custNum,
+        clienteEmail: customerEmails[custNum] || '',
         importe,
         pendiente,
         estado,
