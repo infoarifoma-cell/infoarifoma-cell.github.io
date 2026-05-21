@@ -1676,12 +1676,15 @@
               <div style="margin-bottom:12px"><div class="label">Fecha y hora</div><input type="datetime-local" class="inp" id="inputFecha"></div>
               <div style="margin-bottom:12px"><div class="label">Horómetro actual</div><div style="position:relative"><input type="number" class="inp inp-mono" id="inputHoras" placeholder="Ej: 3842" min="0" oninput="checkStep3()"><span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted);pointer-events:none">h</span></div></div>
               <div><div class="label">Tipo de mantenimiento</div><select class="inp" id="inputTipo"><option value="preventivo">Preventivo programado</option><option value="correctivo">Correctivo</option><option value="revision">Revisión rápida</option></select></div>
+              <div style="margin-top:12px"><div class="label">Operario</div><select class="inp" id="inputOperario"><option value="">— Seleccionar —</option></select></div>
+              <div style="margin-top:12px"><div class="label">Estado</div><select class="inp" id="inputEstado"><option value="abierta">Abierta</option><option value="cerrada">Cerrada</option></select></div>
             </div>
             <div class="btn-row"><button class="btn btn-secondary" onclick="goStep2()">← Atrás</button><button class="btn btn-primary" id="btnS3" onclick="goStep4()">Continuar →</button></div>
           </div>
           <div id="screen4" class="section hidden">
             <div class="card"><div class="card-title"><span class="dot"></span>Verificación — <span id="checkTitle"></span></div>
               <div class="check-banner" id="checkBanner"></div>
+              <div style="margin-bottom:10px;text-align:right"><button class="btn btn-secondary" style="font-size:.75rem;padding:6px 14px" onclick="toggleAllChecks()">✓ Marcar / Desmarcar todo</button></div>
               <div id="checkItems"></div>
               <div class="progress-wrap"><div class="progress-bar" id="progBar" style="width:0%"></div></div>
               <div class="progress-label" id="progLabel">0 / 0 completados</div>
