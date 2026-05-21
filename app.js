@@ -6697,8 +6697,8 @@ Un saludo,
 ARIFOMA
 Cantera Mesa de las Cañadas`;
 
-  // Abrir en Outlook web (Office 365) directamente
-  const outlookUrl = 'https://outlook.office.com/mail/deeplink/compose?to=' + encodeURIComponent(email)
+  // Abrir en Outlook web — URL directa que no redirige a app de escritorio
+  const outlookUrl = 'https://outlook.office365.com/owa/?path=/mail/action/compose&to=' + encodeURIComponent(email)
     + '&subject=' + encodeURIComponent(asunto)
     + '&body=' + encodeURIComponent(cuerpo);
 
