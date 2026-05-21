@@ -543,7 +543,6 @@ async function apiPost(payload) {
 }
 
 let loginUser=null; // {id, nombre, rol} — SIN pin
-let loginUsuarios=[]; // lista de usuarios (solo nombre+rol, sin pin)
 const WORKERS=['Gabriel Reyes','David Espacios','Antonio Juan Martel','Rubén Díaz'];
 const TOTAL_VAC=35;
 // Horas esperadas por día de semana: 1=Lun,2=Mar,3=Mié,4=Jue,5=Vie,6=Sáb,0=Dom
@@ -562,93 +561,7 @@ const PRODS=['ARIDO AF-T-0/4-I','ARIDO AG-T-4/12-I','ARIDO AG-T-12/20-I','ARIDO 
 const PROD_CAT={'ARIDO AF-T-0/4-I':'0/4','ARIDO AG-T-4/12-I':'4/12','ARIDO AG-T-12/20-I':'12/20','ARIDO AG-T-20/40-I':'20/40'};
 const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas',caja:'Caja',costes:'Análisis de Costes',produccion:'Producción Planta',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',preventivo:'Mantenimiento Preventivo'};
 
-// ── PIN ──────────────────────────────────────────────────────
-// ── LOGIN SEGURO CON SUPABASE (server-side) ──────────────────
-let pinStr='';
-let pinLocked=false; // bloqueo por rate limiting
-
-function pinPress(d){
-  if(pinStr.length>=4||!loginUser||pinLocked)return;
-  pinStr+=d;updPinDots();
-  if(pinStr.length===4)setTimeout(checkPin,200);
-}
-function pinDel(){pinStr=pinStr.slice(0,-1);updPinDots();document.getElementById('pinError').textContent='';}
-function updPinDots(){for(let i=1;i<=4;i++){const d=document.getElementById('pd'+i);d.classList.toggle('filled',i<=pinStr.length);d.classList.remove('error');}}
-
-function loginUserChange(){
-  const sel=document.getElementById('login-user-sel');
-  const uid=sel.value;
-  const section=document.getElementById('login-pin-section');
-  if(!uid){loginUser=null;section.style.display='none';return;}
-  loginUser=loginUsuarios.find(u=>String(u.id)===uid)||null;
-  section.style.display='block';
-  pinStr='';pinLocked=false;updPinDots();document.getElementById('pinError').textContent='';
-}
-
-async function checkPin(){
-  if(!loginUser||pinLocked){pinStr='';updPinDots();return;}
-
-  const errEl=document.getElementById('pinError');
-  // Deshabilitar input mientras se verifica
-  pinLocked=true;
-  errEl.textContent='Verificando...';
-
-  try{
-    // Verificación 100% server-side via RPC
-    const {data,error}=await _supabase.rpc('verificar_pin',{
-      p_nombre:loginUser.nombre,
-      p_pin:pinStr
-    });
-
-    if(error) throw new Error(error.message);
-
-    if(data && data.ok){
-      // Login exitoso: inicializar cliente con token de sesión
-      _initAuthClient(data.token);
-      loginUser=data.usuario;
-      errEl.textContent='Cargando...';
-      // Cargar shell dinámicamente solo tras autenticación
-      try{
-        const r=await fetch('_shell.html?v='+Date.now());
-        if(!r.ok)throw new Error('HTTP '+r.status);
-        const html=await r.text();
-        const ph=document.getElementById('shell-placeholder');
-        ph.outerHTML=html;
-      }catch(fetchErr){
-        errEl.textContent='Error cargando la aplicación';
-        console.error('Shell load error:',fetchErr);
-        pinStr='';pinLocked=false;updPinDots();
-        return;
-      }
-      document.getElementById('pinScreen').style.display='none';
-      document.getElementById('shell').style.display='flex';
-      initApp();
-    } else {
-      // PIN incorrecto o bloqueado
-      for(let i=1;i<=4;i++)document.getElementById('pd'+i).classList.add('error');
-      let msg=data?.error||'PIN incorrecto';
-      if(data?.intentos_restantes!==undefined && data.intentos_restantes>=0){
-        msg+=` (${data.intentos_restantes} intentos restantes)`;
-      }
-      errEl.textContent=msg;
-
-      if(data?.bloqueado){
-        pinLocked=true;
-        // Desbloquear UI tras 60s (el servidor sigue bloqueando 15min)
-        setTimeout(()=>{pinLocked=false;errEl.textContent='Puedes intentar de nuevo';},60000);
-      } else {
-        setTimeout(()=>{pinStr='';pinLocked=false;updPinDots();errEl.textContent='';},1500);
-      }
-    }
-  }catch(e){
-    console.error('Error verificando PIN:',e);
-    for(let i=1;i<=4;i++)document.getElementById('pd'+i).classList.add('error');
-    errEl.textContent='Error de conexión';
-    setTimeout(()=>{pinStr='';pinLocked=false;updPinDots();errEl.textContent='';},2000);
-  }
-}
-
-// Función removida: cargarUsuariosLogin (migrado a Google OAuth)
+// Login via Google OAuth — ver funciones.js: googleLogin() y checkGoogleSession()
 
 // ── SHELL ─────────────────────────────────────────────────────
 let menuOpen=false;

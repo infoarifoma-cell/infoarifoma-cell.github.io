@@ -75,29 +75,8 @@ function _initAuthClient(token) {
   _sessionToken = token;
 }
 
-// ── AUTENTICACIÓN SEGURA ────────────────────────────────────
-
-async function obtenerUsuarios() {
-  const { data, error } = await _supabase.rpc('obtener_usuarios');
-  return error ? { ok: false, error: error.message } : { ok: true, data: data || [] };
-}
-
-async function verificarPin(nombre, pin) {
-  const { data, error } = await _supabase.rpc('verificar_pin', {
-    p_nombre: nombre,
-    p_pin: pin
-  });
-  if (error) return { ok: false, error: error.message };
-  if (data && data.ok) {
-    _initAuthClient(data.token);
-  }
-  return data;
-}
-
 async function cerrarSesion() {
-  if (_sessionToken) {
-    await _supabase.rpc('cerrar_sesion', { p_token: _sessionToken });
-  }
+  await _supabase.auth.signOut();
   _sessionToken = null;
   _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   window._appInitialized = false;
