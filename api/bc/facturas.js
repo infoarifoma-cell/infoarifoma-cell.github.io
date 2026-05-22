@@ -11,6 +11,12 @@ export default async function handler(req, res) {
   if (!token) {
     return res.status(401).json({ ok: false, error: 'Token requerido' });
   }
+  if (!customerNumber || typeof customerNumber !== 'string') {
+    return res.status(400).json({ ok: false, error: 'customerNumber requerido' });
+  }
+  if (invoiceDate && !/^\d{4}-\d{2}-\d{2}$/.test(invoiceDate)) {
+    return res.status(400).json({ ok: false, error: 'Formato de fecha inválido' });
+  }
 
   const BC_TENANT = process.env.BC_TENANT;
   const BC_ENV = process.env.BC_ENV;

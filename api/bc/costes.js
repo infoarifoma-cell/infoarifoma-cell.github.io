@@ -10,7 +10,7 @@ export default async function handler(req, res) {
 
   const { token, anyo } = req.body;
   if (!token) return res.status(401).json({ ok: false, error: 'Token requerido' });
-  if (!anyo) return res.status(400).json({ ok: false, error: 'Año requerido' });
+  if (!anyo || !/^\d{4}$/.test(String(anyo))) return res.status(400).json({ ok: false, error: 'Año inválido' });
 
   const BC_TENANT = process.env.BC_TENANT;
   const BC_ENV = process.env.BC_ENV;

@@ -10,6 +10,12 @@ export default async function handler(req, res) {
   const { token, fechaDesde, fechaHasta } = req.body;
   if (!token) return res.status(401).json({ ok: false, error: 'Token requerido' });
 
+  // Validar formato fecha (yyyy-mm-dd) para prevenir OData injection
+  const fechaValida = (f) => !f || /^\d{4}-\d{2}-\d{2}$/.test(f);
+  if (!fechaValida(fechaDesde) || !fechaValida(fechaHasta)) {
+    return res.status(400).json({ ok: false, error: 'Formato de fecha inválido' });
+  }
+
   const BC_TENANT = process.env.BC_TENANT;
   const BC_ENV = process.env.BC_ENV;
   const BC_COMPANY = process.env.BC_COMPANY;
