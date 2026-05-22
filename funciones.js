@@ -705,7 +705,7 @@ async function doDeleteAusencia(data) {
 async function getDocumentos() {
   const result = await dbQuery({
     action: 'select',
-    table: 'tblcontroldocumental',
+    table: 'tblControlDocumental',
     options: { select: '*' }
   });
   if (!result.ok) return result;

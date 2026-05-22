@@ -39,7 +39,7 @@ export default async function handler(req, res) {
   const ALLOWED_TABLES = [
     'tblFichaje', 'tblpedidos', 'tblcamiones', 'tblobras',
     'PRODUCCION', 'GASOIL', 'GASOIL_STOCK', 'horometros',
-    'tblGamasOT', 'tblAusencias', 'tblcontroldocumental',
+    'tblGamasOT', 'tblAusencias', 'tblControlDocumental',
     'tblGamasNormas', 'tblGamasDependientes', 'tblGamasActivos',
     'tblGamasListadoPreventivo', 'tblUsuarios',
     'tblactivos', 'tblcaja', 'tblnotas'

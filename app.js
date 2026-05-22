@@ -265,7 +265,7 @@ async function doDeleteAusencia(data) {
 
 // ── DOCUMENTOS ───────────────────────────────────────────────
 async function getDocumentos() {
-  const result = await dbQuery({ action: 'select', table: 'tblcontroldocumental', options: { select: '*' } });
+  const result = await dbQuery({ action: 'select', table: 'tblControlDocumental', options: { select: '*' } });
   if (!result.ok) return result;
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   const docs = (result.data||[]).map(r => {
