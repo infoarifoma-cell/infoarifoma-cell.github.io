@@ -13,6 +13,12 @@ export default async function handler(req, res) {
     return res.status(401).json({ ok: false, error: 'Token requerido' });
   }
 
+  // Sanitizar inputs contra OData injection
+  const odataSafe = (val) => String(val || '').replace(/'/g, "''");
+  if (!codigoCliente || !proyectoCod) {
+    return res.status(400).json({ ok: false, error: 'codigoCliente y proyectoCod requeridos' });
+  }
+
   const BC_TENANT = process.env.BC_TENANT;
   const BC_ENV = process.env.BC_ENV;
   const BC_COMPANY = process.env.BC_COMPANY;
@@ -31,7 +37,7 @@ export default async function handler(req, res) {
     const companyId = company.id;
 
     // Buscar o crear pedido
-    const filter = `customerNumber eq '${codigoCliente}' and externalDocumentNumber eq '${proyectoCod}'`;
+    const filter = `customerNumber eq '${odataSafe(codigoCliente)}' and externalDocumentNumber eq '${odataSafe(proyectoCod)}'`;
     const ordersRes = await fetch(`${base}(${companyId})/salesOrders?$filter=${encodeURIComponent(filter)}&$select=id,number`, { headers });
     const ordersJson = await ordersRes.json();
 

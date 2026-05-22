@@ -2,7 +2,7 @@
 // ============================================================
 // ARIFOMA · CAPA DE API — SUPABASE
 // ============================================================
-// _supabase, SUPABASE_URL, SUPABASE_KEY, _initAuthClient definidos en funciones.js
+// _supabase (solo auth), dbQuery (proxy backend), _initAuthClient definidos en funciones.js
 
 // ── GOOGLE SHEETS (para Producción y Gasoil) ────────────────
 const SHEETS_API = 'https://script.google.com/macros/s/AKfycbwPIIgZCg03i4aJN8HIxKf20P5IPc-j3HOkoHmt2Jx0-vqiWrmq4Gz2WZmZvyopYJlv/exec';
@@ -47,94 +47,66 @@ async function sheetsPost(payload) {
 
 // ── FICHAJES ────────────────────────────────────────────────
 async function getFichajes() {
-  const { data, error } = await _supabase
-    .from('tblFichaje').select('*')
-    .order('fentrada', { ascending: false }).limit(1500);
-  return error ? { ok: false, error: error.message } : { ok: true, data };
+  return dbQuery({ action: 'select', table: 'tblFichaje', options: { select: '*', order: 'fentrada.desc', limit: 1500 } });
 }
 async function doPostEntrada(data) {
-  const insertData = {
+  const result = await dbQuery({ action: 'insert', table: 'tblFichaje', data: {
     empleado: data.empleado,
     fecha: data.fecha || new Date().toISOString().slice(0, 10),
     entrada: data.entrada || new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
     tipoTrabajo: data.tipoTrabajo || 'JORNADA',
     fentrada: data.fentrada || new Date().toISOString()
-  };
-  const { error } = await _supabase.from('tblFichaje').insert([insertData]);
-  if (error) {
-    console.error('doPostEntrada error:', error.message);
-    return { ok: false, error: error.message };
-  }
-  return { ok: true };
+  }});
+  if (!result.ok) console.error('doPostEntrada error:', result.error);
+  return result;
 }
 async function doPostFichajeManual(data) {
-  const insertData = {
-    empleado: data.empleado,
-    fecha: data.fecha,
-    entrada: data.entrada,
-    salida: data.salida || null,
-    tipoTrabajo: data.tipoTrabajo || 'JORNADA',
-    fentrada: data.fentrada,
-    fsalida: data.fsalida || null,
-    tiempodia: data.tiempodia || null
-  };
-  const { data: rows, error } = await _supabase.from('tblFichaje').insert([insertData]).select('id');
-  if (error) {
-    console.error('doPostFichajeManual error:', error.message);
-    return { ok: false, error: error.message };
-  }
-  return { ok: true, id: rows && rows[0] ? rows[0].id : null };
+  const result = await dbQuery({ action: 'insert', table: 'tblFichaje', data: {
+    empleado: data.empleado, fecha: data.fecha, entrada: data.entrada,
+    salida: data.salida || null, tipoTrabajo: data.tipoTrabajo || 'JORNADA',
+    fentrada: data.fentrada, fsalida: data.fsalida || null, tiempodia: data.tiempodia || null
+  }, options: { select: 'id' }});
+  if (!result.ok) { console.error('doPostFichajeManual error:', result.error); return result; }
+  return { ok: true, id: result.data && result.data[0] ? result.data[0].id : null };
 }
 async function doEditSalida(data) {
-  const { data: registro, error: searchError } = await _supabase
-    .from('tblFichaje').select('id')
-    .eq('empleado', data.empleado).is('salida', null)
-    .order('fentrada', { ascending: false }).limit(1).single();
-  if (searchError || !registro) {
-    const { error: insErr } = await _supabase.from('tblFichaje').insert([{
+  const search = await dbQuery({ action: 'select', table: 'tblFichaje',
+    filters: [{ column: 'empleado', op: 'eq', value: data.empleado }, { column: 'salida', op: 'is', value: 'null' }],
+    options: { select: 'id', order: 'fentrada.desc', limit: 1 }
+  });
+  const registro = search.ok && search.data && search.data.length ? search.data[0] : null;
+  if (!registro) {
+    return dbQuery({ action: 'insert', table: 'tblFichaje', data: {
       empleado: data.empleado, salida: data.salida,
       fsalida: data.fsalida || new Date().toISOString(), tiempodia: data.tiempodia
-    }]);
-    return insErr ? { ok: false, error: insErr.message } : { ok: true };
+    }});
   }
-  const { error: updateErr } = await _supabase.from('tblFichaje')
-    .update({ salida: data.salida, fsalida: data.fsalida || new Date().toISOString(), tiempodia: data.tiempodia })
-    .eq('id', registro.id);
-  return updateErr ? { ok: false, error: updateErr.message } : { ok: true };
+  return dbQuery({ action: 'update', table: 'tblFichaje',
+    data: { salida: data.salida, fsalida: data.fsalida || new Date().toISOString(), tiempodia: data.tiempodia },
+    filters: [{ column: 'id', op: 'eq', value: registro.id }]
+  });
 }
 async function doEditFichaje(data) {
-  const { error } = await _supabase.from('tblFichaje').update({
-    empleado: data.empleado, fecha: data.fecha,
-    entrada: data.entrada, salida: data.salida,
-    fentrada: data.fentrada, fsalida: data.fsalida, tiempodia: data.tiempodia
-  }).eq('id', data.id);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return dbQuery({ action: 'update', table: 'tblFichaje', data: {
+    empleado: data.empleado, fecha: data.fecha, entrada: data.entrada,
+    salida: data.salida, fentrada: data.fentrada, fsalida: data.fsalida, tiempodia: data.tiempodia
+  }, filters: [{ column: 'id', op: 'eq', value: data.id }]});
 }
 async function doDeleteFichaje(data) {
-  const { error } = await _supabase.from('tblFichaje').delete().eq('id', data.id);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return dbQuery({ action: 'delete', table: 'tblFichaje', filters: [{ column: 'id', op: 'eq', value: data.id }] });
 }
 
 // ── PEDIDOS ─────────────────────────────────────────────────
 async function getPedidos(diasAtras = 90) {
   const corte = new Date();
   corte.setDate(corte.getDate() - diasAtras);
-  const all = [];
-  let from = 0;
-  const PAGE = 1000;
-  while (true) {
-    const { data, error } = await _supabase.from('tblpedidos').select('*')
-      .gte('fechaHora', corte.toISOString()).order('fechaHora', { ascending: false })
-      .range(from, from + PAGE - 1);
-    if (error) return { ok: false, error: error.message };
-    all.push(...data);
-    if (data.length < PAGE) break;
-    from += PAGE;
-  }
-  return { ok: true, data: all };
+  return dbQuery({ action: 'select', table: 'tblpedidos',
+    filters: [{ column: 'fechaHora', op: 'gte', value: corte.toISOString() }],
+    options: { select: '*', order: 'fechaHora.desc' }
+  });
 }
 async function doPostPesada(data) {
-  const { data: inserted, error } = await _supabase.from('tblpedidos').insert([{
+  const result = await dbQuery({ action: 'insert', table: 'tblpedidos', data: {
     matriculacam: data.matriculacam, matricularem: data.matricularem,
     tara: data.tara, chofer: data.chofer,
     nombreCliente: data.nombreCliente, codigoCliente: data.codigoCliente,
@@ -145,10 +117,9 @@ async function doPostPesada(data) {
     idproyecto: data.proyectoCod || null,
     numalbarancalle: (data.numPedido && data.numLinea) ? `${data.numPedido}/${data.numLinea}` : null,
     fechaHora: new Date().toISOString()
-  }]).select('id').single();
-  if (error) return { ok: false, error: error.message };
-  const pedidoId = inserted?.id;
-  // Enviar línea a BC en segundo plano
+  }, options: { select: 'id' }});
+  if (!result.ok) return result;
+  const pedidoId = result.data && result.data[0] ? result.data[0].id : null;
   enviarLineaBCPesada(data).catch(e => console.warn('BC línea:', e.message));
   return { ok: true, id: pedidoId };
 }
@@ -188,41 +159,25 @@ async function doEditarPedido(data) {
   if (data.proyectoCod   !== undefined) updates.proyectoCod   = data.proyectoCod;
   if (data.proyectoName  !== undefined) updates.proyectoName  = data.proyectoName;
   if (data.observaciones !== undefined) updates.observaciones = data.observaciones;
-  const { error } = await _supabase.from('tblpedidos').update(updates).eq('id', data.id);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return dbQuery({ action: 'update', table: 'tblpedidos', data: updates, filters: [{ column: 'id', op: 'eq', value: data.id }] });
 }
 
 // ── CAMIONES ────────────────────────────────────────────────
 async function getCamiones() {
-  const { data, error } = await _supabase.from('tblcamiones').select('*').order('matriculacam');
-  return error ? { ok: false, error: error.message } : { ok: true, data };
+  return dbQuery({ action: 'select', table: 'tblcamiones', options: { select: '*', order: 'matriculacam.asc' } });
 }
 async function doNuevoCamion(data) {
   const { tipo, id, ...payload } = data;
-  console.log('Insertando camión:', payload);
-  const { error } = await _supabase.from('tblcamiones').insert([payload]);
-  if(error) console.error('Error Supabase:', error);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return dbQuery({ action: 'insert', table: 'tblcamiones', data: payload });
 }
 async function doEditarCamion(data) {
   const { id, tipo, ...updates } = data;
-  const { data: rows, error } = await _supabase.from('tblcamiones').update(updates).eq('id', id).select();
-  if(error) return { ok: false, error: error.message };
-  if(!rows || rows.length === 0) return { ok: false, error: 'No se pudo editar. Verifica permisos en Supabase (RLS).' };
-  return { ok: true };
+  return dbQuery({ action: 'update', table: 'tblcamiones', data: updates, filters: [{ column: 'id', op: 'eq', value: id }] });
 }
 async function doEliminarCamion(data) {
   const id = Number(data.id);
   if (!id || isNaN(id)) return { ok: false, error: 'ID inválido' };
-  try {
-    const { data: deleted, error } = await _supabase.from('tblcamiones').delete().eq('id', id).select();
-    console.log('Eliminar camión id:', id, 'deleted:', deleted, 'error:', error);
-    if (error) return { ok: false, error: error.message };
-    if (!deleted || deleted.length === 0) return { ok: false, error: 'No se pudo eliminar. Verifica permisos en Supabase (RLS).' };
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: e.message };
-  }
+  return dbQuery({ action: 'delete', table: 'tblcamiones', filters: [{ column: 'id', op: 'eq', value: id }] });
 }
 
 // ── PRODUCCIÓN y GASOIL → Google Sheets (via sheetsFetch/sheetsPost) ──
@@ -230,7 +185,8 @@ async function doEliminarCamion(data) {
 // ── OT (Órdenes de Trabajo) ──────────────────────────────────
 async function doPostOT(data) {
   // Calcular siguiente número OT
-  const { data: maxRow } = await _supabase.from('tblGamasOT').select('Ot').order('Ot', { ascending: false }).limit(1);
+  const maxRes = await dbQuery({ action: 'select', table: 'tblGamasOT', options: { select: 'Ot', order: 'Ot.desc', limit: 1 } });
+  const maxRow = maxRes.ok ? maxRes.data : [];
   const nextOt = (maxRow && maxRow.length && maxRow[0].Ot ? maxRow[0].Ot : 0) + 1;
   const row = {
     Activo: data.activo, Fecha: data.fecha, Operario: data.operario,
@@ -240,14 +196,15 @@ async function doPostOT(data) {
   if (data.checks && Array.isArray(data.checks)) {
     data.checks.forEach((v, i) => { row['n' + (i + 1)] = !!v; });
   }
-  const { data: inserted, error } = await _supabase.from('tblGamasOT').insert([row]).select('id,Ot').single();
-  return error ? { ok: false, error: error.message } : { ok: true, ot: inserted?.Ot || inserted?.id };
+  const result = await dbQuery({ action: 'insert', table: 'tblGamasOT', data: row, options: { select: 'id,Ot' } });
+  if (!result.ok) return result;
+  const inserted = result.data && result.data[0] ? result.data[0] : {};
+  return { ok: true, ot: inserted.Ot || inserted.id };
 }
 async function getHistorialOT() {
-  const { data, error } = await _supabase.from('tblGamasOT').select('*')
-    .order('Fecha', { ascending: false }).limit(200);
-  if (error) return { ok: false, error: error.message };
-  const mapped = (data || []).map(r => {
+  const result = await dbQuery({ action: 'select', table: 'tblGamasOT', options: { select: '*', order: 'Fecha.desc', limit: 200 } });
+  if (!result.ok) return result;
+  const mapped = (result.data || []).map(r => {
     const checks = [];
     for (let i = 1; i <= 60; i++) { if (r['n' + i] !== undefined) checks.push(!!r['n' + i]); }
     return {
@@ -272,27 +229,25 @@ async function doEditarOT(data) {
   if (rest.checks && Array.isArray(rest.checks)) {
     rest.checks.forEach((v, i) => { updates['n' + (i + 1)] = !!v; });
   }
-  const { error } = await _supabase.from('tblGamasOT').update(updates).eq('id', id);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return dbQuery({ action: 'update', table: 'tblGamasOT', data: updates, filters: [{ column: 'id', op: 'eq', value: id }] });
 }
 async function doDeleteOT(data) {
-  const { error } = await _supabase.from('tblGamasOT').delete().eq('id', data.id);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return dbQuery({ action: 'delete', table: 'tblGamasOT', filters: [{ column: 'id', op: 'eq', value: data.id }] });
 }
 
 // ── AUSENCIAS ────────────────────────────────────────────────
 async function getAusencias() {
-  const { data, error } = await _supabase.from('tblAusencias').select('*');
-  return error ? { ok: false, error: error.message } : { ok: true, data };
+  return dbQuery({ action: 'select', table: 'tblAusencias', options: { select: '*' } });
 }
 async function doPostAusencia(data) {
-  const { data: inserted, error } = await _supabase.from('tblAusencias').insert([{
+  const result = await dbQuery({ action: 'insert', table: 'tblAusencias', data: {
     tipo: data.categoria, trabajador: data.trabajador,
     start: data.start, end: data.end, dias: data.dias,
     subtipo: data.subtipo, horas: data.horas, motivo: data.motivo,
     fechaCreacion: new Date().toISOString()
-  }]).select('id').single();
-  return error ? { ok: false, error: error.message } : { ok: true, id: inserted?.id };
+  }, options: { select: 'id' }});
+  if (!result.ok) return result;
+  return { ok: true, id: result.data && result.data[0] ? result.data[0].id : null };
 }
 async function doEditAusencia(data) {
   const updates = {};
@@ -302,20 +257,18 @@ async function doEditAusencia(data) {
   if (data.subtipo !== undefined) updates.subtipo = data.subtipo;
   if (data.horas   !== undefined) updates.horas   = data.horas;
   if (data.motivo  !== undefined) updates.motivo  = data.motivo;
-  const { error } = await _supabase.from('tblAusencias').update(updates).eq('id', data.id);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return dbQuery({ action: 'update', table: 'tblAusencias', data: updates, filters: [{ column: 'id', op: 'eq', value: data.id }] });
 }
 async function doDeleteAusencia(data) {
-  const { error } = await _supabase.from('tblAusencias').delete().eq('id', data.id);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return dbQuery({ action: 'delete', table: 'tblAusencias', filters: [{ column: 'id', op: 'eq', value: data.id }] });
 }
 
 // ── DOCUMENTOS ───────────────────────────────────────────────
 async function getDocumentos() {
-  const { data, error } = await _supabase.from('tblControlDocumental').select('*');
-  if (error) return { ok: false, error: error.message };
+  const result = await dbQuery({ action: 'select', table: 'tblcontroldocumental', options: { select: '*' } });
+  if (!result.ok) return result;
   const hoy = new Date(); hoy.setHours(0,0,0,0);
-  const docs = (data||[]).map(r => {
+  const docs = (result.data||[]).map(r => {
     const fv = r.fechavencimiento ? new Date(r.fechavencimiento) : null;
     const dias = fv ? Math.round((fv - hoy) / 86400000) : null;
     return { fuente:'nuevo', id:r.id, numero:r.numero, nombre:r.nombre, estado:r.estado,
@@ -349,128 +302,107 @@ async function getInit() {
 // ── GAMAS NORMAS ─────────────────────────────────────────────
 // Columnas reales: id, Numero, Gama, Modelo, Intervalo, n1..n60
 async function getGamasNormas() {
-  const { data, error } = await _supabase.from('tblGamasNormas').select('*').order('id', { ascending: true });
-  return error ? { ok: false, error: error.message } : { ok: true, data: data || [] };
+  return dbQuery({ action: 'select', table: 'tblGamasNormas', options: { select: '*', order: 'id.asc' } });
 }
 async function doPostGamaNorma(d) {
   const row = { Numero: d.Numero||'', Gama: d.Gama||'', Modelo: d.Modelo||'', Intervalo: Number(d.Intervalo)||0 };
   for(let i=1;i<=60;i++) row['n'+i] = d['n'+i]||null;
-  const { error } = await _supabase.from('tblGamasNormas').insert([row]);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return dbQuery({ action: 'insert', table: 'tblGamasNormas', data: row });
 }
 async function doEditGamaNorma(d) {
   const row = { Numero: d.Numero||'', Gama: d.Gama||'', Modelo: d.Modelo||'', Intervalo: Number(d.Intervalo)||0 };
   for(let i=1;i<=60;i++) row['n'+i] = d['n'+i]||null;
-  const { error } = await _supabase.from('tblGamasNormas').update(row).eq('id', d.id);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return dbQuery({ action: 'update', table: 'tblGamasNormas', data: row, filters: [{ column: 'id', op: 'eq', value: d.id }] });
 }
 async function doDeleteGamaNorma(id) {
-  const { error } = await _supabase.from('tblGamasNormas').delete().eq('id', id);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return dbQuery({ action: 'delete', table: 'tblGamasNormas', filters: [{ column: 'id', op: 'eq', value: id }] });
 }
 
 // ── GAMAS DEPENDIENTES (Subgamas) ─────────────────────────────
 // Columnas reales: id, Gama_Principal, Gama_1..Gama_6
 async function getGamasDependientes() {
-  const { data, error } = await _supabase.from('tblGamasDependientes').select('*').order('id', { ascending: true });
-  return error ? { ok: false, error: error.message } : { ok: true, data: data || [] };
+  return dbQuery({ action: 'select', table: 'tblGamasDependientes', options: { select: '*', order: 'id.asc' } });
 }
 async function doPostGamaDependiente(d) {
   const row = { Gama_Principal: d.Gama_Principal||'' };
   for(let i=1;i<=6;i++) row['Gama_'+i] = d['Gama_'+i]||null;
-  const { error } = await _supabase.from('tblGamasDependientes').insert([row]);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return dbQuery({ action: 'insert', table: 'tblGamasDependientes', data: row });
 }
 async function doEditGamaDependiente(d) {
   const row = { Gama_Principal: d.Gama_Principal||'' };
   for(let i=1;i<=6;i++) row['Gama_'+i] = d['Gama_'+i]||null;
-  const { error } = await _supabase.from('tblGamasDependientes').update(row).eq('id', d.id);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return dbQuery({ action: 'update', table: 'tblGamasDependientes', data: row, filters: [{ column: 'id', op: 'eq', value: d.id }] });
 }
 async function doDeleteGamaDependiente(id) {
-  const { error } = await _supabase.from('tblGamasDependientes').delete().eq('id', id);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return dbQuery({ action: 'delete', table: 'tblGamasDependientes', filters: [{ column: 'id', op: 'eq', value: id }] });
 }
 
 // ── GAMAS ACTIVOS ─────────────────────────────────────────────
 // Columnas reales: id, Activo, Gama_1..Gama_9, Check_1..Check_3
 async function getGamasActivos() {
-  const { data, error } = await _supabase.from('tblGamasActivos').select('*').order('Activo', { ascending: true });
-  return error ? { ok: false, error: error.message } : { ok: true, data: data || [] };
+  return dbQuery({ action: 'select', table: 'tblGamasActivos', options: { select: '*', order: 'Activo.asc' } });
 }
 async function doPostGamaActivo(d) {
   const row = { Activo: d.Activo||'' };
   for(let i=1;i<=9;i++) row['Gama_'+i] = d['Gama_'+i]||null;
   for(let i=1;i<=3;i++) row['Check_'+i] = d['Check_'+i]||null;
-  const { error } = await _supabase.from('tblGamasActivos').insert([row]);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return dbQuery({ action: 'insert', table: 'tblGamasActivos', data: row });
 }
 async function doEditGamaActivo(d) {
   const row = { Activo: d.Activo||'' };
   for(let i=1;i<=9;i++) row['Gama_'+i] = d['Gama_'+i]||null;
   for(let i=1;i<=3;i++) row['Check_'+i] = d['Check_'+i]||null;
-  const { error } = await _supabase.from('tblGamasActivos').update(row).eq('id', d.id);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return dbQuery({ action: 'update', table: 'tblGamasActivos', data: row, filters: [{ column: 'id', op: 'eq', value: d.id }] });
 }
 async function doDeleteGamaActivo(id) {
-  const { error } = await _supabase.from('tblGamasActivos').delete().eq('id', id);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return dbQuery({ action: 'delete', table: 'tblGamasActivos', filters: [{ column: 'id', op: 'eq', value: id }] });
 }
 
 // ── GAMAS LISTADO PREVENTIVO ──────────────────────────────────
 // Columnas reales: id, Activo, Gama, Medidor, Proximo, U_Medicion_med, U_Medicion_fecha, Falta, Estado, Principal, Aviso
 async function getGamasListado() {
-  const { data, error } = await _supabase.from('tblGamasListadoPreventivo').select('*').order('Activo', { ascending: true });
-  return error ? { ok: false, error: error.message } : { ok: true, data: data || [] };
+  return dbQuery({ action: 'select', table: 'tblGamasListadoPreventivo', options: { select: '*', order: 'Activo.asc' } });
 }
 async function doPostGamaListado(d) {
   const proximo = Number(d.Proximo) || 0;
   const umed    = Number(d.U_Medicion_med) || 0;
-  const { data: ins, error } = await _supabase.from('tblGamasListadoPreventivo').insert([{
+  return dbQuery({ action: 'insert', table: 'tblGamasListadoPreventivo', data: {
     Activo: d.Activo||'', Gama: d.Gama||'', Medidor: d.Medidor||'H',
     Proximo: proximo, U_Medicion_med: umed, U_Medicion_fecha: d.U_Medicion_fecha||null,
     Falta: proximo - umed, Estado: d.Estado||null, Principal: d.Principal||false, Aviso: d.Aviso||null
-  }]).select('id').single();
-  return error ? { ok: false, error: error.message } : { ok: true, id: ins?.id };
+  }, options: { select: 'id' }});
 }
 async function doEditGamaListado(d) {
   const proximo = Number(d.Proximo) || 0;
   const umed    = Number(d.U_Medicion_med) || 0;
-  const { error } = await _supabase.from('tblGamasListadoPreventivo').update({
+  return dbQuery({ action: 'update', table: 'tblGamasListadoPreventivo', data: {
     Activo: d.Activo||'', Gama: d.Gama||'', Medidor: d.Medidor||'H',
     Proximo: proximo, U_Medicion_med: umed, U_Medicion_fecha: d.U_Medicion_fecha||null,
     Falta: proximo - umed, Estado: d.Estado||null, Principal: d.Principal||false, Aviso: d.Aviso||null
-  }).eq('id', d.id);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  }, filters: [{ column: 'id', op: 'eq', value: d.id }]});
 }
 async function doDeleteGamaListado(id) {
-  const { error } = await _supabase.from('tblGamasListadoPreventivo').delete().eq('id', id);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return dbQuery({ action: 'delete', table: 'tblGamasListadoPreventivo', filters: [{ column: 'id', op: 'eq', value: id }] });
 }
 
 // ── GAMAS OT ─────────────────────────────────────────────────
 // Columnas reales: id, Activo, Ot, Fecha, Operario, Tiempo, Texto, Estado, Gama, Medicion, n1..n60
 async function getGamasOT(activo) {
-  let q = _supabase.from('tblGamasOT').select('*').order('id', { ascending: false });
-  if(activo) q = q.eq('Activo', activo);
-  const { data, error } = await q;
-  return error ? { ok: false, error: error.message } : { ok: true, data: data || [] };
+  const filters = activo ? [{ column: 'Activo', op: 'eq', value: activo }] : [];
+  return dbQuery({ action: 'select', table: 'tblGamasOT', filters, options: { select: '*', order: 'id.desc' } });
 }
 async function doPostGamasOT(d) {
   const row = { Activo: d.Activo||'', Ot: Number(d.Ot)||0, Fecha: d.Fecha||null, Operario: d.Operario||'', Tiempo: Number(d.Tiempo)||0, Texto: d.Texto||'', Estado: d.Estado||false, Gama: d.Gama||'', Medicion: Number(d.Medicion)||0 };
   for(let i=1;i<=60;i++) row['n'+i] = d['n'+i]||false;
-  const { error } = await _supabase.from('tblGamasOT').insert([row]);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return dbQuery({ action: 'insert', table: 'tblGamasOT', data: row });
 }
 async function doEditGamasOT(d) {
   const row = { Activo: d.Activo||'', Ot: Number(d.Ot)||0, Fecha: d.Fecha||null, Operario: d.Operario||'', Tiempo: Number(d.Tiempo)||0, Texto: d.Texto||'', Estado: d.Estado||false, Gama: d.Gama||'', Medicion: Number(d.Medicion)||0 };
   for(let i=1;i<=60;i++) row['n'+i] = d['n'+i]||false;
-  const { error } = await _supabase.from('tblGamasOT').update(row).eq('id', d.id);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return dbQuery({ action: 'update', table: 'tblGamasOT', data: row, filters: [{ column: 'id', op: 'eq', value: d.id }] });
 }
 async function doDeleteGamasOT(id) {
-  const { error } = await _supabase.from('tblGamasOT').delete().eq('id', id);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return dbQuery({ action: 'delete', table: 'tblGamasOT', filters: [{ column: 'id', op: 'eq', value: id }] });
 }
 
 // ── ROUTER: apiFetch (híbrido Supabase + Google Sheets) ─────
@@ -704,12 +636,13 @@ async function initApp(){
   // Actualizar estado HOY desde Supabase (fuente de verdad)
   const hoy = new Date().toISOString().slice(0, 10);
   try {
-    const { data, error } = await _supabase
-      .from('tblFichaje')
-      .select('empleado, entrada, salida, fentrada')
-      .eq('fecha', hoy);
+    const fichajeHoy = await dbQuery({ action: 'select', table: 'tblFichaje',
+      filters: [{ column: 'fecha', op: 'eq', value: hoy }],
+      options: { select: 'empleado,entrada,salida,fentrada' }
+    });
+    const data = fichajeHoy.data;
 
-    if (!error && data && data.length > 0) {
+    if (fichajeHoy.ok && data && data.length > 0) {
       WORKERS.forEach(n => {
         fst.workers[n].working = false;
         fst.workers[n].entradaTs = null;
@@ -1509,7 +1442,7 @@ async function eliminarLineaSesion(idx){
   // Borrar de Supabase si tiene ID real
   const lid=l._id;
   if(lid&&lid!=='LOCAL'&&lid!=='null'&&!isNaN(Number(lid))){
-    try{ await _supabase.from('tblpedidos').delete().eq('id',Number(lid)); }catch(e){ console.warn('Error borrando línea:',e); }
+    try{ await dbQuery({ action: 'delete', table: 'tblpedidos', filters: [{ column: 'id', op: 'eq', value: Number(lid) }] }); }catch(e){ console.warn('Error borrando línea:',e); }
   }
   basLineasSesion.splice(idx,1);
   renderLineasAlbaran();
@@ -2409,9 +2342,9 @@ async function cargarActivos(){
   const el=document.getElementById('activos-list');
   if(el)el.innerHTML='<div class="tbl"><div class="empty">Cargando...</div></div>';
   try{
-    const {data,error}=await _supabase.from('tblactivos').select('*').order('Codigo');
-    if(error)throw new Error(error.message);
-    activosData=data||[];
+    const result=await dbQuery({ action: 'select', table: 'tblactivos', options: { select: '*', order: 'Codigo.asc' } });
+    if(!result.ok)throw new Error(result.error);
+    activosData=result.data||[];
     buildActivosFiltros();
     filtrarActivos();
   }catch(e){
@@ -2559,12 +2492,13 @@ async function saveActivo(){
   if(!payload.Codigo){alert('El Código no puede estar vacío');return;}
   try{
     let error;
+    let result;
     if(dbid){
-      ({error}=await _supabase.from('tblactivos').update(payload).eq('id',dbid));
+      result=await dbQuery({ action: 'update', table: 'tblactivos', data: payload, filters: [{ column: 'id', op: 'eq', value: dbid }] });
     }else{
-      ({error}=await _supabase.from('tblactivos').insert([payload]));
+      result=await dbQuery({ action: 'insert', table: 'tblactivos', data: payload });
     }
-    if(error)throw new Error(error.message);
+    if(!result.ok)throw new Error(result.error);
     closeActivosModal();
     cargarActivos();
   }catch(e){alert('Error al guardar: '+e.message);}
@@ -2572,13 +2506,13 @@ async function saveActivo(){
 async function eliminarActivo(dbid,codigo){
   if(!confirm('¿Eliminar el activo "'+codigo+'"? Esta acción no se puede deshacer.'))return;
   try{
-    let error;
+    let result;
     if(dbid){
-      ({error}=await _supabase.from('tblactivos').delete().eq('id',dbid));
+      result=await dbQuery({ action: 'delete', table: 'tblactivos', filters: [{ column: 'id', op: 'eq', value: dbid }] });
     }else{
-      ({error}=await _supabase.from('tblactivos').delete().eq('Codigo',codigo));
+      result=await dbQuery({ action: 'delete', table: 'tblactivos', filters: [{ column: 'Codigo', op: 'eq', value: codigo }] });
     }
-    if(error)throw new Error(error.message);
+    if(!result.ok)throw new Error(result.error);
     cargarActivos();
   }catch(e){alert('Error al eliminar: '+e.message);}
 }
@@ -2750,13 +2684,12 @@ function procesarAusencias(json){
 
 async function verificarFichajePendiente(nombre) {
   const hoy = new Date().toISOString().slice(0, 10);
-  const { data, error } = await _supabase
-    .from('tblFichaje')
-    .select('entrada, salida')
-    .eq('empleado', nombre.toUpperCase())
-    .eq('fecha', hoy);
+  const result = await dbQuery({ action: 'select', table: 'tblFichaje',
+    filters: [{ column: 'empleado', op: 'eq', value: nombre.toUpperCase() }, { column: 'fecha', op: 'eq', value: hoy }],
+    options: { select: 'entrada,salida' }
+  });
 
-  if (data && data.length > 0 && data[0].entrada && !data[0].salida) {
+  if (result.data && result.data.length > 0 && result.data[0].entrada && !result.data[0].salida) {
     return { bloqueado: true, motivo: 'Ya fichaste hoy. Debes desfichar primero.' };
   }
   return { bloqueado: false };
@@ -4680,8 +4613,8 @@ async function cargarFacturasCompra() {
     const invJson = await invRes.json();
 
     // Cargar facturas ya registradas en caja (Supabase)
-    const { data: yaRegistradas } = await _supabase.from('tblcaja').select('facturabc');
-    const registradasSet = new Set((yaRegistradas || []).map(r => r.facturabc.trim()));
+    const cajaRes = await dbQuery({ action: 'select', table: 'tblcaja', options: { select: 'facturabc' } });
+    const registradasSet = new Set((cajaRes.data || []).map(r => r.facturabc.trim()));
 
     cajaFacturas = (invJson.value || []).filter(f => !registradasSet.has((f.number || '').trim())).map(f => ({
       id: f.id,
@@ -4830,8 +4763,8 @@ async function enviarCajaSheet() {
       importe: f.importe,
       factproveedor: f.factProveedor
     }));
-    const { error: sbErr } = await _supabase.from('tblcaja').insert(rows);
-    if (sbErr) throw new Error(sbErr.message);
+    const cajaInsert = await dbQuery({ action: 'insert', table: 'tblcaja', data: rows });
+    if (!cajaInsert.ok) throw new Error(cajaInsert.error);
 
     btn.textContent = '✓ Enviado';
     btn.style.background = '#2e7d32';
@@ -4872,7 +4805,7 @@ async function getMsalApp() {
       authority: `https://login.microsoftonline.com/${BC_TENANT}`,
       redirectUri: window.location.origin + '/'
     },
-    cache: { cacheLocation: 'localStorage' }
+    cache: { cacheLocation: 'sessionStorage' }
   });
   await msalApp.initialize();
   return msalApp;
@@ -7004,11 +6937,8 @@ async function checkFacturasVencidasBackground() {
 let notasCache = [];
 
 async function cargarNotas() {
-  const { data, error } = await _supabase
-    .from('tblnotas')
-    .select('*')
-    .order('created_at', { ascending: false });
-  if (!error) notasCache = data || [];
+  const result = await dbQuery({ action: 'select', table: 'tblnotas', options: { select: '*', order: 'created_at.desc' } });
+  if (result.ok) notasCache = result.data || [];
   actualizarBadgeNotas();
 }
 
@@ -7116,8 +7046,8 @@ async function guardarNota() {
   const texto = document.getElementById('nota-nueva-texto').value.trim();
   if (!texto) { alert('Escribe el texto de la nota'); return; }
 
-  const { error } = await _supabase.from('tblnotas').insert({ pagina, tipo, texto });
-  if (error) { alert('Error guardando nota: ' + error.message); return; }
+  const notaRes = await dbQuery({ action: 'insert', table: 'tblnotas', data: { pagina, tipo, texto } });
+  if (!notaRes.ok) { alert('Error guardando nota: ' + notaRes.error); return; }
 
   cerrarFormNota();
   await cargarNotas();
@@ -7126,8 +7056,8 @@ async function guardarNota() {
 
 async function eliminarNota(id) {
   if (!confirm('¿Eliminar esta nota?')) return;
-  const { error } = await _supabase.from('tblnotas').delete().eq('id', id);
-  if (error) { alert('Error: ' + error.message); return; }
+  const delRes = await dbQuery({ action: 'delete', table: 'tblnotas', filters: [{ column: 'id', op: 'eq', value: id }] });
+  if (!delRes.ok) { alert('Error: ' + delRes.error); return; }
   await cargarNotas();
   renderNotas();
 }
