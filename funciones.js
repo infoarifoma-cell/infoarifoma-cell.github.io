@@ -114,7 +114,11 @@ async function googleLogin() {
   }
 }
 
+let _checkingSession = false;
 async function checkGoogleSession() {
+  if (_checkingSession || window._appInitialized) return;
+  _checkingSession = true;
+  try {
   const { data: { session } } = await _supabase.auth.getSession();
   if (session && session.user) {
     const email = session.user.email;
@@ -163,6 +167,9 @@ async function checkGoogleSession() {
       document.getElementById('shell').style.display = 'flex';
       setTimeout(() => initApp(), 50);
     }
+  }
+  } finally {
+    _checkingSession = false;
   }
 }
 
