@@ -4568,6 +4568,7 @@ async function exportarExcelCliente(bcIdx) {
 // ── CAJA — Facturas de compra desde BC → Google Sheet ────────
 let cajaFacturas = [];
 let cajaSelected = new Set();
+let cajaRegistradas = new Set();
 let cajaInited = false;
 
 function initCaja() {
@@ -4612,11 +4613,29 @@ async function cargarFacturasCompra() {
     if (!invRes.ok) throw new Error('Error obteniendo facturas: ' + invRes.statusText);
     const invJson = await invRes.json();
 
-    // Cargar facturas ya registradas en caja (Supabase)
-    const cajaRes = await dbQuery({ action: 'select', table: 'tblcaja', options: { select: 'facturabc' } });
+    // Cargar facturas ya registradas en caja (Supabase + Google Sheet)
+    const CAJA_SHEET_ID = '1fxHwVEgcIrRdyPh-TJ-k84QFBHXX-P3mNRCiWYaeDTQ';
+    const CAJA_SHEET_TAB = 'LISTADO FACTS.CAJAS';
+    const [cajaRes, sheetRes] = await Promise.all([
+      dbQuery({ action: 'select', table: 'tblcaja', options: { select: 'facturabc' } }),
+      fetch(`https://docs.google.com/spreadsheets/d/${CAJA_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(CAJA_SHEET_TAB)}&tq=${encodeURIComponent('select C')}`)
+        .then(r => r.text()).catch(() => '')
+    ]);
     const registradasSet = new Set((cajaRes.data || []).map(r => r.facturabc.trim()));
+    // Añadir facturas del Google Sheet (columna C)
+    if (sheetRes) {
+      try {
+        const jsonStr = sheetRes.replace(/^[^(]*\(/, '').replace(/\);?\s*$/, '');
+        const gviz = JSON.parse(jsonStr);
+        (gviz.table.rows || []).forEach(row => {
+          const v = row.c && row.c[0] && row.c[0].v;
+          if (v) registradasSet.add(String(v).trim());
+        });
+      } catch(_) {}
+    }
 
-    cajaFacturas = (invJson.value || []).filter(f => !registradasSet.has((f.number || '').trim())).map(f => ({
+    cajaRegistradas = registradasSet;
+    cajaFacturas = (invJson.value || []).map(f => ({
       id: f.id,
       number: f.number || '',
       postingDate: f.postingDate || '',
@@ -4655,7 +4674,7 @@ function renderCajaList() {
   });
 
   let html = `<div style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
-    <div style="font-size:.72rem;color:var(--muted)">${filtered.length} factura${filtered.length !== 1 ? 's' : ''}</div>
+    <div style="font-size:.72rem;color:var(--muted)">${filtered.length} factura${filtered.length !== 1 ? 's' : ''} · ${filtered.filter(f => cajaRegistradas.has(f.number.trim())).length} ya registrada${filtered.filter(f => cajaRegistradas.has(f.number.trim())).length !== 1 ? 's' : ''}</div>
     <button onclick="toggleAllCaja()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:.68rem;color:var(--accent);cursor:pointer;font-weight:600">${cajaSelected.size > 0 && filtered.every(f => cajaSelected.has(f.id)) ? 'Deseleccionar todos' : 'Seleccionar todos'}</button>
   </div>`;
 
@@ -4671,20 +4690,35 @@ function renderCajaList() {
   </div>`;
 
   filtered.forEach(f => {
-    const checked = cajaSelected.has(f.id);
+    const yaRegistrada = cajaRegistradas.has(f.number.trim());
+    const checked = !yaRegistrada && cajaSelected.has(f.id);
     const dateReg = f.postingDate ? new Date(f.postingDate + 'T00:00:00').toLocaleDateString('es-ES') : '';
     const dateEmi = f.invoiceDate ? new Date(f.invoiceDate + 'T00:00:00').toLocaleDateString('es-ES') : '';
-    html += `<div onclick="toggleCajaItem('${f.id}')" style="display:flex;align-items:center;padding:10px 12px;gap:8px;border-bottom:1px solid rgba(0,0,0,.05);cursor:pointer;background:${checked ? 'rgba(107,125,46,.06)' : 'transparent'};transition:background .15s">
-      <div style="width:22px;height:22px;border:2px solid ${checked ? 'var(--accent2)' : 'var(--border)'};border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:${checked ? 'var(--accent2)' : 'transparent'};transition:all .15s">
-        ${checked ? '<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" fill="none"/></svg>' : ''}
-      </div>
-      <div style="flex:.8;font-family:'DM Mono',monospace;font-size:.75rem;color:var(--text)">${f.number}</div>
-      <div style="flex:.6;font-size:.75rem;color:var(--muted)">${dateReg}</div>
-      <div style="flex:.6;font-size:.75rem;color:var(--muted)">${dateEmi}</div>
-      <div style="flex:2;font-size:.78rem;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.vendorName}</div>
-      <div style="flex:.8;text-align:right;font-family:'DM Mono',monospace;font-size:.78rem;font-weight:700;color:var(--accent2)">${f.amountInc.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €</div>
-      <div style="flex:1;font-size:.72rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.vendorInvoice}</div>
-    </div>`;
+    if (yaRegistrada) {
+      html += `<div style="display:flex;align-items:center;padding:10px 12px;gap:8px;border-bottom:1px solid rgba(0,0,0,.05);opacity:.45;pointer-events:none;background:rgba(0,0,0,.03)">
+        <div style="width:22px;height:22px;border:2px solid var(--border);border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--border)">
+          <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" fill="none"/></svg>
+        </div>
+        <div style="flex:.8;font-family:'DM Mono',monospace;font-size:.75rem">${f.number}</div>
+        <div style="flex:.6;font-size:.75rem">${dateReg}</div>
+        <div style="flex:.6;font-size:.75rem">${dateEmi}</div>
+        <div style="flex:2;font-size:.78rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.vendorName}</div>
+        <div style="flex:.8;text-align:right;font-family:'DM Mono',monospace;font-size:.78rem;font-weight:700">${f.amountInc.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €</div>
+        <div style="flex:1;font-size:.72rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.vendorInvoice} <span style="font-size:.6rem;font-style:italic">✓ registrada</span></div>
+      </div>`;
+    } else {
+      html += `<div onclick="toggleCajaItem('${f.id}')" style="display:flex;align-items:center;padding:10px 12px;gap:8px;border-bottom:1px solid rgba(0,0,0,.05);cursor:pointer;background:${checked ? 'rgba(107,125,46,.06)' : 'transparent'};transition:background .15s">
+        <div style="width:22px;height:22px;border:2px solid ${checked ? 'var(--accent2)' : 'var(--border)'};border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:${checked ? 'var(--accent2)' : 'transparent'};transition:all .15s">
+          ${checked ? '<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" fill="none"/></svg>' : ''}
+        </div>
+        <div style="flex:.8;font-family:'DM Mono',monospace;font-size:.75rem;color:var(--text)">${f.number}</div>
+        <div style="flex:.6;font-size:.75rem;color:var(--muted)">${dateReg}</div>
+        <div style="flex:.6;font-size:.75rem;color:var(--muted)">${dateEmi}</div>
+        <div style="flex:2;font-size:.78rem;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.vendorName}</div>
+        <div style="flex:.8;text-align:right;font-family:'DM Mono',monospace;font-size:.78rem;font-weight:700;color:var(--accent2)">${f.amountInc.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} €</div>
+        <div style="flex:1;font-size:.72rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.vendorInvoice}</div>
+      </div>`;
+    }
   });
 
   el.innerHTML = html;
@@ -4707,9 +4741,10 @@ function toggleAllCaja() {
     if (buscar && !f.vendorName.toLowerCase().includes(buscar) && !f.number.toLowerCase().includes(buscar) && !f.vendorInvoice.toLowerCase().includes(buscar)) return false;
     return true;
   });
-  const allSelected = filtered.every(f => cajaSelected.has(f.id));
-  if (allSelected) filtered.forEach(f => cajaSelected.delete(f.id));
-  else filtered.forEach(f => cajaSelected.add(f.id));
+  const seleccionables = filtered.filter(f => !cajaRegistradas.has(f.number.trim()));
+  const allSelected = seleccionables.every(f => cajaSelected.has(f.id));
+  if (allSelected) seleccionables.forEach(f => cajaSelected.delete(f.id));
+  else seleccionables.forEach(f => cajaSelected.add(f.id));
   renderCajaList();
 }
 
