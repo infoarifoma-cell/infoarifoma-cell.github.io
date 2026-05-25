@@ -1484,7 +1484,7 @@ async function guardarLinea(){
   const prodCod=document.getElementById('bas-producto-sel').value;
   const obraCod=document.getElementById('bas-obra-sel').value;
   if(!prodCod){alert('Selecciona un producto.');return;}
-  if(!obraCod){alert('Selecciona una obra.');return;}
+  if(!obraCod){if(!confirm('¿Seguro que quieres añadir un albarán sin obra?'))return;}
   if(!basNumPedido){alert('Crea primero la cabecera del pedido.');return;}
 
   const bruto=parseFloat(document.getElementById('bas-peso-input').value)||0;
