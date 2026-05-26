@@ -7103,7 +7103,7 @@ const COMPRAS_CLIENT_ID='20d8ca37-34e7-4ad4-b379-97c5b22f15ad';
 const COMPRAS_TENANT_ID='5bd828f2-1899-48ba-a269-c37733f41806';
 const COMPRAS_REDIRECT=location.origin+location.pathname;
 const COMPRAS_SCOPES=['Files.ReadWrite.All'];
-const COMPRAS_ONEDRIVE_BASE='Escritorio/Arifoma/06. ADMINISTRACION/06.01 PROVEEDORES';
+const COMPRAS_ONEDRIVE_BASE='Arifoma/06. ADMINISTRACION/06.01 PROVEEDORES';
 const COMPRAS_MESES=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
 const COMPRAS_PROVEEDORES=[
   '(ANEFA) ASOCIACION NACIONAL DE EMPRESARIOS FABRICANTES DE ARIDO','AENOR','AGONEY LUJAN PEREZ','AGUAS DE GUAYADEQUE SL','ALIANZA ALEMAN BLAKER',
@@ -7276,15 +7276,28 @@ async function comprasSubir(){
     const d=new Date(fecha);
     const year=d.getFullYear();
     const mes=COMPRAS_MESES[d.getMonth()];
-    const ext=_comprasFileName.includes('.')?_comprasFileName.substring(_comprasFileName.lastIndexOf('.')):'.jpg';
+
+    // Si es imagen, convertir a PDF
+    let uploadFile=_comprasFile;
+    let uploadType=_comprasFile.type||'application/octet-stream';
+    let ext='.pdf';
+    if(_comprasFile.type&&_comprasFile.type.startsWith('image/')){
+      btn.textContent='Convirtiendo a PDF...';
+      uploadFile=await comprasImgToPdf(_comprasFile);
+      uploadType='application/pdf';
+    }else{
+      ext=_comprasFileName.includes('.')?_comprasFileName.substring(_comprasFileName.lastIndexOf('.')):'.pdf';
+    }
+
     const fileName=nfac?(nfac+' '+fecha+ext):(fecha+'_factura'+ext);
     const folderPath=COMPRAS_ONEDRIVE_BASE+'/'+prov+'/'+year+'/'+mes;
     const uploadUrl='https://graph.microsoft.com/v1.0/me/drive/root:/'+encodeURIComponent(folderPath)+'/'+encodeURIComponent(fileName)+':/content';
 
+    btn.textContent='Subiendo...';
     const resp=await fetch(uploadUrl,{
       method:'PUT',
-      headers:{'Authorization':'Bearer '+token,'Content-Type':_comprasFile.type||'application/octet-stream'},
-      body:_comprasFile
+      headers:{'Authorization':'Bearer '+token,'Content-Type':uploadType},
+      body:uploadFile
     });
 
     if(!resp.ok){const err=await resp.text();throw new Error(err);}
@@ -7297,6 +7310,74 @@ async function comprasSubir(){
   }finally{
     btn.disabled=false;btn.textContent='Subir a OneDrive';
   }
+}
+
+function comprasImgToPdf(file){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>{
+      const w=img.width,h=img.height;
+      // PDF en puntos (72dpi), ajustar a A4 si es muy grande
+      const a4w=595.28,a4h=841.89;
+      let pw,ph;
+      const ratio=w/h;
+      if(ratio>a4w/a4h){pw=a4w;ph=a4w/ratio;}
+      else{ph=a4h;pw=a4h*ratio;}
+
+      // Dibujar imagen en canvas a resolución original
+      const canvas=document.createElement('canvas');
+      canvas.width=w;canvas.height=h;
+      const ctx=canvas.getContext('2d');
+      ctx.drawImage(img,0,0);
+      const jpegData=canvas.toDataURL('image/jpeg',0.92);
+
+      // Construir PDF manualmente (mínimo válido)
+      const imgBytes=atob(jpegData.split(',')[1]);
+      const imgLen=imgBytes.length;
+      const imgStream=new Uint8Array(imgLen);
+      for(let i=0;i<imgLen;i++)imgStream[i]=imgBytes.charCodeAt(i);
+
+      let pdf='%PDF-1.4\n';
+      const offsets=[];
+
+      offsets.push(pdf.length);
+      pdf+='1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n';
+
+      offsets.push(pdf.length);
+      pdf+='2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n';
+
+      offsets.push(pdf.length);
+      pdf+='3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 '+pw.toFixed(2)+' '+ph.toFixed(2)+']/Contents 4 0 R/Resources<</XObject<</Img 5 0 R>>>>>>endobj\n';
+
+      const content='q '+pw.toFixed(2)+' 0 0 '+ph.toFixed(2)+' 0 0 cm /Img Do Q';
+      offsets.push(pdf.length);
+      pdf+='4 0 obj<</Length '+content.length+'>>stream\n'+content+'\nendstream\nendobj\n';
+
+      offsets.push(pdf.length);
+      const imgHeader='5 0 obj<</Type/XObject/Subtype/Image/Width '+w+'/Height '+h+'/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length '+imgLen+'>>stream\n';
+
+      // Combinar texto + imagen binaria + resto
+      const encoder=new TextEncoder();
+      const pdfBefore=encoder.encode(pdf+imgHeader);
+      const streamEnd=encoder.encode('\nendstream\nendobj\n');
+
+      const xrefStart=pdfBefore.length+imgLen+streamEnd.length;
+      let xref='xref\n0 6\n0000000000 65535 f \n';
+      for(let i=0;i<5;i++)xref+=String(offsets[i]).padStart(10,'0')+' 00000 n \n';
+      xref+='trailer<</Size 6/Root 1 0 R>>\nstartxref\n'+xrefStart+'\n%%EOF';
+      const xrefBytes=encoder.encode(xref);
+
+      const final=new Uint8Array(pdfBefore.length+imgLen+streamEnd.length+xrefBytes.length);
+      final.set(pdfBefore,0);
+      final.set(imgStream,pdfBefore.length);
+      final.set(streamEnd,pdfBefore.length+imgLen);
+      final.set(xrefBytes,pdfBefore.length+imgLen+streamEnd.length);
+
+      resolve(new Blob([final],{type:'application/pdf'}));
+    };
+    img.onerror=()=>reject(new Error('No se pudo cargar la imagen'));
+    img.src=URL.createObjectURL(file);
+  });
 }
 
 function comprasShowError(msg){
