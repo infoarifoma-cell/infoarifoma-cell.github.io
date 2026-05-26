@@ -1786,7 +1786,7 @@
               <label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:32px 16px;border:2px dashed var(--border);border-radius:12px;cursor:pointer;background:var(--surface);text-align:center">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
                 <span style="font-weight:600">Sacar foto o seleccionar imagen</span>
-                <input type="file" accept="image/*" capture="environment" id="compras-file-input" style="display:none" onchange="comprasFileSelected(this)">
+                <input type="file" accept="image/*,application/pdf" capture="environment" id="compras-file-input" style="display:none" onchange="comprasFileSelected(this)">
               </label>
               <img id="compras-preview" style="display:none;max-width:100%;border-radius:8px;margin-top:10px">
             </div>
