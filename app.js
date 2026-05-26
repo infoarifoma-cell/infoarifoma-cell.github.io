@@ -7251,6 +7251,11 @@ function comprasParseOCR(text){
       }else{
         let d=m[1].padStart(2,'0'),mo=m[2].padStart(2,'0'),y=m[3];
         if(y.length===2)y='20'+y;
+        let yn=parseInt(y);
+        if(yn<2000||yn>2099)yn=new Date().getFullYear();
+        y=String(yn);
+        let mn=parseInt(mo),dn=parseInt(d);
+        if(mn>12&&dn<=12){const tmp=mo;mo=d;d=tmp;}
         fechaFound=y+'-'+mo+'-'+d;
       }
       break;
