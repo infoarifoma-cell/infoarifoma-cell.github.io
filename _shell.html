@@ -370,6 +370,9 @@
       <button class="bnav-more-btn" onclick="bnavGo('preventivo')" id="bm-preventivo">
         <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="9" r="7"/><path d="M9 5v4l2.5 2"/></svg>Preventivo
       </button>
+      <button class="bnav-more-btn" onclick="bnavGo('compras')" id="bm-compras">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3h2l1.5 8h7L16 5H6"/><circle cx="8" cy="14" r="1.5"/><circle cx="13" cy="14" r="1.5"/></svg>Compras
+      </button>
     </div>
   </div>
   <nav class="bottom-nav" id="bottom-nav">
@@ -467,6 +470,11 @@
         <div class="sidebar-section">Documentación</div>
         <button class="snav-btn" onclick="goPage('documentos')" id="snav-documentos">
           <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 2h7l4 4v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M11 2v4h4M6 9h6M6 12h4"/></svg>Control Documental
+        </button>
+        <div class="snav-divider"></div>
+        <div class="sidebar-section">Compras</div>
+        <button class="snav-btn" onclick="goPage('compras')" id="snav-compras">
+          <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3h2l1.5 8h7L16 5H6"/><circle cx="8" cy="14" r="1.5"/><circle cx="13" cy="14" r="1.5"/></svg>Escanear factura
         </button>
         <div class="snav-divider"></div>
         <div class="sidebar-section">Mantenimiento</div>
@@ -1766,6 +1774,63 @@
             <select class="fsel" id="filt-ot-operario" onchange="filtrarHistorialOT()"><option value="">Todos los operarios</option></select>
           </div>
           <div id="ot-hist-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
+        </div>
+
+        <!-- ══ COMPRAS — ESCANEAR FACTURA ══ -->
+        <div class="page" id="pg-compras">
+          <div class="sec-title">Escanear factura</div>
+          <div style="display:flex;flex-direction:column;gap:12px;max-width:500px">
+
+            <!-- Paso 1: captura foto -->
+            <div id="compras-step1">
+              <label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:32px 16px;border:2px dashed var(--border);border-radius:12px;cursor:pointer;background:var(--surface);text-align:center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                <span style="font-weight:600">Sacar foto o seleccionar imagen</span>
+                <input type="file" accept="image/*" capture="environment" id="compras-file-input" style="display:none" onchange="comprasFileSelected(this)">
+              </label>
+              <img id="compras-preview" style="display:none;max-width:100%;border-radius:8px;margin-top:10px">
+            </div>
+
+            <!-- Paso 2: procesando OCR -->
+            <div id="compras-step2" style="display:none;text-align:center;padding:20px">
+              <div class="spinner" style="margin:0 auto 10px"></div>
+              <div style="font-size:.85rem;color:var(--muted)">Analizando imagen con OCR...</div>
+              <div id="compras-ocr-progress" style="font-size:.75rem;color:var(--muted);margin-top:4px"></div>
+            </div>
+
+            <!-- Paso 3: formulario datos -->
+            <div id="compras-step3" style="display:none">
+              <div style="font-size:.8rem;color:var(--muted);margin-bottom:8px">Datos detectados — revisa y corrige si es necesario:</div>
+              <label>Proveedor</label>
+              <input class="inp" id="compras-proveedor" list="compras-proveedores-list" placeholder="Nombre del proveedor">
+              <datalist id="compras-proveedores-list"></datalist>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div><label>Nº Factura</label><input class="inp" id="compras-nfactura" placeholder="Ej: FAC-001"></div>
+                <div><label>Fecha</label><input class="inp" type="date" id="compras-fecha"></div>
+              </div>
+              <label style="margin-top:8px">Texto OCR detectado</label>
+              <textarea class="inp" id="compras-ocr-text" style="resize:vertical;min-height:80px;font-size:.72rem;color:var(--muted)" readonly></textarea>
+
+              <div style="display:flex;gap:8px;margin-top:12px">
+                <button class="btn-sec" onclick="comprasReset()">Cancelar</button>
+                <button class="btn-main" onclick="comprasSubir()" id="compras-btn-subir" style="flex:1">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  Subir a OneDrive
+                </button>
+              </div>
+            </div>
+
+            <!-- Paso 4: resultado -->
+            <div id="compras-step4" style="display:none;text-align:center;padding:20px">
+              <div style="font-size:2rem">✓</div>
+              <div style="font-weight:600;margin:8px 0">Archivo subido correctamente</div>
+              <div id="compras-ruta-destino" style="font-size:.75rem;color:var(--muted)"></div>
+              <button class="btn-sec" style="margin-top:12px" onclick="comprasReset()">Escanear otra</button>
+            </div>
+
+            <!-- Error -->
+            <div id="compras-error" style="display:none;padding:12px;background:#ff4d4d18;border:1px solid #ff4d4d55;border-radius:8px;color:#ff4d4d;font-size:.8rem"></div>
+          </div>
         </div>
 
         <!-- ══ MANTENIMIENTO PREVENTIVO ══ -->

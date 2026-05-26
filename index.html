@@ -4,6 +4,8 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="favicon.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4"></script>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser-2.38.3.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="_env-loader.js"></script>
 <script src="funciones.js"></script>
 
@@ -14,11 +16,11 @@
 <!-- CSP: solo recursos de dominios conocidos -->
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
-  script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;
+  script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://alcdn.msauth.net;
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   font-src 'self' https://fonts.gstatic.com;
   img-src 'self' https: data:;
-  connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net https://unpkg.com https://login.microsoftonline.com https://api.businesscentral.dynamics.com;
+  connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net https://unpkg.com https://login.microsoftonline.com https://api.businesscentral.dynamics.com https://graph.microsoft.com;
   frame-src https://login.microsoftonline.com;
   object-src 'none';
   base-uri 'self'
@@ -54,7 +56,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .layout{display:flex;flex:1;align-items:flex-start}
 .sidebar{width:0;overflow:hidden;transition:width .25s ease;background:var(--surface);border-right:1px solid var(--border);flex-shrink:0;position:sticky;top:0;height:100vh;overflow-y:auto}
 .sidebar.open{width:220px}
-.sidebar-inner{width:220px;padding:16px 12px}
+.sidebar-inner{width:220px;padding:16px 12px 80px}
 @media(min-width:900px){.sidebar{width:220px;overflow-y:auto;overflow-x:hidden}.menu-btn{display:none!important}}
 /* ── Bottom Nav (móvil) ──────────────────────────── */
 .bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);z-index:300;padding:4px 0 calc(4px + env(safe-area-inset-bottom));box-shadow:0 -2px 12px rgba(0,0,0,.08)}
