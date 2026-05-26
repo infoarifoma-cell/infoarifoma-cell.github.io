@@ -7161,10 +7161,24 @@ function comprasFileSelected(input){
   _comprasFile=file;
   _comprasFileName=file.name;
   const preview=document.getElementById('compras-preview');
-  preview.src=URL.createObjectURL(file);
-  preview.style.display='block';
+  const isPdf=file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf');
+  if(isPdf){
+    preview.style.display='none';
+  }else{
+    preview.src=URL.createObjectURL(file);
+    preview.style.display='block';
+  }
   comprasInitProveedores();
-  comprasRunOCR(file);
+  if(isPdf){
+    // PDF: saltar OCR, ir directo a formulario manual
+    document.getElementById('compras-ocr-text').value='(PDF — sin OCR)';
+    document.getElementById('compras-proveedor').value='';
+    document.getElementById('compras-nfactura').value='';
+    document.getElementById('compras-fecha').value=new Date().toISOString().slice(0,10);
+    document.getElementById('compras-step3').style.display='block';
+  }else{
+    comprasRunOCR(file);
+  }
 }
 
 async function comprasRunOCR(file){
