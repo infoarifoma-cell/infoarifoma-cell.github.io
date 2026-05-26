@@ -7231,11 +7231,16 @@ function comprasParseOCR(text){
   // ── Detectar nº factura (múltiples patrones) ──
   let nfac='';
   const facPatterns=[
-    /(?:factura|fra|fac|fact|invoice|albaran|albar[aá]n|ticket|recibo)[.:;\s\-#nº°]*\s*([A-Z0-9][\w\/-]{2,25})/i,
-    /(?:nº|n°|num|numero|número)[.:;\s\-]*(?:de\s+)?(?:factura|fra|fac|albaran)?\s*[.:;\s\-]*([A-Z0-9][\w\/-]{2,25})/i,
-    /(?:doc|documento|ref|referencia)[.:;\s\-#]*\s*([A-Z0-9][\w\/-]{2,25})/i,
-    /\b([A-Z]{1,4}[\-\/][0-9]{3,10})\b/,
-    /\b([0-9]{5,10})\b/
+    // "Factura nº 12345" o "Factura: ABC-12345"
+    /(?:factura|fra|fact|invoice|albaran|albar[aá]n|ticket|recibo)\s*(?:simplificada|completa|proforma)?\s*[.:;\s\-#nº°n]+\s*([A-Z]{0,4}[\-\/]?\d[\w\/-]{1,20})/i,
+    // "Nº 12345" o "Nº factura: 12345"
+    /(?:nº|n°|num|numero|número)[.:;\s\-]*(?:de\s+)?(?:factura|fra|fac|albaran|doc)?\s*[.:;\s\-]*([A-Z]{0,4}[\-\/]?\d[\w\/-]{1,20})/i,
+    // "Ref: ABC-123"
+    /(?:doc|documento|ref|referencia)[.:;\s\-#]*\s*([A-Z]{0,4}[\-\/]?\d[\w\/-]{1,20})/i,
+    // Patrón tipo "ABC-12345" suelto
+    /\b([A-Z]{1,4}[\-\/]\d{3,10})\b/,
+    // Número largo suelto (mínimo 5 dígitos para evitar falsos positivos)
+    /\b(\d{5,10})\b/
   ];
   for(const pat of facPatterns){
     const m=text.match(pat);
