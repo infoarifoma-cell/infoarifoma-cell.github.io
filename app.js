@@ -7170,12 +7170,7 @@ function comprasFileSelected(input){
   }
   comprasInitProveedores();
   if(isPdf){
-    // PDF: saltar OCR, ir directo a formulario manual
-    document.getElementById('compras-ocr-text').value='(PDF — sin OCR)';
-    document.getElementById('compras-proveedor').value='';
-    document.getElementById('compras-nfactura').value='';
-    document.getElementById('compras-fecha').value=new Date().toISOString().slice(0,10);
-    document.getElementById('compras-step3').style.display='block';
+    comprasRunOCRPdf(file);
   }else{
     comprasRunOCR(file);
   }
@@ -7328,6 +7323,46 @@ async function comprasSubir(){
     comprasShowError('Error al subir: '+e.message);
   }finally{
     btn.disabled=false;btn.textContent='Subir a OneDrive';
+  }
+}
+
+async function comprasRunOCRPdf(file){
+  const s2=document.getElementById('compras-step2');
+  const s3=document.getElementById('compras-step3');
+  const prog=document.getElementById('compras-ocr-progress');
+  s2.style.display='block';
+  prog.textContent='Leyendo PDF...';
+
+  try{
+    const arrayBuf=await file.arrayBuffer();
+    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+    const pdf=await pdfjsLib.getDocument({data:arrayBuf}).promise;
+    const page=await pdf.getPage(1);
+
+    // Renderizar página a canvas a 2x escala para mejor OCR
+    const scale=2;
+    const viewport=page.getViewport({scale});
+    const canvas=document.createElement('canvas');
+    canvas.width=viewport.width;
+    canvas.height=viewport.height;
+    const ctx=canvas.getContext('2d');
+    await page.render({canvasContext:ctx,viewport}).promise;
+
+    prog.textContent='Analizando texto...';
+
+    // Convertir canvas a blob para Tesseract
+    const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
+    const worker=await Tesseract.createWorker('spa',1,{logger:m=>{if(m.status==='recognizing text')prog.textContent=Math.round(m.progress*100)+'%';}});
+    const{data:{text}}=await worker.recognize(blob);
+    await worker.terminate();
+
+    document.getElementById('compras-ocr-text').value=text;
+    comprasParseOCR(text);
+    s2.style.display='none';
+    s3.style.display='block';
+  }catch(e){
+    s2.style.display='none';
+    comprasShowError('Error OCR PDF: '+(e.message||e));
   }
 }
 
