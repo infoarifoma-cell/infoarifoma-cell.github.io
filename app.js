@@ -7189,28 +7189,74 @@ async function comprasRunOCR(file){
   }
 }
 
+function comprasNormalize(s){return s.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9]/g,'');}
+
+function comprasFuzzyScore(haystack,needle){
+  // Coincidencia exacta normalizada
+  if(haystack.includes(needle))return 1;
+  // Dividir needle en palabras y contar cuántas aparecen
+  const words=needle.split(/[^A-Z0-9]+/).filter(w=>w.length>2);
+  if(!words.length)return 0;
+  let found=0;
+  for(const w of words){if(haystack.includes(w))found++;}
+  return found/words.length;
+}
+
 function comprasParseOCR(text){
-  const upper=text.toUpperCase();
-  // Detectar proveedor
-  let bestMatch='',bestLen=0;
+  const normText=comprasNormalize(text);
+  const lines=text.split(/\n/).map(l=>l.trim()).filter(Boolean);
+
+  // ── Detectar proveedor (fuzzy) ──
+  let bestMatch='',bestScore=0;
   for(const p of COMPRAS_PROVEEDORES){
-    if(upper.includes(p.toUpperCase())&&p.length>bestLen){bestMatch=p;bestLen=p.length;}
+    const normP=comprasNormalize(p);
+    const score=comprasFuzzyScore(normText,normP);
+    // Priorizar matches más largos a igualdad de score
+    if(score>bestScore||(score===bestScore&&p.length>bestMatch.length)){
+      bestScore=score;bestMatch=p;
+    }
   }
-  document.getElementById('compras-proveedor').value=bestMatch;
+  // Solo aceptar si al menos 60% de las palabras coinciden
+  document.getElementById('compras-proveedor').value=bestScore>=0.6?bestMatch:'';
 
-  // Detectar nº factura
-  const facMatch=text.match(/(?:factura|fra|fac|invoice|nº|n°|num)[.:;\s-]*([A-Z0-9][\w\/-]{2,20})/i);
-  document.getElementById('compras-nfactura').value=facMatch?facMatch[1].trim():'';
-
-  // Detectar fecha
-  const fechaMatch=text.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
-  if(fechaMatch){
-    let d=fechaMatch[1].padStart(2,'0'),m=fechaMatch[2].padStart(2,'0'),y=fechaMatch[3];
-    if(y.length===2)y='20'+y;
-    document.getElementById('compras-fecha').value=y+'-'+m+'-'+d;
-  }else{
-    document.getElementById('compras-fecha').value=new Date().toISOString().slice(0,10);
+  // ── Detectar nº factura (múltiples patrones) ──
+  let nfac='';
+  const facPatterns=[
+    /(?:factura|fra|fac|fact|invoice|albaran|albar[aá]n|ticket|recibo)[.:;\s\-#nº°]*\s*([A-Z0-9][\w\/-]{2,25})/i,
+    /(?:nº|n°|num|numero|número)[.:;\s\-]*(?:de\s+)?(?:factura|fra|fac|albaran)?\s*[.:;\s\-]*([A-Z0-9][\w\/-]{2,25})/i,
+    /(?:doc|documento|ref|referencia)[.:;\s\-#]*\s*([A-Z0-9][\w\/-]{2,25})/i,
+    /\b([A-Z]{1,4}[\-\/][0-9]{3,10})\b/,
+    /\b([0-9]{5,10})\b/
+  ];
+  for(const pat of facPatterns){
+    const m=text.match(pat);
+    if(m){nfac=m[1].trim();break;}
   }
+  document.getElementById('compras-nfactura').value=nfac;
+
+  // ── Detectar fecha (múltiples formatos) ──
+  let fechaFound='';
+  const fechaPatterns=[
+    /(?:fecha|date|fch)[.:;\s\-]*(\d{1,2})[\/\-.\s](\d{1,2})[\/\-.\s](\d{2,4})/i,
+    /(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/,
+    /(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2})\b/,
+    /(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+(?:de\s+)?(\d{4})/i
+  ];
+  const meses={enero:'01',febrero:'02',marzo:'03',abril:'04',mayo:'05',junio:'06',julio:'07',agosto:'08',septiembre:'09',octubre:'10',noviembre:'11',diciembre:'12'};
+  for(const pat of fechaPatterns){
+    const m=text.match(pat);
+    if(m){
+      if(meses[m[2]&&m[2].toLowerCase()]){
+        fechaFound=m[3]+'-'+meses[m[2].toLowerCase()]+'-'+m[1].padStart(2,'0');
+      }else{
+        let d=m[1].padStart(2,'0'),mo=m[2].padStart(2,'0'),y=m[3];
+        if(y.length===2)y='20'+y;
+        fechaFound=y+'-'+mo+'-'+d;
+      }
+      break;
+    }
+  }
+  document.getElementById('compras-fecha').value=fechaFound||new Date().toISOString().slice(0,10);
 }
 
 async function comprasSubir(){
