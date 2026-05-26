@@ -7162,8 +7162,10 @@ function comprasFileSelected(input){
   _comprasFileName=file.name;
   const preview=document.getElementById('compras-preview');
   const isPdf=file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf');
+  document.getElementById('compras-pdf-viewer').style.display='none';
   if(isPdf){
     preview.style.display='none';
+    comprasShowPdfViewer(file);
   }else{
     preview.src=URL.createObjectURL(file);
     preview.style.display='block';
@@ -7308,9 +7310,11 @@ async function comprasSubir(){
       ext=_comprasFileName.includes('.')?_comprasFileName.substring(_comprasFileName.lastIndexOf('.')):'.pdf';
     }
 
-    const fileName=nfac?(nfac+' '+fecha+ext):(fecha+'_factura'+ext);
+    const safeNfac=nfac?nfac.replace(/[\/\\:*?"<>|]/g,'-'):'';
+    const fileName=safeNfac?(safeNfac+' '+fecha+ext):(fecha+'_factura'+ext);
     const folderPath=COMPRAS_ONEDRIVE_BASE+'/'+prov+'/'+year+'/'+mes;
-    const uploadUrl='https://graph.microsoft.com/v1.0/me/drive/root:/'+encodeURIComponent(folderPath)+'/'+encodeURIComponent(fileName)+':/content';
+    const encodedPath=folderPath.split('/').map(s=>encodeURIComponent(s)).join('/');
+    const uploadUrl='https://graph.microsoft.com/v1.0/me/drive/root:/'+encodedPath+'/'+encodeURIComponent(fileName)+':/content';
 
     btn.textContent='Subiendo...';
     const resp=await fetch(uploadUrl,{
@@ -7439,14 +7443,53 @@ function comprasImgToPdf(file){
   });
 }
 
+// ── Visor PDF ──
+let _comprasPdf=null,_comprasPdfPage=1,_comprasPdfZoom=1;
+
+async function comprasShowPdfViewer(file){
+  const viewer=document.getElementById('compras-pdf-viewer');
+  viewer.style.display='block';
+  const arrayBuf=await file.arrayBuffer();
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  _comprasPdf=await pdfjsLib.getDocument({data:arrayBuf}).promise;
+  _comprasPdfPage=1;_comprasPdfZoom=1;
+  document.getElementById('compras-pdf-total').textContent=_comprasPdf.numPages;
+  comprasRenderPdfPage();
+}
+
+async function comprasRenderPdfPage(){
+  if(!_comprasPdf)return;
+  const page=await _comprasPdf.getPage(_comprasPdfPage);
+  const viewport=page.getViewport({scale:_comprasPdfZoom*1.5});
+  const canvas=document.getElementById('compras-pdf-canvas');
+  canvas.width=viewport.width;canvas.height=viewport.height;
+  await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
+  document.getElementById('compras-pdf-page').textContent=_comprasPdfPage;
+  document.getElementById('compras-pdf-zoom-label').textContent=Math.round(_comprasPdfZoom*100)+'%';
+}
+
+function comprasPdfZoom(delta){
+  _comprasPdfZoom=Math.max(0.25,Math.min(4,_comprasPdfZoom+delta));
+  comprasRenderPdfPage();
+}
+
+function comprasPdfNav(dir){
+  if(!_comprasPdf)return;
+  const next=_comprasPdfPage+dir;
+  if(next<1||next>_comprasPdf.numPages)return;
+  _comprasPdfPage=next;
+  comprasRenderPdfPage();
+}
+
 function comprasShowError(msg){
   const el=document.getElementById('compras-error');
   el.textContent=msg;el.style.display='block';
 }
 
 function comprasReset(){
-  _comprasFile=null;_comprasFileName='';
+  _comprasFile=null;_comprasFileName='';_comprasPdf=null;
   document.getElementById('compras-preview').style.display='none';
+  document.getElementById('compras-pdf-viewer').style.display='none';
   document.getElementById('compras-step2').style.display='none';
   document.getElementById('compras-step3').style.display='none';
   document.getElementById('compras-step4').style.display='none';

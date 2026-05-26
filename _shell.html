@@ -1789,6 +1789,20 @@
                 <input type="file" accept="image/*,application/pdf" capture="environment" id="compras-file-input" style="display:none" onchange="comprasFileSelected(this)">
               </label>
               <img id="compras-preview" style="display:none;max-width:100%;border-radius:8px;margin-top:10px">
+              <!-- Visor PDF -->
+              <div id="compras-pdf-viewer" style="display:none;margin-top:10px;position:relative;background:#333;border-radius:8px;overflow:hidden">
+                <div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:6px 10px;background:#222;border-radius:8px 8px 0 0">
+                  <button class="btn-sec" style="padding:4px 10px;font-size:.75rem;min-width:0" onclick="comprasPdfZoom(-0.25)">−</button>
+                  <span id="compras-pdf-zoom-label" style="color:#fff;font-size:.75rem;min-width:40px;text-align:center">100%</span>
+                  <button class="btn-sec" style="padding:4px 10px;font-size:.75rem;min-width:0" onclick="comprasPdfZoom(0.25)">+</button>
+                  <span style="color:#aaa;font-size:.7rem;margin-left:8px">Pág <span id="compras-pdf-page">1</span>/<span id="compras-pdf-total">1</span></span>
+                  <button class="btn-sec" style="padding:4px 10px;font-size:.75rem;min-width:0" onclick="comprasPdfNav(-1)">◀</button>
+                  <button class="btn-sec" style="padding:4px 10px;font-size:.75rem;min-width:0" onclick="comprasPdfNav(1)">▶</button>
+                </div>
+                <div style="overflow:auto;max-height:60vh;text-align:center;padding:8px" id="compras-pdf-scroll">
+                  <canvas id="compras-pdf-canvas"></canvas>
+                </div>
+              </div>
             </div>
 
             <!-- Paso 2: procesando OCR -->
