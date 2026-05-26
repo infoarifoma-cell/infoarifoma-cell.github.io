@@ -501,7 +501,7 @@ const DIAS_LAB_2026=[18,18,22,20,20,21,23,21,22,21,21,18];
 const HORAS_DIA_STD=8; // Jornada estándar convenio
 const PRODS=['ARIDO AF-T-0/4-I','ARIDO AG-T-4/12-I','ARIDO AG-T-12/20-I','ARIDO AG-T-20/40-I','ARIDO AG-T-40/70-I','REVUELTO 0/20','REVUELTO 0/10','PIEDRA PARA MURO (UD)','MATERIAL DE RELLENO 0/4'];
 const PROD_CAT={'ARIDO AF-T-0/4-I':'0/4','ARIDO AG-T-4/12-I':'4/12','ARIDO AG-T-12/20-I':'12/20','ARIDO AG-T-20/40-I':'20/40'};
-const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas','historico-ventas':'Histórico de Ventas',caja:'Caja',costes:'Análisis de Costes',produccion:'Producción Planta',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',preventivo:'Mantenimiento Preventivo'};
+const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas','historico-ventas':'Histórico de Ventas',caja:'Caja',costes:'Análisis de Costes',produccion:'Producción Planta',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',preventivo:'Mantenimiento Preventivo',compras:'Escanear Factura'};
 
 // Login via Google OAuth — ver funciones.js: googleLogin() y checkGoogleSession()
 
@@ -557,6 +557,7 @@ function goPage(id){
   if(id==='camiones')cargarCamiones();
   if(id==='obras')cargarObras();
   if(id==='activos')initActivos();
+  if(id==='compras')comprasInitProveedores();
   if(id==='gasoil')cargarGasoil();
   if(id==='produccion')initProduccion();
   if(id==='facturacion')initFacturacion();
@@ -7095,4 +7096,178 @@ async function eliminarNota(id) {
   if (!delRes.ok) { alert('Error: ' + delRes.error); return; }
   await cargarNotas();
   renderNotas();
+}
+
+// ── COMPRAS — ESCANEAR FACTURA Y SUBIR A ONEDRIVE ───────────
+const COMPRAS_CLIENT_ID='20d8ca37-34e7-4ad4-b379-97c5b22f15ad';
+const COMPRAS_TENANT_ID='5bd828f2-1899-48ba-a269-c37733f41806';
+const COMPRAS_REDIRECT=location.origin+location.pathname;
+const COMPRAS_SCOPES=['Files.ReadWrite.All'];
+const COMPRAS_ONEDRIVE_BASE='Arifoma/06. ADMINISTRACION/06.01 PROVEEDORES';
+const COMPRAS_MESES=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+const COMPRAS_PROVEEDORES=[
+  '(ANEFA) ASOCIACION NACIONAL DE EMPRESARIOS FABRICANTES DE ARIDO','AENOR','AGONEY LUJAN PEREZ','AGUAS DE GUAYADEQUE SL','ALIANZA ALEMAN BLAKER',
+  'APPLUS ITEUVE TECHNOLOGY, S.L.U','ARUESCABLE, S.L','ASESORIA RUPERTO PEREZ S.L.U','ASUAREZ MOTOR SERVICES SL','ATLANTIC CANARIAS',
+  'AUTOS BASSO SA','AUTOS TRAG ALAMO SL','AVANTA PREVENCIÓN INTEGRAL S.L','AYTO San Bartolome','Aab','Aguiar Marrero','Ascanio',
+  'B2Brouter GLOBAL S.L','BALCAN','Blumaq','CAMPSA ESTACIONES DE SERVICIO','CANARIAS DE TRANSPORTES ENTRE ISLAS 2020 SLU',
+  'CANARIAS EXPLOSIVOS, SA','CENTAURO','CENTRAL UNIFORMES SL','CONTROLES Y ACCIONAMIENTOS CANARIOS SL','Canarias Beton','Crédito y Caución',
+  'Diasan','Disa','E.S. JUAN GRANDE','EQUIPOS Y SERVICIOS HIDRAULICOS CANARIOS SL','ESOCAN SL','EXTINTORES CONTRAINCENDIOS CANARIOS',
+  'Electrimega','Elevaciones Archipielago','Elmasa','Energy Power','Eteicomps','Euro Scrymo','FINANZAUTO S.A.U-CENTRAL',
+  'FRANCISCO JAVIER VERA MARTÍN','GRAN CHOLLOS CANARIAS SLU','HARRUCASUNICO SL','HOTEL LA ERMITA','HROS. DE JOSE SUAREZ LOPEZ',
+  'Hernandez Consultores','Hierros 7 islas','Hispano Japonesa','IGLESIAS FARRE ROS, SAU','INSTALADORA SUAREZ SL','ITC 2023 SL',
+  'ITT CANARIAS SL','ITV DE MAQUINARIA','Insucan','Jacob Perez','Jose caldera','Juan Melian SL','Kalon',
+  'LABORATORIO DE CERTIFICACIONES VEGA BAJA','LAS ROSAS','LEROY MERLIN ESPAÑA SLU','Labcer','Labetec',
+  'MANUEL OLIVERA RODRIGUEZ SL','MAQUINARIA Y SEGUROS OJEDA GRANADO SL','MAQUINARIAS OPEIN SLU','MARK JOHNSTON','MASPALOMAS REPUESTOS',
+  'MATERIALES Y SAN','MEDIAMARKT','MERCURI PUBLIC','MICROSOFT IBERICA','MICROSOFT IRELAND OPERATIONS LTD','MIKEL URIARTE ATEKA',
+  'Marecan','Masanes','Microrriego','Mopsa','Msm Rodamientos','NESTOR CUBAS DIAZ','NEUMADRAO','NEUMATICOS ATLANTICO','NORAUTO SAU',
+  'NOVELEC VECAPE SL','Neumaticos TEIDESUR','OBRAMAT','OPERACIONES TURÍSTICAS CANARIASVIAJA, S.A','PRENSA DIGITAL CANARIA SL',
+  'PRESTA SERVICIOS AMBIENTALES SL','PROPIEDADES MEJORADAS SL','PaTuMovil','QUIMICAS LASSO SLU','REPUESTOS Y REPRESENTACIONES',
+  'ROCA GESTION HOSPITALARIA SL','RUIJIA SCP','Rafael Peinado','Recacor','Roeirasa','Ronandez',
+  'SEGURIDAD INDUSTRIAL, MEDIO AMBIENTE Y CALIDAD, S. L','SPAR JUAN GRANDE','SUMINISTROS SANTANA DOMINGUEZ SA','Salazar','Santana Jerez',
+  'Secular 2022','Securitas Direct','Sernamol','Sertego','Señal Canary','Sika','Sopranes','Suim',
+  'TALLER DE MECANIZADO SALVADOR ORTEGA MORENO','TRANSPORTES JUAN ELEUTERIO MARTERL SLU','Tamaran','Telefonica','Transportes Sanchez',
+  'Transportistas','Vallate','WURTH','ismael Garcia'
+];
+
+let _msalInstance=null;
+let _comprasFile=null;
+let _comprasFileName='';
+
+function getMsalInstance(){
+  if(_msalInstance)return _msalInstance;
+  const cfg={auth:{clientId:COMPRAS_CLIENT_ID,authority:'https://login.microsoftonline.com/'+COMPRAS_TENANT_ID,redirectUri:COMPRAS_REDIRECT},cache:{cacheLocation:'localStorage'}};
+  _msalInstance=new msal.PublicClientApplication(cfg);
+  return _msalInstance;
+}
+
+async function comprasGetToken(){
+  const m=getMsalInstance();
+  const accounts=m.getAllAccounts();
+  if(accounts.length){
+    try{const r=await m.acquireTokenSilent({scopes:COMPRAS_SCOPES,account:accounts[0]});return r.accessToken;}catch(e){}
+  }
+  const r=await m.loginPopup({scopes:COMPRAS_SCOPES});
+  return r.accessToken;
+}
+
+function comprasInitProveedores(){
+  const dl=document.getElementById('compras-proveedores-list');
+  if(!dl||dl.children.length)return;
+  COMPRAS_PROVEEDORES.forEach(p=>{const o=document.createElement('option');o.value=p;dl.appendChild(o);});
+}
+
+function comprasFileSelected(input){
+  const file=input.files[0];if(!file)return;
+  _comprasFile=file;
+  _comprasFileName=file.name;
+  const preview=document.getElementById('compras-preview');
+  preview.src=URL.createObjectURL(file);
+  preview.style.display='block';
+  comprasInitProveedores();
+  comprasRunOCR(file);
+}
+
+async function comprasRunOCR(file){
+  const s1=document.getElementById('compras-step1');
+  const s2=document.getElementById('compras-step2');
+  const s3=document.getElementById('compras-step3');
+  const prog=document.getElementById('compras-ocr-progress');
+  s2.style.display='block';
+
+  try{
+    const worker=await Tesseract.createWorker('spa',1,{logger:m=>{if(m.status==='recognizing text')prog.textContent=Math.round(m.progress*100)+'%';}});
+    const{data:{text}}=await worker.recognize(file);
+    await worker.terminate();
+
+    document.getElementById('compras-ocr-text').value=text;
+    comprasParseOCR(text);
+    s2.style.display='none';
+    s3.style.display='block';
+  }catch(e){
+    s2.style.display='none';
+    comprasShowError('Error OCR: '+e.message);
+  }
+}
+
+function comprasParseOCR(text){
+  const upper=text.toUpperCase();
+  // Detectar proveedor
+  let bestMatch='',bestLen=0;
+  for(const p of COMPRAS_PROVEEDORES){
+    if(upper.includes(p.toUpperCase())&&p.length>bestLen){bestMatch=p;bestLen=p.length;}
+  }
+  document.getElementById('compras-proveedor').value=bestMatch;
+
+  // Detectar nº factura
+  const facMatch=text.match(/(?:factura|fra|fac|invoice|nº|n°|num)[.:;\s-]*([A-Z0-9][\w\/-]{2,20})/i);
+  document.getElementById('compras-nfactura').value=facMatch?facMatch[1].trim():'';
+
+  // Detectar fecha
+  const fechaMatch=text.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+  if(fechaMatch){
+    let d=fechaMatch[1].padStart(2,'0'),m=fechaMatch[2].padStart(2,'0'),y=fechaMatch[3];
+    if(y.length===2)y='20'+y;
+    document.getElementById('compras-fecha').value=y+'-'+m+'-'+d;
+  }else{
+    document.getElementById('compras-fecha').value=new Date().toISOString().slice(0,10);
+  }
+}
+
+async function comprasSubir(){
+  const prov=document.getElementById('compras-proveedor').value.trim();
+  const nfac=document.getElementById('compras-nfactura').value.trim();
+  const fecha=document.getElementById('compras-fecha').value;
+  if(!prov){alert('Selecciona un proveedor');return;}
+  if(!fecha){alert('Indica la fecha');return;}
+  if(!_comprasFile){alert('No hay archivo');return;}
+
+  const btn=document.getElementById('compras-btn-subir');
+  btn.disabled=true;btn.textContent='Subiendo...';
+  document.getElementById('compras-error').style.display='none';
+
+  try{
+    const token=await comprasGetToken();
+    const d=new Date(fecha);
+    const year=d.getFullYear();
+    const mes=COMPRAS_MESES[d.getMonth()];
+    const ext=_comprasFileName.includes('.')?_comprasFileName.substring(_comprasFileName.lastIndexOf('.')):'.jpg';
+    const fileName=nfac?(nfac+' '+fecha+ext):(fecha+'_factura'+ext);
+    const folderPath=COMPRAS_ONEDRIVE_BASE+'/'+prov+'/'+year+'/'+mes;
+    const uploadUrl='https://graph.microsoft.com/v1.0/me/drive/root:/'+encodeURIComponent(folderPath)+'/'+encodeURIComponent(fileName)+':/content';
+
+    const resp=await fetch(uploadUrl,{
+      method:'PUT',
+      headers:{'Authorization':'Bearer '+token,'Content-Type':_comprasFile.type||'application/octet-stream'},
+      body:_comprasFile
+    });
+
+    if(!resp.ok){const err=await resp.text();throw new Error(err);}
+
+    document.getElementById('compras-step3').style.display='none';
+    document.getElementById('compras-step4').style.display='block';
+    document.getElementById('compras-ruta-destino').textContent=folderPath+'/'+fileName;
+  }catch(e){
+    comprasShowError('Error al subir: '+e.message);
+  }finally{
+    btn.disabled=false;btn.textContent='Subir a OneDrive';
+  }
+}
+
+function comprasShowError(msg){
+  const el=document.getElementById('compras-error');
+  el.textContent=msg;el.style.display='block';
+}
+
+function comprasReset(){
+  _comprasFile=null;_comprasFileName='';
+  document.getElementById('compras-preview').style.display='none';
+  document.getElementById('compras-step2').style.display='none';
+  document.getElementById('compras-step3').style.display='none';
+  document.getElementById('compras-step4').style.display='none';
+  document.getElementById('compras-error').style.display='none';
+  document.getElementById('compras-file-input').value='';
+  document.getElementById('compras-proveedor').value='';
+  document.getElementById('compras-nfactura').value='';
+  document.getElementById('compras-fecha').value='';
+  document.getElementById('compras-ocr-text').value='';
 }
