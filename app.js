@@ -2285,7 +2285,13 @@ function openChoferModal(id){
     document.getElementById('ch-cae-file').value='';
     delBtn.style.display='none';
   }
-  caeCheck.onchange=()=>{caeExtra.style.display=caeCheck.checked?'block':'none';};
+  caeCheck.onchange=()=>{
+    caeExtra.style.display=caeCheck.checked?'block':'none';
+    if(caeCheck.checked&&!document.getElementById('ch-cae-venc').value){
+      const unAnyo=new Date();unAnyo.setFullYear(unAnyo.getFullYear()+1);
+      document.getElementById('ch-cae-venc').value=unAnyo.toISOString().slice(0,10);
+    }
+  };
   modal.classList.add('open');
 }
 

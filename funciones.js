@@ -496,7 +496,7 @@ async function getChoferes() {
 
 async function doNuevoChofer(data) {
   const { tipo, id, ...campos } = data;
-  campos.fechaCreacion = new Date().toISOString();
+  campos.fechacreacion = new Date().toISOString();
   return dbQuery({ action: 'insert', table: 'tblchoferes', data: campos });
 }
 
