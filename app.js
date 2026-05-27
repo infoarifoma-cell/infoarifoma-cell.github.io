@@ -2361,14 +2361,24 @@ td:first-child{font-weight:700;width:170px;background:#f8f8f8}
 async function imprimirCAE(){
   try{
     const token=await comprasGetToken();
-    // Primero descubrir la ruta raíz del drive
-    const rootResp=await fetch('https://graph.microsoft.com/v1.0/me/drive/root/children?$select=name,id,folder',{
+    // Listar todos los drives del usuario
+    const drivesResp=await fetch('https://graph.microsoft.com/v1.0/me/drives?$select=id,name,driveType,webUrl',{
       headers:{'Authorization':'Bearer '+token}
     });
-    if(!rootResp.ok)throw new Error('No se pudo acceder a OneDrive');
-    const rootData=await rootResp.json();
-    console.log('OneDrive root folders:',rootData.value.map(f=>f.name));
-    alert('Carpetas en raíz de OneDrive:\n'+rootData.value.map(f=>f.name).join('\n'));
+    if(!drivesResp.ok)throw new Error('No se pudo listar drives');
+    const drives=await drivesResp.json();
+    console.log('Drives:',JSON.stringify(drives.value,null,2));
+    // Buscar en cada drive la carpeta Arifoma
+    for(const d of drives.value){
+      const r=await fetch('https://graph.microsoft.com/v1.0/drives/'+d.id+'/root/children?$select=name,id',{
+        headers:{'Authorization':'Bearer '+token}
+      });
+      if(r.ok){
+        const data=await r.json();
+        console.log('Drive "'+d.name+'" ('+d.id+') root:',data.value.map(f=>f.name));
+      }
+    }
+    alert('Mira la consola (F12) — datos de drives listados');
   }catch(e){alert('Error: '+e.message);}
 }
 
