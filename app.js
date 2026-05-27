@@ -2219,8 +2219,8 @@ function renderChoferesGestion(data){
     const vencido=venc&&venc<hoy;
     const caeBadge=caeOk?(vencido?'<span style="color:#e44;font-size:.85rem" title="CAE vencido">&#9888;</span>':'<span style="color:#0c6;font-size:1rem">&#10003;</span>'):'<span style="color:var(--muted)">—</span>';
     const vencTxt=venc?'<span style="'+(vencido?'color:#e44;font-weight:700':'color:var(--text)')+'">'+venc.split('-').reverse().join('/')+'</span>':'—';
-    const carpeta=c.cae_carpeta?`<button class="btn-sm" onclick="abrirCarpetaCAE(${c.id})" title="Ver documentos CAE" style="padding:4px 8px;color:var(--accent);border-color:var(--accent)">📁</button>`:'';
-    return `<div class="tr"><div class="tc" style="flex:.4;text-align:center">${caeBadge}</div><div class="tc" style="flex:1.2;font-weight:600">${c.nombre}</div><div class="tc" style="flex:.8;font-family:monospace">${c.dni||'—'}</div><div class="tc" style="flex:.8;font-family:monospace">${c.telefono||'—'}</div><div class="tc" style="flex:1;color:var(--muted)">${c.empresa||'—'}</div><div class="tc" style="flex:.7">${vencTxt}</div><div class="tc" style="flex:.8;text-align:right;display:flex;gap:4px;justify-content:flex-end">${carpeta}<button class="btn-sm" onclick="imprimirChofer(${c.id})" title="Imprimir ficha" style="padding:4px 8px">🖨</button><button class="btn-sm" onclick="openChoferModal(${c.id})">Editar</button></div></div>`;
+    const carpeta=c.cae_carpeta?`<button class="btn-sec btn-read" onclick="abrirCarpetaCAE(${c.id})" title="Ver documentos CAE" style="padding:4px 8px;font-size:.8rem;color:var(--accent);border-color:var(--accent)">📁</button>`:'';
+    return `<div class="tr"><div class="tc" style="flex:.4;text-align:center">${caeBadge}</div><div class="tc" style="flex:1.2;font-weight:600">${c.nombre}</div><div class="tc" style="flex:.8;font-family:monospace">${c.dni||'—'}</div><div class="tc" style="flex:.8;font-family:monospace">${c.telefono||'—'}</div><div class="tc" style="flex:1;color:var(--muted)">${c.empresa||'—'}</div><div class="tc" style="flex:.7">${vencTxt}</div><div class="tc" style="flex:.8;text-align:right;display:flex;gap:4px;justify-content:flex-end">${carpeta}<button class="btn-sec btn-read" onclick="imprimirChofer(${c.id})" title="Imprimir ficha" style="padding:4px 8px;font-size:.8rem">🖨</button><button class="btn-sm" onclick="openChoferModal(${c.id})">Editar</button></div></div>`;
   }).join('')+'</div>';
 }
 
@@ -2354,6 +2354,36 @@ td:first-child{font-weight:700;width:170px;background:#f8f8f8}
 <tr><td>Vencimiento CAE</td><td>${venc}</td></tr>
 </table>
 <div class="footer">Generado el ${new Date().toLocaleDateString('es-ES')} — ARIFOMA</div>
+<script>window.print();<\/script></body></html>`);
+  w.document.close();
+}
+
+function imprimirCAE(){
+  const hoy=new Date().toISOString().slice(0,10);
+  const data=choferesData.length?choferesData:[];
+  const w=window.open('','_blank','width=800,height=600');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Listado CAE — ARIFOMA</title>
+<style>body{font-family:Arial,sans-serif;padding:25px;color:#222}h2{margin:0 0 4px;font-size:1.3rem}
+.sub{color:#888;font-size:.82rem;margin-bottom:16px}
+table{width:100%;border-collapse:collapse}th,td{padding:7px 10px;border:1px solid #ccc;font-size:.82rem}
+th{background:#f0f0f0;font-weight:700;text-align:left}
+.ok{color:#0a0;font-weight:700}.no{color:#c00;font-weight:700}.warn{color:#e80;font-weight:700}
+.footer{margin-top:20px;font-size:.68rem;color:#aaa;text-align:center}
+@media print{body{padding:10px}th{background:#eee!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style></head><body>
+<h2>Coordinación de Actividad Empresarial (CAE)</h2>
+<div class="sub">Listado de choferes — Generado el ${new Date().toLocaleDateString('es-ES')}</div>
+${data.length?`<table><tr><th>Nombre</th><th>DNI</th><th>Empresa</th><th>Teléfono</th><th>CAE</th><th>Vencimiento</th><th>Estado</th></tr>`+
+data.map(c=>{
+  const venc=c.cae_vencimiento||'';
+  const vencTxt=venc?venc.split('-').reverse().join('/'):'—';
+  const vencido=venc&&venc<hoy;
+  let estado='<span class="no">Sin CAE</span>';
+  if(c.cae&&!vencido)estado='<span class="ok">&#10003; Vigente</span>';
+  else if(c.cae&&vencido)estado='<span class="warn">&#9888; Vencido</span>';
+  return '<tr><td><strong>'+c.nombre+'</strong></td><td>'+(c.dni||'—')+'</td><td>'+(c.empresa||'—')+'</td><td>'+(c.telefono||'—')+'</td><td>'+(c.cae?'Sí':'No')+'</td><td>'+vencTxt+'</td><td>'+estado+'</td></tr>';
+}).join('')+'</table>':'<p style="color:#999">No hay choferes registrados.</p>'}
+<div class="footer">ARIFOMA — Coordinación de Actividad Empresarial</div>
 <script>window.print();<\/script></body></html>`);
   w.document.close();
 }
