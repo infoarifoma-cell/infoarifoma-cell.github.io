@@ -2275,26 +2275,33 @@ function openChoferModal(id){
     caeCheck.checked=!!c.cae;
     caeExtra.style.display=c.cae?'block':'none';
     document.getElementById('ch-cae-carpeta').value=c.cae_carpeta||'';
-    document.getElementById('ch-cae-venc').value=c.cae_vencimiento||'';
+    document.getElementById('ch-cae-fecha').value=c.cae_fecha||'';
     document.getElementById('ch-cae-file').value='';
+    calcVencCAE();
     delBtn.style.display='block';
   } else {
-    ['ch-nombre','ch-dni','ch-telefono','ch-empresa','ch-cae-venc','ch-cae-carpeta'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
+    ['ch-nombre','ch-dni','ch-telefono','ch-empresa','ch-cae-fecha','ch-cae-carpeta'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
+    document.getElementById('ch-cae-venc-info').textContent='';
     caeCheck.checked=false;
     caeExtra.style.display='none';
     document.getElementById('ch-cae-file').value='';
     delBtn.style.display='none';
   }
-  caeCheck.onchange=()=>{
-    caeExtra.style.display=caeCheck.checked?'block':'none';
-    if(caeCheck.checked&&!document.getElementById('ch-cae-venc').value){
-      const unAnyo=new Date();unAnyo.setFullYear(unAnyo.getFullYear()+1);
-      document.getElementById('ch-cae-venc').value=unAnyo.toISOString().slice(0,10);
-    }
-  };
+  caeCheck.onchange=()=>{caeExtra.style.display=caeCheck.checked?'block':'none';};
+  document.getElementById('ch-cae-fecha').onchange=()=>{calcVencCAE();};
   modal.classList.add('open');
 }
 
+function calcVencCAE(){
+  const fecha=document.getElementById('ch-cae-fecha').value;
+  const info=document.getElementById('ch-cae-venc-info');
+  if(!fecha){info.textContent='';return;}
+  const d=new Date(fecha);d.setFullYear(d.getFullYear()+1);
+  const venc=d.toISOString().slice(0,10);
+  const hoy=new Date().toISOString().slice(0,10);
+  const vencido=venc<hoy;
+  info.innerHTML='Vencimiento: <strong style="color:'+(vencido?'#e44':'#0c6')+'">'+venc.split('-').reverse().join('/')+'</strong>'+(vencido?' — <span style="color:#e44">VENCIDO</span>':'');
+}
 function closeChoferModal(){document.getElementById('chofer-modal').classList.remove('open');choferEditingId=null;}
 
 async function saveChofer(){
@@ -2309,7 +2316,8 @@ async function saveChofer(){
     empresa:document.getElementById('ch-empresa').value.trim(),
     cae:document.getElementById('ch-cae').checked,
     cae_carpeta:document.getElementById('ch-cae-carpeta').value.trim()||null,
-    cae_vencimiento:document.getElementById('ch-cae-venc').value||null,
+    cae_fecha:document.getElementById('ch-cae-fecha').value||null,
+    cae_vencimiento:(()=>{const f=document.getElementById('ch-cae-fecha').value;if(!f)return null;const d=new Date(f);d.setFullYear(d.getFullYear()+1);return d.toISOString().slice(0,10);})(),
   };
 
   // Subir PDF CAE a OneDrive si hay archivo
