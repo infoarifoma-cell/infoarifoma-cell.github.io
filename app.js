@@ -880,8 +880,11 @@ function toggleFav(id,e){
 function camCard(c){
   const sel=basSelCamion&&basSelCamion.id===c.id;
   const fav=camFavoritos.has(String(c.id));
+  const caeObras=(obrasGestData||[]).filter(o=>o.vehiculo&&o.activo!==false&&o.vehiculo.toUpperCase()===(c.matriculacam||'').toUpperCase());
+  const caeTip=caeObras.length?caeObras.map(o=>o.codigo).join(', '):'';
   return `<div class="mat-btn${sel?' selected':''}" onclick="basSeleccionarCamion('${c.id}')" style="position:relative">
     <span onclick="toggleFav('${c.id}',event)" style="position:absolute;top:4px;right:4px;font-size:.75rem;cursor:pointer;opacity:${fav?1:.3}" title="Favorito">${fav?'★':'☆'}</span>
+    ${caeObras.length?`<span style="position:absolute;top:4px;left:6px;font-size:.55rem;color:#0c6;font-weight:700" title="CAE: ${caeTip}">CAE &#10003;</span>`:''}
     ${c.matriculacam}
     <span class="mat-sub">${c.chofer||''}</span>
     <span class="mat-sub" style="color:var(--muted);font-size:.58rem">${c.proveedor||''}</span>
@@ -2092,8 +2095,11 @@ function filtrarCamionesGestion(){
 function renderCamionesGestion(data){
   const el=document.getElementById('camiones-list');
   if(!data.length){el.innerHTML='<div class="tbl"><div class="empty">Sin resultados</div></div>';return;}
-  el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:1">Matrícula</div><div class="tc" style="flex:.7">Remolque</div><div class="tc" style="flex:1.2">Chofer</div><div class="tc" style="flex:1">Proveedor</div><div class="tc" style="flex:.7;text-align:right">Tara</div><div class="tc" style="flex:.4"></div></div>'+
-  data.map(c=>`<div class="tr"><div class="tc" style="flex:1;font-family:monospace;font-weight:700;color:var(--accent)">${c.matriculacam}</div><div class="tc" style="flex:.7;font-family:monospace">${c.matricularem||'—'}</div><div class="tc" style="flex:1.2">${c.chofer||'—'}</div><div class="tc" style="flex:1;color:var(--muted)">${c.proveedor||'—'}</div><div class="tc" style="flex:.7;text-align:right;font-family:monospace">${Number(c.tara||0).toLocaleString()} kg</div><div class="tc" style="flex:.4;text-align:right"><button class="btn-sm" onclick="openCamModal(${c.id})">Editar</button></div></div>`).join('')+'</div>';
+  // Build CAE lookup: matrícula → obra(s) activa(s)
+  const caeMap={};
+  (obrasGestData||[]).forEach(o=>{if(o.vehiculo&&o.activo!==false)caeMap[o.vehiculo.toUpperCase()]=(caeMap[o.vehiculo.toUpperCase()]||[]).concat(o.codigo);});
+  el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:.4;text-align:center">CAE</div><div class="tc" style="flex:1">Matrícula</div><div class="tc" style="flex:.7">Remolque</div><div class="tc" style="flex:1.2">Chofer</div><div class="tc" style="flex:1">Proveedor</div><div class="tc" style="flex:.7;text-align:right">Tara</div><div class="tc" style="flex:.4"></div></div>'+
+  data.map(c=>{const obras=caeMap[(c.matriculacam||'').toUpperCase()];const caeBadge=obras?`<span title="CAE: ${obras.join(', ')}" style="color:#0c6;font-size:1rem;cursor:help">&#10003;</span>`:'<span style="color:var(--muted)">—</span>';return `<div class="tr"><div class="tc" style="flex:.4;text-align:center">${caeBadge}</div><div class="tc" style="flex:1;font-family:monospace;font-weight:700;color:var(--accent)">${c.matriculacam}</div><div class="tc" style="flex:.7;font-family:monospace">${c.matricularem||'—'}</div><div class="tc" style="flex:1.2">${c.chofer||'—'}</div><div class="tc" style="flex:1;color:var(--muted)">${c.proveedor||'—'}</div><div class="tc" style="flex:.7;text-align:right;font-family:monospace">${Number(c.tara||0).toLocaleString()} kg</div><div class="tc" style="flex:.4;text-align:right"><button class="btn-sm" onclick="openCamModal(${c.id})">Editar</button></div></div>`;}).join('')+'</div>';
 }
 function openCamModal(id){
   camEditingId=id;
