@@ -880,11 +880,9 @@ function toggleFav(id,e){
 function camCard(c){
   const sel=basSelCamion&&basSelCamion.id===c.id;
   const fav=camFavoritos.has(String(c.id));
-  const caeObras=(obrasGestData||[]).filter(o=>o.vehiculo&&o.activo!==false&&o.vehiculo.toUpperCase()===(c.matriculacam||'').toUpperCase());
-  const caeTip=caeObras.length?caeObras.map(o=>o.codigo).join(', '):'';
   return `<div class="mat-btn${sel?' selected':''}" onclick="basSeleccionarCamion('${c.id}')" style="position:relative">
     <span onclick="toggleFav('${c.id}',event)" style="position:absolute;top:4px;right:4px;font-size:.75rem;cursor:pointer;opacity:${fav?1:.3}" title="Favorito">${fav?'★':'☆'}</span>
-    ${caeObras.length?`<span style="position:absolute;top:4px;left:6px;font-size:.55rem;color:#0c6;font-weight:700" title="CAE: ${caeTip}">CAE &#10003;</span>`:''}
+    ${c.cae?'<span style="position:absolute;top:4px;left:6px;font-size:.55rem;color:#0c6;font-weight:700" title="CAE activo">CAE &#10003;</span>':''}
     ${c.matriculacam}
     <span class="mat-sub">${c.chofer||''}</span>
     <span class="mat-sub" style="color:var(--muted);font-size:.58rem">${c.proveedor||''}</span>
@@ -2095,11 +2093,8 @@ function filtrarCamionesGestion(){
 function renderCamionesGestion(data){
   const el=document.getElementById('camiones-list');
   if(!data.length){el.innerHTML='<div class="tbl"><div class="empty">Sin resultados</div></div>';return;}
-  // Build CAE lookup: matrícula → obra(s) activa(s)
-  const caeMap={};
-  (obrasGestData||[]).forEach(o=>{if(o.vehiculo&&o.activo!==false)caeMap[o.vehiculo.toUpperCase()]=(caeMap[o.vehiculo.toUpperCase()]||[]).concat(o.codigo);});
   el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:.4;text-align:center">CAE</div><div class="tc" style="flex:1">Matrícula</div><div class="tc" style="flex:.7">Remolque</div><div class="tc" style="flex:1.2">Chofer</div><div class="tc" style="flex:1">Proveedor</div><div class="tc" style="flex:.7;text-align:right">Tara</div><div class="tc" style="flex:.4"></div></div>'+
-  data.map(c=>{const obras=caeMap[(c.matriculacam||'').toUpperCase()];const caeBadge=obras?`<span title="CAE: ${obras.join(', ')}" style="color:#0c6;font-size:1rem;cursor:help">&#10003;</span>`:'<span style="color:var(--muted)">—</span>';return `<div class="tr"><div class="tc" style="flex:.4;text-align:center">${caeBadge}</div><div class="tc" style="flex:1;font-family:monospace;font-weight:700;color:var(--accent)">${c.matriculacam}</div><div class="tc" style="flex:.7;font-family:monospace">${c.matricularem||'—'}</div><div class="tc" style="flex:1.2">${c.chofer||'—'}</div><div class="tc" style="flex:1;color:var(--muted)">${c.proveedor||'—'}</div><div class="tc" style="flex:.7;text-align:right;font-family:monospace">${Number(c.tara||0).toLocaleString()} kg</div><div class="tc" style="flex:.4;text-align:right"><button class="btn-sm" onclick="openCamModal(${c.id})">Editar</button></div></div>`;}).join('')+'</div>';
+  data.map(c=>{const caeBadge=c.cae?'<span style="color:#0c6;font-size:1rem">&#10003;</span>':'<span style="color:var(--muted)">—</span>';return `<div class="tr"><div class="tc" style="flex:.4;text-align:center">${caeBadge}</div><div class="tc" style="flex:1;font-family:monospace;font-weight:700;color:var(--accent)">${c.matriculacam}</div><div class="tc" style="flex:.7;font-family:monospace">${c.matricularem||'—'}</div><div class="tc" style="flex:1.2">${c.chofer||'—'}</div><div class="tc" style="flex:1;color:var(--muted)">${c.proveedor||'—'}</div><div class="tc" style="flex:.7;text-align:right;font-family:monospace">${Number(c.tara||0).toLocaleString()} kg</div><div class="tc" style="flex:.4;text-align:right"><button class="btn-sm" onclick="openCamModal(${c.id})">Editar</button></div></div>`;}).join('')+'</div>';
 }
 function openCamModal(id){
   camEditingId=id;
@@ -2114,9 +2109,11 @@ function openCamModal(id){
     document.getElementById('cm-chofer').value=c.chofer||'';
     document.getElementById('cm-prov').value=c.proveedor||'';
     document.getElementById('cm-tel').value=c.telefono||'';
+    document.getElementById('cm-cae').checked=!!c.cae;
     delBtn.style.display='block';
   } else {
     ['cm-mat','cm-rem','cm-tara','cm-chofer','cm-prov','cm-tel'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
+    document.getElementById('cm-cae').checked=false;
     delBtn.style.display='none';
   }
   modal.classList.add('open');
@@ -2132,6 +2129,7 @@ async function saveCamion(){
     chofer:document.getElementById('cm-chofer').value,
     proveedor:document.getElementById('cm-prov').value,
     telefono:document.getElementById('cm-tel').value,
+    cae:document.getElementById('cm-cae').checked,
   };
   try{
     const json=await apiPost(payload);
@@ -2187,41 +2185,33 @@ async function cargarObras(){
 function filtrarObrasGestion(){
   const q=(document.getElementById('filt-obra').value||'').toUpperCase();
   let data=obrasGestData;
-  if(q)data=data.filter(o=>String(o.codigo||'').toUpperCase().includes(q)||String(o.nombre||'').toUpperCase().includes(q)||String(o.nombreCliente||'').toUpperCase().includes(q)||String(o.vehiculo||'').toUpperCase().includes(q));
+  if(q)data=data.filter(o=>String(o.codigo||'').toUpperCase().includes(q)||String(o.nombre||'').toUpperCase().includes(q)||String(o.nombreCliente||'').toUpperCase().includes(q));
   renderObrasGestion(data);
 }
 
 function renderObrasGestion(data){
   const el=document.getElementById('obras-list');
   if(!data.length){el.innerHTML='<div class="tbl"><div class="empty">Sin resultados</div></div>';return;}
-  el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:.6">Código</div><div class="tc" style="flex:1.1">Nombre obra</div><div class="tc" style="flex:1">Cliente</div><div class="tc" style="flex:.7">Vehículo</div><div class="tc" style="flex:.5">Estado</div><div class="tc" style="flex:.4"></div></div>'+
-  data.map(o=>`<div class="tr"><div class="tc" style="flex:.6;font-family:monospace;font-weight:700;color:var(--accent)">${o.codigo}</div><div class="tc" style="flex:1.1">${o.nombre}</div><div class="tc" style="flex:1;color:var(--muted)">${o.nombreCliente||'—'}</div><div class="tc" style="flex:.7;font-family:monospace">${o.vehiculo||'<span style="color:var(--muted)">—</span>'}</div><div class="tc" style="flex:.5">${o.activo!==false?'<span style="color:#0c6">Activa</span>':'<span style="color:var(--muted)">Inactiva</span>'}</div><div class="tc" style="flex:.4;text-align:right"><button class="btn-sm" onclick="openObraModal(${o.id})">Editar</button></div></div>`).join('')+'</div>';
+  el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:.6">Código</div><div class="tc" style="flex:1.3">Nombre obra</div><div class="tc" style="flex:1.2">Cliente</div><div class="tc" style="flex:.5">Estado</div><div class="tc" style="flex:.4"></div></div>'+
+  data.map(o=>`<div class="tr"><div class="tc" style="flex:.6;font-family:monospace;font-weight:700;color:var(--accent)">${o.codigo}</div><div class="tc" style="flex:1.3">${o.nombre}</div><div class="tc" style="flex:1.2;color:var(--muted)">${o.nombreCliente||'—'}</div><div class="tc" style="flex:.5">${o.activo!==false?'<span style="color:#0c6">Activa</span>':'<span style="color:var(--muted)">Inactiva</span>'}</div><div class="tc" style="flex:.4;text-align:right"><button class="btn-sm" onclick="openObraModal(${o.id})">Editar</button></div></div>`).join('')+'</div>';
 }
 
 let _obraSelCliente=null; // {codigo, nombre}
-let _obraSelVehiculo=null; // matrícula o null
 
 function openObraModal(id){
   obraEditingId=id;
   _obraSelCliente=null;
-  _obraSelVehiculo=null;
   const modal=document.getElementById('obra-modal');
   document.getElementById('obra-modal-title').textContent=id?'Editar obra':'Nueva obra';
   const delBtn=document.getElementById('ob-del-btn');
   const cliText=document.getElementById('ob-cli-text');
-  const vehText=document.getElementById('ob-veh-text');
   document.getElementById('ob-cli-dropdown').style.display='none';
   document.getElementById('ob-cli-search').value='';
-  document.getElementById('ob-veh-dropdown').style.display='none';
-  document.getElementById('ob-veh-search').value='';
   if(id){
     const o=obrasGestData.find(x=>x.id==id);if(!o)return;
     _obraSelCliente={codigo:o.codigoCliente,nombre:o.nombreCliente};
     cliText.textContent=o.nombreCliente||'Seleccionar cliente...';
     cliText.style.color=o.nombreCliente?'var(--text)':'var(--muted)';
-    _obraSelVehiculo=o.vehiculo||null;
-    vehText.textContent=o.vehiculo||'Sin vehículo';
-    vehText.style.color=o.vehiculo?'var(--text)':'var(--muted)';
     document.getElementById('ob-codigo').value=o.codigo||'';
     document.getElementById('ob-nombre').value=o.nombre||'';
     document.getElementById('ob-activo').checked=o.activo!==false;
@@ -2229,8 +2219,6 @@ function openObraModal(id){
   } else {
     cliText.textContent='Seleccionar cliente...';
     cliText.style.color='var(--muted)';
-    vehText.textContent='Sin vehículo';
-    vehText.style.color='var(--muted)';
     document.getElementById('ob-codigo').value='';
     document.getElementById('ob-nombre').value='';
     document.getElementById('ob-activo').checked=true;
@@ -2274,55 +2262,7 @@ function filtrarObraClientes(){
   renderObraCliList(document.getElementById('ob-cli-search').value);
 }
 
-function toggleObraVehDropdown(){
-  const dd=document.getElementById('ob-veh-dropdown');
-  dd.style.display=dd.style.display==='none'?'block':'none';
-  if(dd.style.display==='block'){
-    document.getElementById('ob-veh-search').value='';
-    document.getElementById('ob-veh-search').focus();
-    renderObraVehList('');
-  }
-}
-
-function renderObraVehList(q){
-  const list=document.getElementById('ob-veh-list');if(!list)return;
-  const sorted=[...camionesData].sort((a,b)=>(a.matriculacam||'').localeCompare(b.matriculacam||''));
-  const filtered=q?sorted.filter(c=>(c.matriculacam||'').toUpperCase().includes(q.toUpperCase())||(c.chofer||'').toUpperCase().includes(q.toUpperCase())):sorted;
-  list.innerHTML='';
-  // Opción "Sin vehículo"
-  const none=document.createElement('div');
-  none.style.cssText='padding:10px 14px;cursor:pointer;font-size:.82rem;border-bottom:1px solid var(--border);color:var(--muted);font-style:italic';
-  none.textContent='Sin vehículo';
-  none.onmouseover=()=>none.style.background='var(--surface2)';
-  none.onmouseout=()=>none.style.background='transparent';
-  none.onclick=()=>{
-    _obraSelVehiculo=null;
-    document.getElementById('ob-veh-text').textContent='Sin vehículo';
-    document.getElementById('ob-veh-text').style.color='var(--muted)';
-    document.getElementById('ob-veh-dropdown').style.display='none';
-  };
-  list.appendChild(none);
-  filtered.forEach(c=>{
-    const div=document.createElement('div');
-    div.style.cssText='padding:10px 14px;cursor:pointer;font-size:.82rem;border-bottom:1px solid var(--border)';
-    div.innerHTML='<span style="font-family:monospace;color:var(--accent);margin-right:8px">'+c.matriculacam+'</span>'+(c.chofer||'');
-    div.onmouseover=()=>div.style.background='var(--surface2)';
-    div.onmouseout=()=>div.style.background='transparent';
-    div.onclick=()=>{
-      _obraSelVehiculo=c.matriculacam;
-      document.getElementById('ob-veh-text').textContent=c.matriculacam+(c.chofer?' — '+c.chofer:'');
-      document.getElementById('ob-veh-text').style.color='var(--text)';
-      document.getElementById('ob-veh-dropdown').style.display='none';
-    };
-    list.appendChild(div);
-  });
-}
-
-function filtrarObraVehiculos(){
-  renderObraVehList(document.getElementById('ob-veh-search').value);
-}
-
-function closeObraModal(){document.getElementById('obra-modal').classList.remove('open');obraEditingId=null;_obraSelCliente=null;_obraSelVehiculo=null;}
+function closeObraModal(){document.getElementById('obra-modal').classList.remove('open');obraEditingId=null;_obraSelCliente=null;}
 
 async function saveObra(){
   if(!_obraSelCliente){alert('Selecciona un cliente.');return;}
@@ -2338,7 +2278,6 @@ async function saveObra(){
     codigoCliente:_obraSelCliente.codigo,
     nombreCliente:_obraSelCliente.nombre,
     activo:document.getElementById('ob-activo').checked,
-    vehiculo:_obraSelVehiculo||null,
   };
   try{
     const json=await apiPost(payload);
