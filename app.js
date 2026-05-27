@@ -2358,34 +2358,19 @@ td:first-child{font-weight:700;width:170px;background:#f8f8f8}
   w.document.close();
 }
 
-function imprimirCAE(){
-  const hoy=new Date().toISOString().slice(0,10);
-  const data=choferesData.length?choferesData:[];
-  const w=window.open('','_blank','width=800,height=600');
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Listado CAE — ARIFOMA</title>
-<style>body{font-family:Arial,sans-serif;padding:25px;color:#222}h2{margin:0 0 4px;font-size:1.3rem}
-.sub{color:#888;font-size:.82rem;margin-bottom:16px}
-table{width:100%;border-collapse:collapse}th,td{padding:7px 10px;border:1px solid #ccc;font-size:.82rem}
-th{background:#f0f0f0;font-weight:700;text-align:left}
-.ok{color:#0a0;font-weight:700}.no{color:#c00;font-weight:700}.warn{color:#e80;font-weight:700}
-.footer{margin-top:20px;font-size:.68rem;color:#aaa;text-align:center}
-@media print{body{padding:10px}th{background:#eee!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
-</style></head><body>
-<h2>Coordinación de Actividad Empresarial (CAE)</h2>
-<div class="sub">Listado de choferes — Generado el ${new Date().toLocaleDateString('es-ES')}</div>
-${data.length?`<table><tr><th>Nombre</th><th>DNI</th><th>Empresa</th><th>Teléfono</th><th>CAE</th><th>Vencimiento</th><th>Estado</th></tr>`+
-data.map(c=>{
-  const venc=c.cae_vencimiento||'';
-  const vencTxt=venc?venc.split('-').reverse().join('/'):'—';
-  const vencido=venc&&venc<hoy;
-  let estado='<span class="no">Sin CAE</span>';
-  if(c.cae&&!vencido)estado='<span class="ok">&#10003; Vigente</span>';
-  else if(c.cae&&vencido)estado='<span class="warn">&#9888; Vencido</span>';
-  return '<tr><td><strong>'+c.nombre+'</strong></td><td>'+(c.dni||'—')+'</td><td>'+(c.empresa||'—')+'</td><td>'+(c.telefono||'—')+'</td><td>'+(c.cae?'Sí':'No')+'</td><td>'+vencTxt+'</td><td>'+estado+'</td></tr>';
-}).join('')+'</table>':'<p style="color:#999">No hay choferes registrados.</p>'}
-<div class="footer">ARIFOMA — Coordinación de Actividad Empresarial</div>
-<script>window.print();<\/script></body></html>`);
-  w.document.close();
+async function imprimirCAE(){
+  const fileName='1. CAE SOLICITUD Y ENTREGA DE DOCUMENTACION.pdf';
+  const filePath=CHOFERES_ONEDRIVE_BASE+'/'+fileName;
+  const encodedPath=filePath.split('/').map(s=>encodeURIComponent(s)).join('/');
+  try{
+    const token=await comprasGetToken();
+    const resp=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+encodedPath+'?$select=name,webUrl,@microsoft.graph.downloadUrl',{
+      headers:{'Authorization':'Bearer '+token}
+    });
+    if(!resp.ok)throw new Error('No se encontró el documento');
+    const f=await resp.json();
+    window.open(f['@microsoft.graph.downloadUrl']||f.webUrl,'_blank');
+  }catch(e){alert('Error accediendo a OneDrive: '+e.message);}
 }
 
 async function abrirCarpetaCAE(id){
