@@ -505,7 +505,7 @@ const DIAS_LAB_2026=[18,18,22,20,20,21,23,21,22,21,21,18];
 const HORAS_DIA_STD=8; // Jornada estándar convenio
 const PRODS=['ARIDO AF-T-0/4-I','ARIDO AG-T-4/12-I','ARIDO AG-T-12/20-I','ARIDO AG-T-20/40-I','ARIDO AG-T-40/70-I','REVUELTO 0/20','REVUELTO 0/10','PIEDRA PARA MURO (UD)','MATERIAL DE RELLENO 0/4'];
 const PROD_CAT={'ARIDO AF-T-0/4-I':'0/4','ARIDO AG-T-4/12-I':'4/12','ARIDO AG-T-12/20-I':'12/20','ARIDO AG-T-20/40-I':'20/40'};
-const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas','historico-ventas':'Histórico de Ventas',caja:'Caja',costes:'Análisis de Costes',produccion:'Producción Planta',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',preventivo:'Mantenimiento Preventivo',compras:'Escanear Factura',choferes:'Choferes'};
+const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas','historico-ventas':'Histórico de Ventas',caja:'Caja',costes:'Análisis de Costes',produccion:'Producción Planta',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',preventivo:'Mantenimiento Preventivo',compras:'Escanear Factura',choferes:'Conductores'};
 
 // Login via Google OAuth — ver funciones.js: googleLogin() y checkGoogleSession()
 
@@ -1545,7 +1545,11 @@ async function guardarLinea(){
   if(btn){btn.disabled=true;btn.textContent='Guardando...';}
   try{
     const json=await apiPost(payload);
-    const savedId=(json.ok&&json.id!=null)?json.id:'LOCAL';
+    if(!json.ok){
+      alert('Error guardando pesada: '+(json.error||'Error desconocido')+'\n\nReintenta o recarga la página.');
+      return;
+    }
+    const savedId=json.id!=null?json.id:Date.now();
     basLineasSesion.push({
       numLinea:basCurrentLinea,
       matriculacam:basSelCamion.matriculacam,
@@ -1556,16 +1560,12 @@ async function guardarLinea(){
       _id:savedId,
       _payload:payload,
     });
-    if(!json.ok&&json.error)console.warn('Error guardando:',json.error);
     basCurrentLinea+=10000;
-    // Show inline success without forcing albaran print
     mostrarExitoLinea(savedId,payload);
     renderAlbaranStep3();
   }catch(e){
-    basLineasSesion.push({numLinea:basCurrentLinea,matriculacam:basSelCamion.matriculacam,matricularem:basSelCamion.matricularem||'',pesoNeto:neto,productoCod,productoNombre:prodNombre,_id:'LOCAL',_payload:payload});
-    basCurrentLinea+=10000;
-    mostrarExitoLinea('LOCAL',payload);
-    renderAlbaranStep3();
+    alert('Error de conexión guardando pesada: '+e.message+'\n\nReintenta o recarga la página.');
+    return;
   }finally{
     if(btn){btn.disabled=false;btn.textContent='Guardar';}
   }
@@ -1596,7 +1596,8 @@ function mostrarAlbaranUltimaLinea(){
   const id=_lastSavedId;
   const now=new Date();
   const fecha=pad(now.getDate())+'/'+pad(now.getMonth()+1)+'/'+now.getFullYear()+' '+pad(now.getHours())+':'+pad(now.getMinutes());
-  document.getElementById('alb-num').textContent='PEDV'+now.getFullYear()+'-'+String(id).padStart(6,'0')+'/'+String(p.numLinea||0).padStart(5,'0');
+  const idNum=(id&&id!=='LOCAL'&&!isNaN(Number(id)))?String(id).padStart(6,'0'):'PEND';
+  document.getElementById('alb-num').textContent='PEDV'+now.getFullYear()+'-'+idNum+'/'+String(p.numLinea||0).padStart(5,'0');
   document.getElementById('alb-fecha').textContent=fecha;
   document.getElementById('alb-mat').textContent=p.matriculacam||'—';
   document.getElementById('alb-rem').textContent=p.matricularem||'—';
@@ -1679,7 +1680,8 @@ async function _cargarDatosFiscalesBC(codigoCliente){
 async function mostrarAlbaran(id,p){
   const now=new Date();
   const fecha=pad(now.getDate())+'/'+pad(now.getMonth()+1)+'/'+now.getFullYear()+' '+pad(now.getHours())+':'+pad(now.getMinutes());
-  document.getElementById('alb-num').textContent='PEDV'+now.getFullYear()+'-'+String(id).padStart(6,'0')+'/'+String(p.numLinea||0).padStart(5,'0');
+  const idNum=(id&&id!=='LOCAL'&&!isNaN(Number(id)))?String(id).padStart(6,'0'):'PEND';
+  document.getElementById('alb-num').textContent='PEDV'+now.getFullYear()+'-'+idNum+'/'+String(p.numLinea||0).padStart(5,'0');
   document.getElementById('alb-fecha').textContent=fecha;
   document.getElementById('alb-mat').textContent=p.matriculacam||'—';
   document.getElementById('alb-rem').textContent=p.matricularem||'—';
@@ -2262,7 +2264,7 @@ function renderChoferesGestion(data){
 function openChoferModal(id){
   choferEditingId=id;
   const modal=document.getElementById('chofer-modal');
-  document.getElementById('chofer-modal-title').textContent=id?'Editar chofer':'Nuevo chofer';
+  document.getElementById('chofer-modal-title').textContent=id?'Editar conductor':'Nuevo conductor';
   const delBtn=document.getElementById('ch-del-btn');
   const caeCheck=document.getElementById('ch-cae');
   const caeExtra=document.getElementById('ch-cae-extra');
@@ -2277,6 +2279,8 @@ function openChoferModal(id){
     document.getElementById('ch-cae-carpeta').value=c.cae_carpeta||'';
     document.getElementById('ch-cae-fecha').value=c.cae_fecha||'';
     document.getElementById('ch-cae-file').value='';
+    document.getElementById('ch-cae-cam').value='';
+    document.getElementById('ch-cae-file-name').textContent='';
     calcVencCAE();
     delBtn.style.display='block';
   } else {
@@ -2285,10 +2289,20 @@ function openChoferModal(id){
     caeCheck.checked=false;
     caeExtra.style.display='none';
     document.getElementById('ch-cae-file').value='';
+    document.getElementById('ch-cae-cam').value='';
+    document.getElementById('ch-cae-file-name').textContent='';
     delBtn.style.display='none';
   }
   caeCheck.onchange=()=>{caeExtra.style.display=caeCheck.checked?'block':'none';};
   document.getElementById('ch-cae-fecha').onchange=()=>{calcVencCAE();};
+  document.getElementById('ch-cae-file').onchange=function(){
+    document.getElementById('ch-cae-cam').value='';
+    document.getElementById('ch-cae-file-name').textContent=this.files[0]?this.files[0].name:'';
+  };
+  document.getElementById('ch-cae-cam').onchange=function(){
+    document.getElementById('ch-cae-file').value='';
+    document.getElementById('ch-cae-file-name').textContent=this.files[0]?'📷 '+this.files[0].name:'';
+  };
   modal.classList.add('open');
 }
 
@@ -2322,10 +2336,11 @@ async function saveChofer(){
 
   // Subir PDF CAE a OneDrive si hay archivo
   const fileInput=document.getElementById('ch-cae-file');
+  const camInput=document.getElementById('ch-cae-cam');
   const carpetaCAE=document.getElementById('ch-cae-carpeta').value.trim();
-  if(fileInput.files.length>0&&document.getElementById('ch-cae').checked&&carpetaCAE){
+  const uploadFile=fileInput.files.length>0?fileInput.files[0]:(camInput.files.length>0?camInput.files[0]:null);
+  if(uploadFile&&document.getElementById('ch-cae').checked&&carpetaCAE){
     try{
-      const file=fileInput.files[0];
       const token=await comprasGetToken();
       const folderPath=CHOFERES_ONEDRIVE_BASE+'/'+carpetaCAE;
       // Crear carpeta si no existe
@@ -2336,12 +2351,12 @@ async function saveChofer(){
         body:JSON.stringify({name:carpetaCAE,folder:{},'@microsoft.graph.conflictBehavior':'fail'})
       });
       const encodedPath=folderPath.split('/').map(s=>encodeURIComponent(s)).join('/');
-      const fileName=file.name;
+      const fileName=uploadFile.name;
       const uploadUrl='https://graph.microsoft.com/v1.0/me/drive/root:/'+encodedPath+'/'+encodeURIComponent(fileName)+':/content';
       const resp=await fetch(uploadUrl,{
         method:'PUT',
-        headers:{'Authorization':'Bearer '+token,'Content-Type':file.type||'application/pdf'},
-        body:file
+        headers:{'Authorization':'Bearer '+token,'Content-Type':uploadFile.type||'application/pdf'},
+        body:uploadFile
       });
       if(!resp.ok){const err=await resp.text();alert('Error subiendo PDF: '+err);}
       else{payload.cae_documento=folderPath+'/'+fileName;}
@@ -2367,7 +2382,7 @@ async function saveChofer(){
 
 async function eliminarChofer(){
   if(!choferEditingId)return;
-  if(!confirm('¿Eliminar este chofer de la base de datos?'))return;
+  if(!confirm('¿Eliminar este conductor de la base de datos?'))return;
   try{
     const json=await apiPost({tipo:'eliminarChofer',id:choferEditingId});
     if(json.ok){
@@ -2383,7 +2398,7 @@ function imprimirChofer(id){
   const c=choferesData.find(x=>x.id==id);if(!c)return;
   const venc=c.cae_vencimiento?c.cae_vencimiento.split('-').reverse().join('/'):'—';
   const w=window.open('','_blank','width=600,height=500');
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ficha chofer — ${c.nombre}</title>
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ficha conductor — ${c.nombre}</title>
 <style>body{font-family:Arial,sans-serif;padding:30px;color:#222}h2{margin:0 0 4px;font-size:1.3rem}
 .sub{color:#888;font-size:.85rem;margin-bottom:20px}
 table{width:100%;border-collapse:collapse;margin-top:10px}
@@ -2394,7 +2409,7 @@ td:first-child{font-weight:700;width:170px;background:#f8f8f8}
 @media print{body{padding:15px}}
 </style></head><body>
 <h2>${c.nombre}</h2>
-<div class="sub">Ficha de chofer — ARIFOMA</div>
+<div class="sub">Ficha de conductor — ARIFOMA</div>
 <table>
 <tr><td>DNI / NIE</td><td>${c.dni||'—'}</td></tr>
 <tr><td>Teléfono</td><td>${c.telefono||'—'}</td></tr>

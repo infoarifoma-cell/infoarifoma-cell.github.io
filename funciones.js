@@ -72,19 +72,37 @@ async function cerrarSesion() {
 
 // ── PROXY HELPER ────────────────────────────────────────────────
 // Todas las operaciones de datos pasan por /api/supabase (backend seguro)
+async function _refreshToken() {
+  try {
+    const { data: { session } } = await _supabase.auth.refreshSession();
+    if (session && session.access_token) {
+      _sessionToken = session.access_token;
+      scheduleTokenRefresh(session.access_token);
+      return true;
+    }
+  } catch (e) { console.warn('Token refresh failed:', e); }
+  return false;
+}
+
 async function dbQuery({ action, table, data, filters, options }) {
   if (!_sessionToken) {
     return { ok: false, error: 'No hay sesión activa' };
   }
+  const doFetch = () => fetch('/api/supabase', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + _sessionToken
+    },
+    body: JSON.stringify({ action, table, data, filters, options })
+  });
   try {
-    const res = await fetch('/api/supabase', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + _sessionToken
-      },
-      body: JSON.stringify({ action, table, data, filters, options })
-    });
+    let res = await doFetch();
+    // Si token expirado, refrescar y reintentar una vez
+    if (res.status === 401) {
+      const refreshed = await _refreshToken();
+      if (refreshed) res = await doFetch();
+    }
     const json = await res.json();
     return json;
   } catch (e) {

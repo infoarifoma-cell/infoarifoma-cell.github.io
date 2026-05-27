@@ -440,7 +440,7 @@
           <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="7" width="11" height="7" rx="1"/><path d="M12 9h3l2 3v2h-5V9z"/><circle cx="4.5" cy="14.5" r="1.5"/><circle cx="13.5" cy="14.5" r="1.5"/></svg>Camiones
         </button>
         <button class="snav-btn" onclick="goPage('choferes')" id="snav-choferes">
-          <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="6" r="3"/><path d="M3 16c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>Choferes
+          <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="6" r="3"/><path d="M3 16c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>Conductores
         </button>
         <button class="snav-btn" onclick="goPage('obras')" id="snav-obras">
           <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 16h14M4 16V8l5-4 5 4v8M7 16v-4h4v4"/></svg>Obras
@@ -1268,7 +1268,7 @@
         <div class="page" id="pg-choferes">
           <div class="modal-wrap" id="chofer-modal">
             <div class="modal-box" style="max-width:420px">
-              <h3 id="chofer-modal-title">Nuevo chofer</h3>
+              <h3 id="chofer-modal-title">Nuevo conductor</h3>
               <label>Nombre completo</label><input type="text" class="inp" id="ch-nombre" placeholder="Ej: Juan Pérez García">
               <label>DNI / NIE</label><input type="text" class="inp inp-mono" id="ch-dni" placeholder="Ej: 12345678A" style="text-transform:uppercase">
               <label>Teléfono</label><input type="text" class="inp inp-mono" id="ch-telefono" placeholder="Ej: 600123456">
@@ -1281,8 +1281,14 @@
                   <label style="font-size:.75rem;margin-top:6px">Fecha del CAE</label>
                   <input type="date" class="inp inp-mono" id="ch-cae-fecha" style="font-size:.8rem">
                   <div id="ch-cae-venc-info" style="font-size:.72rem;margin-top:4px;color:var(--muted)"></div>
-                  <label style="font-size:.75rem;margin-top:6px">Subir documento CAE (PDF)</label>
-                  <input type="file" id="ch-cae-file" accept=".pdf" style="font-size:.78rem;margin-top:2px">
+                  <label style="font-size:.75rem;margin-top:6px">Subir documento CAE</label>
+                  <div style="display:flex;gap:6px;margin-top:4px">
+                    <button type="button" class="btn-sec" onclick="document.getElementById('ch-cae-file').click()" style="font-size:.72rem;padding:6px 10px;flex:1">📁 Archivo</button>
+                    <button type="button" class="btn-sec" onclick="document.getElementById('ch-cae-cam').click()" style="font-size:.72rem;padding:6px 10px;flex:1">📷 Foto</button>
+                  </div>
+                  <input type="file" id="ch-cae-file" accept=".pdf,.jpg,.jpeg,.png" style="display:none">
+                  <input type="file" id="ch-cae-cam" accept="image/*" capture="environment" style="display:none">
+                  <div id="ch-cae-file-name" style="font-size:.7rem;color:var(--muted);margin-top:4px"></div>
                 </div>
               </div>
               <div class="modal-btns">
@@ -1293,7 +1299,7 @@
             </div>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-            <div class="sec-title" style="margin:0">Gestión de choferes</div>
+            <div class="sec-title" style="margin:0">Gestión de conductores</div>
             <div style="display:flex;gap:8px">
               <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="cargarChoferes()">&#8635; Actualizar</button>
               <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="imprimirCAE()">🖨 Imprimir CAE</button>
@@ -1301,7 +1307,7 @@
             </div>
           </div>
           <div class="frow">
-            <input type="text" class="fsel" id="filt-chofer" placeholder="Buscar por nombre, DNI o empresa..." oninput="filtrarChoferesGestion()" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;padding:7px 10px;outline:none">
+            <input type="text" class="fsel" id="filt-chofer" placeholder="Buscar por nombre, DNI o empresa de conductor..." oninput="filtrarChoferesGestion()" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;padding:7px 10px;outline:none">
           </div>
           <div id="choferes-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
         </div>
