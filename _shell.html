@@ -1270,6 +1270,17 @@
               </div>
               <label>Código obra</label><input type="text" class="inp inp-mono" id="ob-codigo" placeholder="Ej: PV-036" style="text-transform:uppercase">
               <label>Nombre obra</label><input type="text" class="inp" id="ob-nombre" placeholder="Ej: HORCASA LA PARDILLA">
+              <label>Vehículo asignado</label>
+              <div style="position:relative">
+                <div class="inp" id="ob-veh-display" onclick="toggleObraVehDropdown()" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center">
+                  <span id="ob-veh-text" style="color:var(--muted)">Sin vehículo</span>
+                  <span style="font-size:.6rem">▼</span>
+                </div>
+                <div id="ob-veh-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;max-height:220px;overflow-y:auto;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,.3)">
+                  <input type="text" class="inp" id="ob-veh-search" placeholder="Buscar matrícula..." oninput="filtrarObraVehiculos()" style="border:none;border-bottom:1px solid var(--border);border-radius:0;margin:0">
+                  <div id="ob-veh-list"></div>
+                </div>
+              </div>
               <div style="margin-top:8px">
                 <label><input type="checkbox" id="ob-activo" checked> Activa</label>
               </div>

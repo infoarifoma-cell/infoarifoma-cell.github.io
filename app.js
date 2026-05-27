@@ -2181,33 +2181,41 @@ async function cargarObras(){
 function filtrarObrasGestion(){
   const q=(document.getElementById('filt-obra').value||'').toUpperCase();
   let data=obrasGestData;
-  if(q)data=data.filter(o=>String(o.codigo||'').toUpperCase().includes(q)||String(o.nombre||'').toUpperCase().includes(q)||String(o.nombreCliente||'').toUpperCase().includes(q));
+  if(q)data=data.filter(o=>String(o.codigo||'').toUpperCase().includes(q)||String(o.nombre||'').toUpperCase().includes(q)||String(o.nombreCliente||'').toUpperCase().includes(q)||String(o.vehiculo||'').toUpperCase().includes(q));
   renderObrasGestion(data);
 }
 
 function renderObrasGestion(data){
   const el=document.getElementById('obras-list');
   if(!data.length){el.innerHTML='<div class="tbl"><div class="empty">Sin resultados</div></div>';return;}
-  el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:.6">Código</div><div class="tc" style="flex:1.3">Nombre obra</div><div class="tc" style="flex:1.2">Cliente</div><div class="tc" style="flex:.5">Estado</div><div class="tc" style="flex:.4"></div></div>'+
-  data.map(o=>`<div class="tr"><div class="tc" style="flex:.6;font-family:monospace;font-weight:700;color:var(--accent)">${o.codigo}</div><div class="tc" style="flex:1.3">${o.nombre}</div><div class="tc" style="flex:1.2;color:var(--muted)">${o.nombreCliente||'—'}</div><div class="tc" style="flex:.5">${o.activo!==false?'<span style="color:#0c6">Activa</span>':'<span style="color:var(--muted)">Inactiva</span>'}</div><div class="tc" style="flex:.4;text-align:right"><button class="btn-sm" onclick="openObraModal(${o.id})">Editar</button></div></div>`).join('')+'</div>';
+  el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:.6">Código</div><div class="tc" style="flex:1.1">Nombre obra</div><div class="tc" style="flex:1">Cliente</div><div class="tc" style="flex:.7">Vehículo</div><div class="tc" style="flex:.5">Estado</div><div class="tc" style="flex:.4"></div></div>'+
+  data.map(o=>`<div class="tr"><div class="tc" style="flex:.6;font-family:monospace;font-weight:700;color:var(--accent)">${o.codigo}</div><div class="tc" style="flex:1.1">${o.nombre}</div><div class="tc" style="flex:1;color:var(--muted)">${o.nombreCliente||'—'}</div><div class="tc" style="flex:.7;font-family:monospace">${o.vehiculo||'<span style="color:var(--muted)">—</span>'}</div><div class="tc" style="flex:.5">${o.activo!==false?'<span style="color:#0c6">Activa</span>':'<span style="color:var(--muted)">Inactiva</span>'}</div><div class="tc" style="flex:.4;text-align:right"><button class="btn-sm" onclick="openObraModal(${o.id})">Editar</button></div></div>`).join('')+'</div>';
 }
 
 let _obraSelCliente=null; // {codigo, nombre}
+let _obraSelVehiculo=null; // matrícula o null
 
 function openObraModal(id){
   obraEditingId=id;
   _obraSelCliente=null;
+  _obraSelVehiculo=null;
   const modal=document.getElementById('obra-modal');
   document.getElementById('obra-modal-title').textContent=id?'Editar obra':'Nueva obra';
   const delBtn=document.getElementById('ob-del-btn');
   const cliText=document.getElementById('ob-cli-text');
+  const vehText=document.getElementById('ob-veh-text');
   document.getElementById('ob-cli-dropdown').style.display='none';
   document.getElementById('ob-cli-search').value='';
+  document.getElementById('ob-veh-dropdown').style.display='none';
+  document.getElementById('ob-veh-search').value='';
   if(id){
     const o=obrasGestData.find(x=>x.id==id);if(!o)return;
     _obraSelCliente={codigo:o.codigoCliente,nombre:o.nombreCliente};
     cliText.textContent=o.nombreCliente||'Seleccionar cliente...';
     cliText.style.color=o.nombreCliente?'var(--text)':'var(--muted)';
+    _obraSelVehiculo=o.vehiculo||null;
+    vehText.textContent=o.vehiculo||'Sin vehículo';
+    vehText.style.color=o.vehiculo?'var(--text)':'var(--muted)';
     document.getElementById('ob-codigo').value=o.codigo||'';
     document.getElementById('ob-nombre').value=o.nombre||'';
     document.getElementById('ob-activo').checked=o.activo!==false;
@@ -2215,6 +2223,8 @@ function openObraModal(id){
   } else {
     cliText.textContent='Seleccionar cliente...';
     cliText.style.color='var(--muted)';
+    vehText.textContent='Sin vehículo';
+    vehText.style.color='var(--muted)';
     document.getElementById('ob-codigo').value='';
     document.getElementById('ob-nombre').value='';
     document.getElementById('ob-activo').checked=true;
@@ -2258,7 +2268,55 @@ function filtrarObraClientes(){
   renderObraCliList(document.getElementById('ob-cli-search').value);
 }
 
-function closeObraModal(){document.getElementById('obra-modal').classList.remove('open');obraEditingId=null;_obraSelCliente=null;}
+function toggleObraVehDropdown(){
+  const dd=document.getElementById('ob-veh-dropdown');
+  dd.style.display=dd.style.display==='none'?'block':'none';
+  if(dd.style.display==='block'){
+    document.getElementById('ob-veh-search').value='';
+    document.getElementById('ob-veh-search').focus();
+    renderObraVehList('');
+  }
+}
+
+function renderObraVehList(q){
+  const list=document.getElementById('ob-veh-list');if(!list)return;
+  const sorted=[...camionesData].sort((a,b)=>(a.matriculacam||'').localeCompare(b.matriculacam||''));
+  const filtered=q?sorted.filter(c=>(c.matriculacam||'').toUpperCase().includes(q.toUpperCase())||(c.chofer||'').toUpperCase().includes(q.toUpperCase())):sorted;
+  list.innerHTML='';
+  // Opción "Sin vehículo"
+  const none=document.createElement('div');
+  none.style.cssText='padding:10px 14px;cursor:pointer;font-size:.82rem;border-bottom:1px solid var(--border);color:var(--muted);font-style:italic';
+  none.textContent='Sin vehículo';
+  none.onmouseover=()=>none.style.background='var(--surface2)';
+  none.onmouseout=()=>none.style.background='transparent';
+  none.onclick=()=>{
+    _obraSelVehiculo=null;
+    document.getElementById('ob-veh-text').textContent='Sin vehículo';
+    document.getElementById('ob-veh-text').style.color='var(--muted)';
+    document.getElementById('ob-veh-dropdown').style.display='none';
+  };
+  list.appendChild(none);
+  filtered.forEach(c=>{
+    const div=document.createElement('div');
+    div.style.cssText='padding:10px 14px;cursor:pointer;font-size:.82rem;border-bottom:1px solid var(--border)';
+    div.innerHTML='<span style="font-family:monospace;color:var(--accent);margin-right:8px">'+c.matriculacam+'</span>'+(c.chofer||'');
+    div.onmouseover=()=>div.style.background='var(--surface2)';
+    div.onmouseout=()=>div.style.background='transparent';
+    div.onclick=()=>{
+      _obraSelVehiculo=c.matriculacam;
+      document.getElementById('ob-veh-text').textContent=c.matriculacam+(c.chofer?' — '+c.chofer:'');
+      document.getElementById('ob-veh-text').style.color='var(--text)';
+      document.getElementById('ob-veh-dropdown').style.display='none';
+    };
+    list.appendChild(div);
+  });
+}
+
+function filtrarObraVehiculos(){
+  renderObraVehList(document.getElementById('ob-veh-search').value);
+}
+
+function closeObraModal(){document.getElementById('obra-modal').classList.remove('open');obraEditingId=null;_obraSelCliente=null;_obraSelVehiculo=null;}
 
 async function saveObra(){
   if(!_obraSelCliente){alert('Selecciona un cliente.');return;}
@@ -2274,6 +2332,7 @@ async function saveObra(){
     codigoCliente:_obraSelCliente.codigo,
     nombreCliente:_obraSelCliente.nombre,
     activo:document.getElementById('ob-activo').checked,
+    vehiculo:_obraSelVehiculo||null,
   };
   try{
     const json=await apiPost(payload);
