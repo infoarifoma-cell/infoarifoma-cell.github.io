@@ -2358,37 +2358,8 @@ td:first-child{font-weight:700;width:170px;background:#f8f8f8}
   w.document.close();
 }
 
-async function imprimirCAE(){
-  try{
-    const token=await comprasGetToken();
-    // Test: intentar leer la carpeta de compras que SÍ funciona para upload
-    const testPath='Arifoma/06. ADMINISTRACION/06.01 PROVEEDORES';
-    const testEncoded=testPath.split('/').map(s=>encodeURIComponent(s)).join('/');
-    const testResp=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+testEncoded+':/children?$select=name&$top=3',{
-      headers:{'Authorization':'Bearer '+token}
-    });
-    console.log('Test compras path status:',testResp.status);
-    if(testResp.ok){
-      const td=await testResp.json();
-      console.log('Test compras files:',td.value?.map(f=>f.name));
-    } else {
-      console.log('Test compras error:',await testResp.text());
-    }
-    // Ahora probar la ruta CAE
-    const caePath='Arifoma/13. SEGURIDAD Y SALUD/13.02 SERVICIO DE PREVENCION/COORDINACION AE/0. CAE DOCUMENTACION';
-    const caeEncoded=caePath.split('/').map(s=>encodeURIComponent(s)).join('/');
-    const caeResp=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+caeEncoded+':/children?$select=name&$top=3',{
-      headers:{'Authorization':'Bearer '+token}
-    });
-    console.log('CAE path status:',caeResp.status);
-    if(caeResp.ok){
-      const cd=await caeResp.json();
-      console.log('CAE files:',cd.value?.map(f=>f.name));
-    } else {
-      console.log('CAE error:',await caeResp.text());
-    }
-    alert('Mira la consola');
-  }catch(e){alert('Error: '+e.message);}
+function imprimirCAE(){
+  window.open('https://grpsite-my.sharepoint.com/personal/greyes_arifoma_com/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Fgreyes%5Farifoma%5Fcom%2FDocuments%2FEscritorio%2FArifoma%2F13%2E%20SEGURIDAD%20Y%20SALUD%2F13%2E02%20SERVICIO%20DE%20PREVENCION%2FCOORDINACION%20AE%2F0%2E%20CAE%20DOCUMENTACION','_blank');
 }
 
 async function abrirCarpetaCAE(id){
