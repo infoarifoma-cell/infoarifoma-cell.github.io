@@ -2361,29 +2361,33 @@ td:first-child{font-weight:700;width:170px;background:#f8f8f8}
 async function imprimirCAE(){
   try{
     const token=await comprasGetToken();
-    // Buscar por la URL de SharePoint del otro usuario (greyes)
-    // Usar search para encontrar el archivo CAE
-    const searchResp=await fetch('https://graph.microsoft.com/v1.0/me/drive/root/search(q=\'CAE SOLICITUD Y ENTREGA\')?$select=name,webUrl,@microsoft.graph.downloadUrl,parentReference',{
+    // Test: intentar leer la carpeta de compras que SÍ funciona para upload
+    const testPath='Arifoma/06. ADMINISTRACION/06.01 PROVEEDORES';
+    const testEncoded=testPath.split('/').map(s=>encodeURIComponent(s)).join('/');
+    const testResp=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+testEncoded+':/children?$select=name&$top=3',{
       headers:{'Authorization':'Bearer '+token}
     });
-    if(searchResp.ok){
-      const data=await searchResp.json();
-      console.log('Search results:',JSON.stringify(data.value?.map(f=>({name:f.name,path:f.parentReference?.path,webUrl:f.webUrl})),null,2));
-      const caeDoc=data.value?.find(f=>f.name.startsWith('1.'));
-      if(caeDoc){
-        window.open(caeDoc['@microsoft.graph.downloadUrl']||caeDoc.webUrl,'_blank');
-        return;
-      }
+    console.log('Test compras path status:',testResp.status);
+    if(testResp.ok){
+      const td=await testResp.json();
+      console.log('Test compras files:',td.value?.map(f=>f.name));
+    } else {
+      console.log('Test compras error:',await testResp.text());
     }
-    // Si no encuentra, buscar en shared drives
-    const sharedResp=await fetch('https://graph.microsoft.com/v1.0/me/drive/sharedWithMe?$select=name,webUrl,remoteItem',{
+    // Ahora probar la ruta CAE
+    const caePath='Arifoma/13. SEGURIDAD Y SALUD/13.02 SERVICIO DE PREVENCION/COORDINACION AE/0. CAE DOCUMENTACION';
+    const caeEncoded=caePath.split('/').map(s=>encodeURIComponent(s)).join('/');
+    const caeResp=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+caeEncoded+':/children?$select=name&$top=3',{
       headers:{'Authorization':'Bearer '+token}
     });
-    if(sharedResp.ok){
-      const shared=await sharedResp.json();
-      console.log('Shared items:',shared.value?.map(f=>f.name));
+    console.log('CAE path status:',caeResp.status);
+    if(caeResp.ok){
+      const cd=await caeResp.json();
+      console.log('CAE files:',cd.value?.map(f=>f.name));
+    } else {
+      console.log('CAE error:',await caeResp.text());
     }
-    alert('Mira la consola — resultados de búsqueda');
+    alert('Mira la consola');
   }catch(e){alert('Error: '+e.message);}
 }
 
