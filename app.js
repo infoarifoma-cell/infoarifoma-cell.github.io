@@ -2361,24 +2361,29 @@ td:first-child{font-weight:700;width:170px;background:#f8f8f8}
 async function imprimirCAE(){
   try{
     const token=await comprasGetToken();
-    // Listar todos los drives del usuario
-    const drivesResp=await fetch('https://graph.microsoft.com/v1.0/me/drives?$select=id,name,driveType,webUrl',{
+    // Buscar por la URL de SharePoint del otro usuario (greyes)
+    // Usar search para encontrar el archivo CAE
+    const searchResp=await fetch('https://graph.microsoft.com/v1.0/me/drive/root/search(q=\'CAE SOLICITUD Y ENTREGA\')?$select=name,webUrl,@microsoft.graph.downloadUrl,parentReference',{
       headers:{'Authorization':'Bearer '+token}
     });
-    if(!drivesResp.ok)throw new Error('No se pudo listar drives');
-    const drives=await drivesResp.json();
-    console.log('Drives:',JSON.stringify(drives.value,null,2));
-    // Buscar en cada drive la carpeta Arifoma
-    for(const d of drives.value){
-      const r=await fetch('https://graph.microsoft.com/v1.0/drives/'+d.id+'/root/children?$select=name,id',{
-        headers:{'Authorization':'Bearer '+token}
-      });
-      if(r.ok){
-        const data=await r.json();
-        console.log('Drive "'+d.name+'" ('+d.id+') root:',data.value.map(f=>f.name));
+    if(searchResp.ok){
+      const data=await searchResp.json();
+      console.log('Search results:',JSON.stringify(data.value?.map(f=>({name:f.name,path:f.parentReference?.path,webUrl:f.webUrl})),null,2));
+      const caeDoc=data.value?.find(f=>f.name.startsWith('1.'));
+      if(caeDoc){
+        window.open(caeDoc['@microsoft.graph.downloadUrl']||caeDoc.webUrl,'_blank');
+        return;
       }
     }
-    alert('Mira la consola (F12) — datos de drives listados');
+    // Si no encuentra, buscar en shared drives
+    const sharedResp=await fetch('https://graph.microsoft.com/v1.0/me/drive/sharedWithMe?$select=name,webUrl,remoteItem',{
+      headers:{'Authorization':'Bearer '+token}
+    });
+    if(sharedResp.ok){
+      const shared=await sharedResp.json();
+      console.log('Shared items:',shared.value?.map(f=>f.name));
+    }
+    alert('Mira la consola — resultados de búsqueda');
   }catch(e){alert('Error: '+e.message);}
 }
 
