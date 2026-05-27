@@ -2824,22 +2824,24 @@ function getExpectedMonth(nombre,y,m){
   return dias*HORAS_DIA_STD*3600000;
 }
 // Horas de una lista (vacaciones/bajas/libres): 8h/día (todos los días del rango). start y end inclusivos
-function _msListaMes(lista,y,m){
+function _msListaMes(lista,y,m,hpd){
+  hpd=hpd||HORAS_DIA_STD;
   let ms=0;
   (lista||[]).forEach(item=>{
     if(!item.start)return;
     let cur=new Date(item.start+'T00:00:00');
     const fin=item.end?new Date(item.end+'T00:00:00'):new Date(item.start+'T00:00:00');
     while(cur<=fin){
-      if(cur.getFullYear()===y&&cur.getMonth()===m)ms+=HORAS_DIA_STD*3600000;
+      if(cur.getFullYear()===y&&cur.getMonth()===m)ms+=hpd*3600000;
       cur.setDate(cur.getDate()+1);
     }
   });
   return ms;
 }
-function getVacacionesMs(n,y,m){return _msListaMes(fst.vacaciones[n],y,m);}
-function getBajasMs(n,y,m){return _msListaMes(fst.bajas[n],y,m);}
-function getLibresMs(n,y,m){return _msListaMes(fst.diasLibres[n],y,m);}
+const _HPD={'Antonio Juan Martel':10,'Rubén Díaz':10};
+function getVacacionesMs(n,y,m){return _msListaMes(fst.vacaciones[n],y,m,_HPD[n]);}
+function getBajasMs(n,y,m){return _msListaMes(fst.bajas[n],y,m,_HPD[n]);}
+function getLibresMs(n,y,m){return _msListaMes(fst.diasLibres[n],y,m,_HPD[n]);}
 function getAusenciasMs(nombre,y,m){return getVacacionesMs(nombre,y,m)+getBajasMs(nombre,y,m)+getLibresMs(nombre,y,m);}
 // Total del mes = trabajado + ausencias justificadas + ajustes manuales
 function getMsMonthTotal(nombre,y,m){return getMsMonth(nombre,y,m)+getAusenciasMs(nombre,y,m)+getExtrasManualMs(nombre,y,m);}
