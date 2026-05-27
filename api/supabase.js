@@ -59,7 +59,7 @@ export default async function handler(req, res) {
     'tblGamasOT', 'tblAusencias', 'tblControlDocumental',
     'tblGamasNormas', 'tblGamasDependientes', 'tblGamasActivos',
     'tblGamasListadoPreventivo', 'tblUsuarios',
-    'tblactivos', 'tblcaja', 'tblnotas'
+    'tblactivos', 'tblcaja', 'tblnotas', 'tblchoferes'
   ];
 
   if (!table || !ALLOWED_TABLES.includes(table)) {

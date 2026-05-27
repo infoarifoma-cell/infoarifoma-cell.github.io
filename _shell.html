@@ -337,6 +337,9 @@
       <button class="bnav-more-btn" onclick="bnavGo('camiones')" id="bm-camiones">
         <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="7" width="11" height="7" rx="1"/><path d="M12 9h3l2 3v2h-5V9z"/><circle cx="4.5" cy="14.5" r="1.5"/><circle cx="13.5" cy="14.5" r="1.5"/></svg>Camiones
       </button>
+      <button class="bnav-more-btn" onclick="bnavGo('choferes')" id="bm-choferes">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="6" r="3"/><path d="M3 16c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>Choferes
+      </button>
       <button class="bnav-more-btn" onclick="bnavGo('obras')" id="bm-obras">
         <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 16h14M4 16V8l5-4 5 4v8M7 16v-4h4v4"/></svg>Obras
       </button>
@@ -435,6 +438,9 @@
         <div class="sidebar-section">Transporte</div>
         <button class="snav-btn" onclick="goPage('camiones')" id="snav-camiones">
           <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="7" width="11" height="7" rx="1"/><path d="M12 9h3l2 3v2h-5V9z"/><circle cx="4.5" cy="14.5" r="1.5"/><circle cx="13.5" cy="14.5" r="1.5"/></svg>Camiones
+        </button>
+        <button class="snav-btn" onclick="goPage('choferes')" id="snav-choferes">
+          <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="6" r="3"/><path d="M3 16c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>Choferes
         </button>
         <button class="snav-btn" onclick="goPage('obras')" id="snav-obras">
           <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 16h14M4 16V8l5-4 5 4v8M7 16v-4h4v4"/></svg>Obras
@@ -1232,9 +1238,6 @@
               <label>Chofer</label><input type="text" class="inp" id="cm-chofer" placeholder="Nombre del chofer">
               <label>Proveedor / Empresa</label><input type="text" class="inp" id="cm-prov" placeholder="Empresa transportista">
               <label>Teléfono</label><input type="text" class="inp inp-mono" id="cm-tel" placeholder="Ej: 600123456">
-              <div style="margin-top:10px">
-                <label><input type="checkbox" id="cm-cae"> CAE (Coordinación de Actividad Empresarial)</label>
-              </div>
               <div class="modal-btns">
                 <button class="btn-cancel" onclick="closeCamModal()">Cancelar</button>
                 <button class="btn-save" onclick="saveCamion()">Guardar</button>
@@ -1253,6 +1256,44 @@
             <input type="text" class="fsel" id="filt-cam" placeholder="Buscar por matrícula, chofer o empresa..." oninput="filtrarCamionesGestion()" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;padding:7px 10px;outline:none">
           </div>
           <div id="camiones-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
+        </div>
+
+        <!-- ══ CHOFERES ══ -->
+        <div class="page" id="pg-choferes">
+          <div class="modal-wrap" id="chofer-modal">
+            <div class="modal-box" style="max-width:420px">
+              <h3 id="chofer-modal-title">Nuevo chofer</h3>
+              <label>Nombre completo</label><input type="text" class="inp" id="ch-nombre" placeholder="Ej: Juan Pérez García">
+              <label>DNI / NIE</label><input type="text" class="inp inp-mono" id="ch-dni" placeholder="Ej: 12345678A" style="text-transform:uppercase">
+              <label>Teléfono</label><input type="text" class="inp inp-mono" id="ch-telefono" placeholder="Ej: 600123456">
+              <label>Empresa</label><input type="text" class="inp" id="ch-empresa" placeholder="Empresa transportista">
+              <div style="margin-top:10px;padding:10px 12px;background:var(--surface2);border-radius:8px">
+                <label style="font-weight:700;display:flex;align-items:center;gap:8px"><input type="checkbox" id="ch-cae"> CAE (Coordinación de Actividad Empresarial)</label>
+                <div id="ch-cae-extra" style="display:none;margin-top:8px">
+                  <label style="font-size:.75rem">Fecha vencimiento CAE</label>
+                  <input type="date" class="inp inp-mono" id="ch-cae-venc" style="font-size:.8rem">
+                  <label style="font-size:.75rem;margin-top:6px">Documento CAE (PDF)</label>
+                  <input type="file" id="ch-cae-file" accept=".pdf" style="font-size:.78rem;margin-top:2px">
+                </div>
+              </div>
+              <div class="modal-btns">
+                <button class="btn-cancel" onclick="closeChoferModal()">Cancelar</button>
+                <button class="btn-save" onclick="saveChofer()">Guardar</button>
+                <button class="btn-danger" id="ch-del-btn" onclick="eliminarChofer()" style="background:#e05;color:#fff;display:none">Eliminar</button>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+            <div class="sec-title" style="margin:0">Gestión de choferes</div>
+            <div style="display:flex;gap:8px">
+              <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="cargarChoferes()">&#8635; Actualizar</button>
+              <button class="btn-pri" style="font-size:.72rem;padding:6px 14px" onclick="openChoferModal(null)">+ Añadir</button>
+            </div>
+          </div>
+          <div class="frow">
+            <input type="text" class="fsel" id="filt-chofer" placeholder="Buscar por nombre, DNI o empresa..." oninput="filtrarChoferesGestion()" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;padding:7px 10px;outline:none">
+          </div>
+          <div id="choferes-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
         </div>
 
         <!-- ══ OBRAS / PROYECTOS ══ -->

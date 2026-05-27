@@ -425,6 +425,7 @@ async function apiFetch(params) {
   if (accion === 'ausencias')   return getAusencias();
   if (accion === 'camiones')    return getCamiones();
   if (accion === 'obras')       return getObras();
+  if (accion === 'choferes')    return getChoferes();
   if (accion === 'pedidos')     return getPedidos(dias);
   if (accion === 'historialOT')   return getHistorialOT();
   if (accion === 'documentos')    return getDocumentos();
@@ -461,6 +462,9 @@ async function apiPost(payload) {
   if (t === 'nuevaObra')       return doNuevaObra(payload);
   if (t === 'editarObra')      return doEditarObra(payload);
   if (t === 'eliminarObra')    return doEliminarObra(payload);
+  if (t === 'nuevoChofer')     return doNuevoChofer(payload);
+  if (t === 'editarChofer')    return doEditarChofer(payload);
+  if (t === 'eliminarChofer')  return doEliminarChofer(payload);
   if (t === 'ausencia')        return doPostAusencia(payload);
   if (t === 'editAusencia')    return doEditAusencia(payload);
   if (t === 'delAusencia')     return doDeleteAusencia(payload);
@@ -501,7 +505,7 @@ const DIAS_LAB_2026=[18,18,22,20,20,21,23,21,22,21,21,18];
 const HORAS_DIA_STD=8; // Jornada estándar convenio
 const PRODS=['ARIDO AF-T-0/4-I','ARIDO AG-T-4/12-I','ARIDO AG-T-12/20-I','ARIDO AG-T-20/40-I','ARIDO AG-T-40/70-I','REVUELTO 0/20','REVUELTO 0/10','PIEDRA PARA MURO (UD)','MATERIAL DE RELLENO 0/4'];
 const PROD_CAT={'ARIDO AF-T-0/4-I':'0/4','ARIDO AG-T-4/12-I':'4/12','ARIDO AG-T-12/20-I':'12/20','ARIDO AG-T-20/40-I':'20/40'};
-const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas','historico-ventas':'Histórico de Ventas',caja:'Caja',costes:'Análisis de Costes',produccion:'Producción Planta',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',preventivo:'Mantenimiento Preventivo',compras:'Escanear Factura'};
+const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas','historico-ventas':'Histórico de Ventas',caja:'Caja',costes:'Análisis de Costes',produccion:'Producción Planta',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',preventivo:'Mantenimiento Preventivo',compras:'Escanear Factura',choferes:'Choferes'};
 
 // Login via Google OAuth — ver funciones.js: googleLogin() y checkGoogleSession()
 
@@ -555,6 +559,7 @@ function goPage(id){
   if(id==='pedidos')cargarPedidos();
   if(id==='ventas'){if(ventasData.length===0)cargarVentas();else renderVentas();}
   if(id==='camiones')cargarCamiones();
+  if(id==='choferes')cargarChoferes();
   if(id==='obras')cargarObras();
   if(id==='activos')initActivos();
   if(id==='compras')comprasInitProveedores();
@@ -900,7 +905,6 @@ function camCard(c){
   const fav=camFavoritos.has(String(c.id));
   return `<div class="mat-btn${sel?' selected':''}" onclick="basSeleccionarCamion('${c.id}')" style="position:relative">
     <span onclick="toggleFav('${c.id}',event)" style="position:absolute;top:4px;right:4px;font-size:.75rem;cursor:pointer;opacity:${fav?1:.3}" title="Favorito">${fav?'★':'☆'}</span>
-    ${c.cae?'<span style="position:absolute;top:4px;left:6px;font-size:.55rem;color:#0c6;font-weight:700" title="CAE activo">CAE &#10003;</span>':''}
     ${c.matriculacam}
     <span class="mat-sub">${c.chofer||''}</span>
     <span class="mat-sub" style="color:var(--muted);font-size:.58rem">${c.proveedor||''}</span>
@@ -2111,8 +2115,8 @@ function filtrarCamionesGestion(){
 function renderCamionesGestion(data){
   const el=document.getElementById('camiones-list');
   if(!data.length){el.innerHTML='<div class="tbl"><div class="empty">Sin resultados</div></div>';return;}
-  el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:.4;text-align:center">CAE</div><div class="tc" style="flex:1">Matrícula</div><div class="tc" style="flex:.7">Remolque</div><div class="tc" style="flex:1.2">Chofer</div><div class="tc" style="flex:1">Proveedor</div><div class="tc" style="flex:.7;text-align:right">Tara</div><div class="tc" style="flex:.4"></div></div>'+
-  data.map(c=>{const caeBadge=c.cae?'<span style="color:#0c6;font-size:1rem">&#10003;</span>':'<span style="color:var(--muted)">—</span>';return `<div class="tr"><div class="tc" style="flex:.4;text-align:center">${caeBadge}</div><div class="tc" style="flex:1;font-family:monospace;font-weight:700;color:var(--accent)">${c.matriculacam}</div><div class="tc" style="flex:.7;font-family:monospace">${c.matricularem||'—'}</div><div class="tc" style="flex:1.2">${c.chofer||'—'}</div><div class="tc" style="flex:1;color:var(--muted)">${c.proveedor||'—'}</div><div class="tc" style="flex:.7;text-align:right;font-family:monospace">${Number(c.tara||0).toLocaleString()} kg</div><div class="tc" style="flex:.4;text-align:right"><button class="btn-sm" onclick="openCamModal(${c.id})">Editar</button></div></div>`;}).join('')+'</div>';
+  el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:1">Matrícula</div><div class="tc" style="flex:.7">Remolque</div><div class="tc" style="flex:1.2">Chofer</div><div class="tc" style="flex:1">Proveedor</div><div class="tc" style="flex:.7;text-align:right">Tara</div><div class="tc" style="flex:.4"></div></div>'+
+  data.map(c=>`<div class="tr"><div class="tc" style="flex:1;font-family:monospace;font-weight:700;color:var(--accent)">${c.matriculacam}</div><div class="tc" style="flex:.7;font-family:monospace">${c.matricularem||'—'}</div><div class="tc" style="flex:1.2">${c.chofer||'—'}</div><div class="tc" style="flex:1;color:var(--muted)">${c.proveedor||'—'}</div><div class="tc" style="flex:.7;text-align:right;font-family:monospace">${Number(c.tara||0).toLocaleString()} kg</div><div class="tc" style="flex:.4;text-align:right"><button class="btn-sm" onclick="openCamModal(${c.id})">Editar</button></div></div>`).join('')+'</div>';
 }
 function openCamModal(id){
   camEditingId=id;
@@ -2127,11 +2131,9 @@ function openCamModal(id){
     document.getElementById('cm-chofer').value=c.chofer||'';
     document.getElementById('cm-prov').value=c.proveedor||'';
     document.getElementById('cm-tel').value=c.telefono||'';
-    document.getElementById('cm-cae').checked=!!c.cae;
     delBtn.style.display='block';
   } else {
     ['cm-mat','cm-rem','cm-tara','cm-chofer','cm-prov','cm-tel'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
-    document.getElementById('cm-cae').checked=false;
     delBtn.style.display='none';
   }
   modal.classList.add('open');
@@ -2147,7 +2149,6 @@ async function saveCamion(){
     chofer:document.getElementById('cm-chofer').value,
     proveedor:document.getElementById('cm-prov').value,
     telefono:document.getElementById('cm-tel').value,
-    cae:document.getElementById('cm-cae').checked,
   };
   try{
     const json=await apiPost(payload);
@@ -2183,6 +2184,175 @@ async function eliminarCamion(){
     }
     else alert('Error: '+json.error);
   }catch(e){alert('Error de conexión');}
+}
+
+// ── CHOFERES ────────────────────────────────────────────────
+let choferesData=[];let choferEditingId=null;
+const CHOFERES_ONEDRIVE_BASE='Arifoma/10. INFORMATICA/CAE';
+
+async function cargarChoferes(){
+  const el=document.getElementById('choferes-list');
+  el.innerHTML='<div class="tbl"><div class="empty">Cargando...</div></div>';
+  try{
+    const json=await apiFetch('?accion=choferes');
+    if(!json.ok)throw new Error(json.error);
+    choferesData=json.data||[];
+    filtrarChoferesGestion();
+  }catch(e){el.innerHTML='<div class="tbl"><div class="empty">Error: '+e.message+'</div></div>';}
+}
+
+function filtrarChoferesGestion(){
+  const q=(document.getElementById('filt-chofer').value||'').toUpperCase();
+  let data=choferesData;
+  if(q)data=data.filter(c=>String(c.nombre||'').toUpperCase().includes(q)||String(c.dni||'').toUpperCase().includes(q)||String(c.empresa||'').toUpperCase().includes(q));
+  renderChoferesGestion(data);
+}
+
+function renderChoferesGestion(data){
+  const el=document.getElementById('choferes-list');
+  if(!data.length){el.innerHTML='<div class="tbl"><div class="empty">Sin resultados</div></div>';return;}
+  const hoy=new Date().toISOString().slice(0,10);
+  el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:.4;text-align:center">CAE</div><div class="tc" style="flex:1.2">Nombre</div><div class="tc" style="flex:.8">DNI</div><div class="tc" style="flex:.8">Teléfono</div><div class="tc" style="flex:1">Empresa</div><div class="tc" style="flex:.7">Venc. CAE</div><div class="tc" style="flex:.6;text-align:right"></div></div>'+
+  data.map(c=>{
+    const caeOk=c.cae;
+    const venc=c.cae_vencimiento||'';
+    const vencido=venc&&venc<hoy;
+    const caeBadge=caeOk?(vencido?'<span style="color:#e44;font-size:.85rem" title="CAE vencido">&#9888;</span>':'<span style="color:#0c6;font-size:1rem">&#10003;</span>'):'<span style="color:var(--muted)">—</span>';
+    const vencTxt=venc?'<span style="'+(vencido?'color:#e44;font-weight:700':'color:var(--text)')+'">'+venc.split('-').reverse().join('/')+'</span>':'—';
+    return `<div class="tr"><div class="tc" style="flex:.4;text-align:center">${caeBadge}</div><div class="tc" style="flex:1.2;font-weight:600">${c.nombre}</div><div class="tc" style="flex:.8;font-family:monospace">${c.dni||'—'}</div><div class="tc" style="flex:.8;font-family:monospace">${c.telefono||'—'}</div><div class="tc" style="flex:1;color:var(--muted)">${c.empresa||'—'}</div><div class="tc" style="flex:.7">${vencTxt}</div><div class="tc" style="flex:.6;text-align:right;display:flex;gap:4px;justify-content:flex-end"><button class="btn-sm" onclick="openChoferModal(${c.id})">Editar</button><button class="btn-sm" onclick="imprimirChofer(${c.id})" title="Imprimir ficha" style="padding:4px 8px">🖨</button></div></div>`;
+  }).join('')+'</div>';
+}
+
+function openChoferModal(id){
+  choferEditingId=id;
+  const modal=document.getElementById('chofer-modal');
+  document.getElementById('chofer-modal-title').textContent=id?'Editar chofer':'Nuevo chofer';
+  const delBtn=document.getElementById('ch-del-btn');
+  const caeCheck=document.getElementById('ch-cae');
+  const caeExtra=document.getElementById('ch-cae-extra');
+  if(id){
+    const c=choferesData.find(x=>x.id==id);if(!c)return;
+    document.getElementById('ch-nombre').value=c.nombre||'';
+    document.getElementById('ch-dni').value=c.dni||'';
+    document.getElementById('ch-telefono').value=c.telefono||'';
+    document.getElementById('ch-empresa').value=c.empresa||'';
+    caeCheck.checked=!!c.cae;
+    caeExtra.style.display=c.cae?'block':'none';
+    document.getElementById('ch-cae-venc').value=c.cae_vencimiento||'';
+    document.getElementById('ch-cae-file').value='';
+    delBtn.style.display='block';
+  } else {
+    ['ch-nombre','ch-dni','ch-telefono','ch-empresa','ch-cae-venc'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
+    caeCheck.checked=false;
+    caeExtra.style.display='none';
+    document.getElementById('ch-cae-file').value='';
+    delBtn.style.display='none';
+  }
+  caeCheck.onchange=()=>{caeExtra.style.display=caeCheck.checked?'block':'none';};
+  modal.classList.add('open');
+}
+
+function closeChoferModal(){document.getElementById('chofer-modal').classList.remove('open');choferEditingId=null;}
+
+async function saveChofer(){
+  const nombre=document.getElementById('ch-nombre').value.trim();
+  if(!nombre){alert('Introduce un nombre.');return;}
+  const payload={
+    tipo:choferEditingId?'editarChofer':'nuevoChofer',
+    id:choferEditingId,
+    nombre,
+    dni:document.getElementById('ch-dni').value.toUpperCase().trim(),
+    telefono:document.getElementById('ch-telefono').value.trim(),
+    empresa:document.getElementById('ch-empresa').value.trim(),
+    cae:document.getElementById('ch-cae').checked,
+    cae_vencimiento:document.getElementById('ch-cae-venc').value||null,
+  };
+
+  // Subir PDF CAE a OneDrive si hay archivo
+  const fileInput=document.getElementById('ch-cae-file');
+  if(fileInput.files.length>0&&document.getElementById('ch-cae').checked){
+    try{
+      const file=fileInput.files[0];
+      const token=await comprasGetToken();
+      const folderPath=CHOFERES_ONEDRIVE_BASE+'/'+nombre.replace(/[\/\\]/g,'-');
+      // Crear carpeta
+      const parentEncoded=CHOFERES_ONEDRIVE_BASE.split('/').map(s=>encodeURIComponent(s)).join('/');
+      const folderName=nombre.replace(/[\/\\]/g,'-');
+      await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+parentEncoded+':/children',{
+        method:'POST',
+        headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+        body:JSON.stringify({name:folderName,folder:{},'@microsoft.graph.conflictBehavior':'fail'})
+      });
+      const encodedPath=folderPath.split('/').map(s=>encodeURIComponent(s)).join('/');
+      const fileName='CAE_'+nombre.replace(/\s+/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.pdf';
+      const uploadUrl='https://graph.microsoft.com/v1.0/me/drive/root:/'+encodedPath+'/'+encodeURIComponent(fileName)+':/content';
+      const resp=await fetch(uploadUrl,{
+        method:'PUT',
+        headers:{'Authorization':'Bearer '+token,'Content-Type':'application/pdf'},
+        body:file
+      });
+      if(!resp.ok){const err=await resp.text();console.error('Error subiendo CAE:',err);}
+      else{payload.cae_documento=folderPath+'/'+fileName;}
+    }catch(e){console.error('Error OneDrive CAE:',e);}
+  }
+
+  try{
+    const json=await apiPost(payload);
+    if(json.ok){
+      closeChoferModal();
+      if(choferEditingId){
+        const idx=choferesData.findIndex(x=>x.id==choferEditingId);
+        if(idx>=0) choferesData[idx]={...choferesData[idx],...payload};
+      } else {
+        payload.id=Math.max(...choferesData.map(c=>c.id||0),0)+1;
+        choferesData.push(payload);
+      }
+      filtrarChoferesGestion();
+    }
+    else alert('Error: '+json.error);
+  }catch(e){alert('Error de conexión');}
+}
+
+async function eliminarChofer(){
+  if(!choferEditingId)return;
+  if(!confirm('¿Eliminar este chofer de la base de datos?'))return;
+  try{
+    const json=await apiPost({tipo:'eliminarChofer',id:choferEditingId});
+    if(json.ok){
+      closeChoferModal();
+      choferesData=choferesData.filter(x=>x.id!=choferEditingId);
+      filtrarChoferesGestion();
+    }
+    else alert('Error: '+json.error);
+  }catch(e){alert('Error de conexión');}
+}
+
+function imprimirChofer(id){
+  const c=choferesData.find(x=>x.id==id);if(!c)return;
+  const venc=c.cae_vencimiento?c.cae_vencimiento.split('-').reverse().join('/'):'—';
+  const w=window.open('','_blank','width=600,height=500');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ficha chofer — ${c.nombre}</title>
+<style>body{font-family:Arial,sans-serif;padding:30px;color:#222}h2{margin:0 0 4px;font-size:1.3rem}
+.sub{color:#888;font-size:.85rem;margin-bottom:20px}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+td{padding:8px 12px;border:1px solid #ddd;font-size:.9rem}
+td:first-child{font-weight:700;width:170px;background:#f8f8f8}
+.cae-ok{color:#0a0;font-weight:700}.cae-no{color:#c00;font-weight:700}
+.footer{margin-top:30px;font-size:.7rem;color:#aaa;text-align:center}
+@media print{body{padding:15px}}
+</style></head><body>
+<h2>${c.nombre}</h2>
+<div class="sub">Ficha de chofer — ARIFOMA</div>
+<table>
+<tr><td>DNI / NIE</td><td>${c.dni||'—'}</td></tr>
+<tr><td>Teléfono</td><td>${c.telefono||'—'}</td></tr>
+<tr><td>Empresa</td><td>${c.empresa||'—'}</td></tr>
+<tr><td>CAE</td><td class="${c.cae?'cae-ok':'cae-no'}">${c.cae?'&#10003; Sí':'&#10007; No'}</td></tr>
+<tr><td>Vencimiento CAE</td><td>${venc}</td></tr>
+</table>
+<div class="footer">Generado el ${new Date().toLocaleDateString('es-ES')} — ARIFOMA</div>
+<script>window.print();<\/script></body></html>`);
+  w.document.close();
 }
 
 // ── OBRAS / PROYECTOS ────────────────────────────────────────

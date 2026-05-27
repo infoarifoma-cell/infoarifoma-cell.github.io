@@ -484,6 +484,42 @@ async function doEliminarObra(data) {
   });
 }
 
+// ── CHOFERES ─────────────────────────────────────────────────
+
+async function getChoferes() {
+  return dbQuery({
+    action: 'select',
+    table: 'tblchoferes',
+    options: { select: '*', order: 'nombre.asc' }
+  });
+}
+
+async function doNuevoChofer(data) {
+  const { tipo, id, ...campos } = data;
+  campos.fechaCreacion = new Date().toISOString();
+  return dbQuery({ action: 'insert', table: 'tblchoferes', data: campos });
+}
+
+async function doEditarChofer(data) {
+  const { id, tipo, ...updates } = data;
+  return dbQuery({
+    action: 'update',
+    table: 'tblchoferes',
+    data: updates,
+    filters: [{ column: 'id', op: 'eq', value: id }]
+  });
+}
+
+async function doEliminarChofer(data) {
+  const id = Number(data.id);
+  if (!id || isNaN(id)) return { ok: false, error: 'ID inválido' };
+  return dbQuery({
+    action: 'delete',
+    table: 'tblchoferes',
+    filters: [{ column: 'id', op: 'eq', value: id }]
+  });
+}
+
 // ── PRODUCCIÓN ───────────────────────────────────────────────
 
 async function getProduccion(mes, anyo) {
