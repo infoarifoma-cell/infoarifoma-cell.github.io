@@ -2359,17 +2359,22 @@ td:first-child{font-weight:700;width:170px;background:#f8f8f8}
 }
 
 async function imprimirCAE(){
-  const fileName='1. CAE SOLICITUD Y ENTREGA DE DOCUMENTACION.pdf';
-  const filePath=CHOFERES_ONEDRIVE_BASE+'/'+fileName;
-  const encodedPath=filePath.split('/').map(s=>encodeURIComponent(s)).join('/');
+  const encodedPath=CHOFERES_ONEDRIVE_BASE.split('/').map(s=>encodeURIComponent(s)).join('/');
   try{
     const token=await comprasGetToken();
-    const resp=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+encodedPath+'?$select=name,webUrl,@microsoft.graph.downloadUrl',{
+    // Listar archivos de la carpeta 0. CAE DOCUMENTACION
+    const resp=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+encodedPath+':/children?$select=name,webUrl,@microsoft.graph.downloadUrl&$orderby=name',{
       headers:{'Authorization':'Bearer '+token}
     });
-    if(!resp.ok)throw new Error('No se encontró el documento');
-    const f=await resp.json();
-    window.open(f['@microsoft.graph.downloadUrl']||f.webUrl,'_blank');
+    if(!resp.ok)throw new Error('No se pudo acceder a la carpeta');
+    const data=await resp.json();
+    const files=data.value||[];
+    const caeDoc=files.find(f=>f.name.startsWith('1.'));
+    if(caeDoc){
+      window.open(caeDoc['@microsoft.graph.downloadUrl']||caeDoc.webUrl,'_blank');
+    } else {
+      alert('No se encontró el documento "1. CAE SOLICITUD Y ENTREGA DE DOCUMENTACION"');
+    }
   }catch(e){alert('Error accediendo a OneDrive: '+e.message);}
 }
 
