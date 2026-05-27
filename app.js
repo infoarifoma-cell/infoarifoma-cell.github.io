@@ -2099,6 +2099,8 @@ let camGestData=[];let camEditingId=null;
 async function cargarCamiones(){
   const el=document.getElementById('camiones-list');
   el.innerHTML='<div class="tbl"><div class="empty">Cargando...</div></div>';
+  // Cargar choferes en background si no están cargados
+  if(!choferesData.length){apiFetch('?accion=choferes').then(j=>{if(j.ok)choferesData=j.data||[];}).catch(()=>{});}
   try{
     const json=await apiFetch('?accion=camiones');
     if(!json.ok)throw new Error(json.error);
@@ -2138,7 +2140,40 @@ function openCamModal(id){
   }
   modal.classList.add('open');
 }
-function closeCamModal(){document.getElementById('cam-modal').classList.remove('open');camEditingId=null;}
+function toggleCamChoferDropdown(show){
+  const dd=document.getElementById('cm-chofer-dropdown');
+  if(show){dd.style.display='block';filtrarCamChofer();}
+  else setTimeout(()=>{dd.style.display='none';},150);
+}
+function filtrarCamChofer(){
+  const q=(document.getElementById('cm-chofer').value||'').toUpperCase();
+  const list=document.getElementById('cm-chofer-list');if(!list)return;
+  const sorted=[...(choferesData||[])].sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
+  const filtered=q?sorted.filter(c=>(c.nombre||'').toUpperCase().includes(q)):sorted;
+  list.innerHTML='';
+  filtered.forEach(c=>{
+    const div=document.createElement('div');
+    div.style.cssText='padding:9px 14px;cursor:pointer;font-size:.82rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center';
+    const caeTag=c.cae?'<span style="font-size:.65rem;color:#0c6;font-weight:700;margin-left:8px">CAE ✓</span>':'';
+    div.innerHTML='<span>'+c.nombre+caeTag+'</span><span style="font-size:.7rem;color:var(--muted)">'+(c.empresa||'')+'</span>';
+    div.onmouseover=()=>div.style.background='var(--surface2)';
+    div.onmouseout=()=>div.style.background='transparent';
+    div.onclick=()=>{
+      document.getElementById('cm-chofer').value=c.nombre;
+      // Auto-rellenar empresa y teléfono si están vacíos
+      const provEl=document.getElementById('cm-prov');
+      const telEl=document.getElementById('cm-tel');
+      if(!provEl.value&&c.empresa)provEl.value=c.empresa;
+      if(!telEl.value&&c.telefono)telEl.value=c.telefono;
+      document.getElementById('cm-chofer-dropdown').style.display='none';
+    };
+    list.appendChild(div);
+  });
+  if(!filtered.length){
+    list.innerHTML='<div style="padding:10px 14px;font-size:.78rem;color:var(--muted);font-style:italic">Sin coincidencias — se usará el texto escrito</div>';
+  }
+}
+function closeCamModal(){document.getElementById('cam-modal').classList.remove('open');camEditingId=null;document.getElementById('cm-chofer-dropdown').style.display='none';}
 async function saveCamion(){
   const payload={
     tipo:camEditingId?'editarCamion':'nuevoCamion',
@@ -2359,7 +2394,9 @@ td:first-child{font-weight:700;width:170px;background:#f8f8f8}
 }
 
 function imprimirCAE(){
-  window.open('https://grpsite-my.sharepoint.com/personal/greyes_arifoma_com/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Fgreyes%5Farifoma%5Fcom%2FDocuments%2FEscritorio%2FArifoma%2F13%2E%20SEGURIDAD%20Y%20SALUD%2F13%2E02%20SERVICIO%20DE%20PREVENCION%2FCOORDINACION%20AE%2F0%2E%20CAE%20DOCUMENTACION','_blank');
+  const base='%2Fpersonal%2Fgreyes%5Farifoma%5Fcom%2FDocuments%2FEscritorio%2FArifoma%2F13%2E%20SEGURIDAD%20Y%20SALUD%2F13%2E02%20SERVICIO%20DE%20PREVENCION%2FCOORDINACION%20AE%2F0%2E%20CAE%20DOCUMENTACION';
+  const file=base+'%2F1%2E%20CAE%20SOLICITUD%20Y%20ENTREGA%20DE%20DOCUMENTACION%2Epdf';
+  window.open('https://grpsite-my.sharepoint.com/personal/greyes_arifoma_com/_layouts/15/onedrive.aspx?id='+file+'&parent='+base,'_blank');
 }
 
 async function abrirCarpetaCAE(id){

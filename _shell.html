@@ -1235,7 +1235,13 @@
               <label>Matrícula camión</label><input type="text" class="inp" id="cm-mat" placeholder="Ej: 8371KXW" style="text-transform:uppercase">
               <label>Matrícula remolque</label><input type="text" class="inp" id="cm-rem" placeholder="Ej: R3eAI">
               <label>Tara (kg)</label><input type="number" class="inp inp-mono" id="cm-tara" placeholder="0">
-              <label>Chofer</label><input type="text" class="inp" id="cm-chofer" placeholder="Nombre del chofer">
+              <label>Chofer</label>
+              <div style="position:relative">
+                <input type="text" class="inp" id="cm-chofer" placeholder="Buscar o escribir chofer..." oninput="filtrarCamChofer()" onfocus="toggleCamChoferDropdown(true)" autocomplete="off">
+                <div id="cm-chofer-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;max-height:180px;overflow-y:auto;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,.3)">
+                  <div id="cm-chofer-list"></div>
+                </div>
+              </div>
               <label>Proveedor / Empresa</label><input type="text" class="inp" id="cm-prov" placeholder="Empresa transportista">
               <label>Teléfono</label><input type="text" class="inp inp-mono" id="cm-tel" placeholder="Ej: 600123456">
               <div class="modal-btns">
