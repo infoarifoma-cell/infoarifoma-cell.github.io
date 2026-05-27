@@ -2188,7 +2188,7 @@ async function eliminarCamion(){
 
 // ── CHOFERES ────────────────────────────────────────────────
 let choferesData=[];let choferEditingId=null;
-const CHOFERES_ONEDRIVE_BASE='Arifoma/13. SEGURIDAD Y SALUD/13.02 SERVICIO DE PREVENCION/COORDINACION AE/0. CAE DOCUMENTACION';
+const CHOFERES_ONEDRIVE_BASE='Escritorio/Arifoma/13. SEGURIDAD Y SALUD/13.02 SERVICIO DE PREVENCION/COORDINACION AE/0. CAE DOCUMENTACION';
 
 async function cargarChoferes(){
   const el=document.getElementById('choferes-list');
@@ -2359,23 +2359,38 @@ td:first-child{font-weight:700;width:170px;background:#f8f8f8}
 }
 
 async function imprimirCAE(){
-  const encodedPath=CHOFERES_ONEDRIVE_BASE.split('/').map(s=>encodeURIComponent(s)).join('/');
   try{
     const token=await comprasGetToken();
-    // Listar archivos de la carpeta 0. CAE DOCUMENTACION
-    const resp=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+encodedPath+':/children?$select=name,webUrl,@microsoft.graph.downloadUrl&$orderby=name',{
+    // Navegar paso a paso por la ruta
+    const parts=CHOFERES_ONEDRIVE_BASE.split('/');
+    let currentPath='';
+    for(const part of parts){
+      currentPath=currentPath?currentPath+'/'+part:part;
+    }
+    const encodedPath=currentPath.split('/').map(s=>encodeURIComponent(s)).join('/');
+    console.log('CAE path:',encodedPath);
+    const resp=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+encodedPath+':/children?$select=name,webUrl,@microsoft.graph.downloadUrl',{
       headers:{'Authorization':'Bearer '+token}
     });
-    if(!resp.ok)throw new Error('No se pudo acceder a la carpeta');
+    console.log('CAE resp status:',resp.status);
+    if(!resp.ok){
+      // Intentar con itemByPath que maneja mejor caracteres especiales
+      const resp2=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+encodedPath,{
+        headers:{'Authorization':'Bearer '+token}
+      });
+      console.log('CAE folder check:',resp2.status,await resp2.text());
+      throw new Error('No se pudo acceder a la carpeta ('+resp.status+')');
+    }
     const data=await resp.json();
     const files=data.value||[];
+    console.log('CAE files:',files.map(f=>f.name));
     const caeDoc=files.find(f=>f.name.startsWith('1.'));
     if(caeDoc){
       window.open(caeDoc['@microsoft.graph.downloadUrl']||caeDoc.webUrl,'_blank');
     } else {
-      alert('No se encontró el documento "1. CAE SOLICITUD Y ENTREGA DE DOCUMENTACION"');
+      alert('No se encontró el documento CAE. Archivos encontrados: '+files.map(f=>f.name).join(', '));
     }
-  }catch(e){alert('Error accediendo a OneDrive: '+e.message);}
+  }catch(e){alert('Error: '+e.message);}
 }
 
 async function abrirCarpetaCAE(id){
