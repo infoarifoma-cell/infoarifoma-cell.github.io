@@ -2188,7 +2188,7 @@ async function eliminarCamion(){
 
 // ── CHOFERES ────────────────────────────────────────────────
 let choferesData=[];let choferEditingId=null;
-const CHOFERES_ONEDRIVE_BASE='Arifoma/10. INFORMATICA/CAE';
+const CHOFERES_ONEDRIVE_BASE='Arifoma/13. SEGURIDAD Y SALUD/13.02 SERVICIO DE PREVENCION/COORDINACION AE/0. CAE DOCUMENTACION';
 
 async function cargarChoferes(){
   const el=document.getElementById('choferes-list');
@@ -2212,14 +2212,15 @@ function renderChoferesGestion(data){
   const el=document.getElementById('choferes-list');
   if(!data.length){el.innerHTML='<div class="tbl"><div class="empty">Sin resultados</div></div>';return;}
   const hoy=new Date().toISOString().slice(0,10);
-  el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:.4;text-align:center">CAE</div><div class="tc" style="flex:1.2">Nombre</div><div class="tc" style="flex:.8">DNI</div><div class="tc" style="flex:.8">Teléfono</div><div class="tc" style="flex:1">Empresa</div><div class="tc" style="flex:.7">Venc. CAE</div><div class="tc" style="flex:.6;text-align:right"></div></div>'+
+  el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:.4;text-align:center">CAE</div><div class="tc" style="flex:1.2">Nombre</div><div class="tc" style="flex:.8">DNI</div><div class="tc" style="flex:.8">Teléfono</div><div class="tc" style="flex:1">Empresa</div><div class="tc" style="flex:.7">Venc. CAE</div><div class="tc" style="flex:.8;text-align:right"></div></div>'+
   data.map(c=>{
     const caeOk=c.cae;
     const venc=c.cae_vencimiento||'';
     const vencido=venc&&venc<hoy;
     const caeBadge=caeOk?(vencido?'<span style="color:#e44;font-size:.85rem" title="CAE vencido">&#9888;</span>':'<span style="color:#0c6;font-size:1rem">&#10003;</span>'):'<span style="color:var(--muted)">—</span>';
     const vencTxt=venc?'<span style="'+(vencido?'color:#e44;font-weight:700':'color:var(--text)')+'">'+venc.split('-').reverse().join('/')+'</span>':'—';
-    return `<div class="tr"><div class="tc" style="flex:.4;text-align:center">${caeBadge}</div><div class="tc" style="flex:1.2;font-weight:600">${c.nombre}</div><div class="tc" style="flex:.8;font-family:monospace">${c.dni||'—'}</div><div class="tc" style="flex:.8;font-family:monospace">${c.telefono||'—'}</div><div class="tc" style="flex:1;color:var(--muted)">${c.empresa||'—'}</div><div class="tc" style="flex:.7">${vencTxt}</div><div class="tc" style="flex:.6;text-align:right;display:flex;gap:4px;justify-content:flex-end"><button class="btn-sm" onclick="openChoferModal(${c.id})">Editar</button><button class="btn-sm" onclick="imprimirChofer(${c.id})" title="Imprimir ficha" style="padding:4px 8px">🖨</button></div></div>`;
+    const carpeta=c.cae_carpeta?`<button class="btn-sm" onclick="abrirCarpetaCAE(${c.id})" title="Ver documentos CAE" style="padding:4px 8px;color:var(--accent);border-color:var(--accent)">📁</button>`:'';
+    return `<div class="tr"><div class="tc" style="flex:.4;text-align:center">${caeBadge}</div><div class="tc" style="flex:1.2;font-weight:600">${c.nombre}</div><div class="tc" style="flex:.8;font-family:monospace">${c.dni||'—'}</div><div class="tc" style="flex:.8;font-family:monospace">${c.telefono||'—'}</div><div class="tc" style="flex:1;color:var(--muted)">${c.empresa||'—'}</div><div class="tc" style="flex:.7">${vencTxt}</div><div class="tc" style="flex:.8;text-align:right;display:flex;gap:4px;justify-content:flex-end">${carpeta}<button class="btn-sm" onclick="imprimirChofer(${c.id})" title="Imprimir ficha" style="padding:4px 8px">🖨</button><button class="btn-sm" onclick="openChoferModal(${c.id})">Editar</button></div></div>`;
   }).join('')+'</div>';
 }
 
@@ -2238,11 +2239,12 @@ function openChoferModal(id){
     document.getElementById('ch-empresa').value=c.empresa||'';
     caeCheck.checked=!!c.cae;
     caeExtra.style.display=c.cae?'block':'none';
+    document.getElementById('ch-cae-carpeta').value=c.cae_carpeta||'';
     document.getElementById('ch-cae-venc').value=c.cae_vencimiento||'';
     document.getElementById('ch-cae-file').value='';
     delBtn.style.display='block';
   } else {
-    ['ch-nombre','ch-dni','ch-telefono','ch-empresa','ch-cae-venc'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
+    ['ch-nombre','ch-dni','ch-telefono','ch-empresa','ch-cae-venc','ch-cae-carpeta'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
     caeCheck.checked=false;
     caeExtra.style.display='none';
     document.getElementById('ch-cae-file').value='';
@@ -2265,35 +2267,36 @@ async function saveChofer(){
     telefono:document.getElementById('ch-telefono').value.trim(),
     empresa:document.getElementById('ch-empresa').value.trim(),
     cae:document.getElementById('ch-cae').checked,
+    cae_carpeta:document.getElementById('ch-cae-carpeta').value.trim()||null,
     cae_vencimiento:document.getElementById('ch-cae-venc').value||null,
   };
 
   // Subir PDF CAE a OneDrive si hay archivo
   const fileInput=document.getElementById('ch-cae-file');
-  if(fileInput.files.length>0&&document.getElementById('ch-cae').checked){
+  const carpetaCAE=document.getElementById('ch-cae-carpeta').value.trim();
+  if(fileInput.files.length>0&&document.getElementById('ch-cae').checked&&carpetaCAE){
     try{
       const file=fileInput.files[0];
       const token=await comprasGetToken();
-      const folderPath=CHOFERES_ONEDRIVE_BASE+'/'+nombre.replace(/[\/\\]/g,'-');
-      // Crear carpeta
+      const folderPath=CHOFERES_ONEDRIVE_BASE+'/'+carpetaCAE;
+      // Crear carpeta si no existe
       const parentEncoded=CHOFERES_ONEDRIVE_BASE.split('/').map(s=>encodeURIComponent(s)).join('/');
-      const folderName=nombre.replace(/[\/\\]/g,'-');
       await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+parentEncoded+':/children',{
         method:'POST',
         headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
-        body:JSON.stringify({name:folderName,folder:{},'@microsoft.graph.conflictBehavior':'fail'})
+        body:JSON.stringify({name:carpetaCAE,folder:{},'@microsoft.graph.conflictBehavior':'fail'})
       });
       const encodedPath=folderPath.split('/').map(s=>encodeURIComponent(s)).join('/');
-      const fileName='CAE_'+nombre.replace(/\s+/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.pdf';
+      const fileName=file.name;
       const uploadUrl='https://graph.microsoft.com/v1.0/me/drive/root:/'+encodedPath+'/'+encodeURIComponent(fileName)+':/content';
       const resp=await fetch(uploadUrl,{
         method:'PUT',
-        headers:{'Authorization':'Bearer '+token,'Content-Type':'application/pdf'},
+        headers:{'Authorization':'Bearer '+token,'Content-Type':file.type||'application/pdf'},
         body:file
       });
-      if(!resp.ok){const err=await resp.text();console.error('Error subiendo CAE:',err);}
+      if(!resp.ok){const err=await resp.text();alert('Error subiendo PDF: '+err);}
       else{payload.cae_documento=folderPath+'/'+fileName;}
-    }catch(e){console.error('Error OneDrive CAE:',e);}
+    }catch(e){alert('Error OneDrive: '+e.message);}
   }
 
   try{
@@ -2353,6 +2356,39 @@ td:first-child{font-weight:700;width:170px;background:#f8f8f8}
 <div class="footer">Generado el ${new Date().toLocaleDateString('es-ES')} — ARIFOMA</div>
 <script>window.print();<\/script></body></html>`);
   w.document.close();
+}
+
+async function abrirCarpetaCAE(id){
+  const c=choferesData.find(x=>x.id==id);if(!c||!c.cae_carpeta)return;
+  const folderPath=CHOFERES_ONEDRIVE_BASE+'/'+c.cae_carpeta;
+  const encodedPath=folderPath.split('/').map(s=>encodeURIComponent(s)).join('/');
+  try{
+    const token=await comprasGetToken();
+    const resp=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+encodedPath+':/children?$select=name,webUrl,size,lastModifiedDateTime,file&$orderby=name',{
+      headers:{'Authorization':'Bearer '+token}
+    });
+    if(!resp.ok)throw new Error('No se pudo acceder a la carpeta');
+    const data=await resp.json();
+    const files=data.value||[];
+    // Mostrar en ventana
+    const w=window.open('','_blank','width=700,height=500');
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>CAE — ${c.nombre}</title>
+<style>body{font-family:Arial,sans-serif;padding:20px;color:#222}h2{margin:0 0 4px;font-size:1.2rem}
+.sub{color:#888;font-size:.82rem;margin-bottom:16px}
+table{width:100%;border-collapse:collapse}th,td{padding:8px 10px;border:1px solid #ddd;font-size:.85rem;text-align:left}
+th{background:#f5f5f5;font-weight:700}a{color:#4a6e1f;text-decoration:none;font-weight:600}a:hover{text-decoration:underline}
+.empty{color:#999;padding:20px;text-align:center}
+</style></head><body>
+<h2>📁 Documentos CAE — ${c.nombre}</h2>
+<div class="sub">${c.cae_carpeta} · ${files.length} archivo${files.length!==1?'s':''}</div>
+${files.length?'<table><tr><th>Archivo</th><th>Tamaño</th><th>Modificado</th></tr>'+files.map(f=>{
+  const size=f.size?(f.size/1024).toFixed(0)+' KB':'—';
+  const mod=f.lastModifiedDateTime?new Date(f.lastModifiedDateTime).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—';
+  return '<tr><td><a href="'+f.webUrl+'" target="_blank">'+f.name+'</a></td><td>'+size+'</td><td>'+mod+'</td></tr>';
+}).join('')+'</table>':'<div class="empty">Carpeta vacía</div>'}
+</body></html>`);
+    w.document.close();
+  }catch(e){alert('Error accediendo a OneDrive: '+e.message);}
 }
 
 // ── OBRAS / PROYECTOS ────────────────────────────────────────
