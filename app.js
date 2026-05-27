@@ -618,12 +618,30 @@ async function cargarInit(){
   }
 }
 
+function _marcarBotonesLectura(){
+  document.querySelectorAll('button:not(.write-action)').forEach(b=>{
+    const txt=(b.textContent||'').trim().toLowerCase();
+    const oc=(b.getAttribute('onclick')||'').toLowerCase();
+    if(txt.startsWith('+ ')||txt.startsWith('guardar')||oc.includes('eliminar')||oc.includes('delete')||oc.includes('save')||oc.includes('modal(null')||oc.includes('guardar'))
+      b.classList.add('write-action');
+  });
+}
+
 async function initApp(){
   if (window._appInitialized) {
     console.warn('initApp() already running, skipping duplicate call');
     return;
   }
   window._appInitialized = true;
+
+  // Rol lectura: ocultar todos los botones de escritura
+  if(loginUser&&loginUser.rol==='lectura'){
+    document.body.classList.add('rol-lectura');
+    _marcarBotonesLectura();
+    // Observer para botones renderizados dinámicamente
+    new MutationObserver(_marcarBotonesLectura).observe(document.body,{childList:true,subtree:true});
+  }
+
   loadFst();
 
   // Event delegation para botones de fichaje
