@@ -7485,17 +7485,24 @@ function comprasFileSelected(input){
   }
 }
 
+function comprasToBase64(fileOrBlob){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result.split(',')[1]);
+    reader.onerror=()=>reject(new Error('Error leyendo archivo'));
+    reader.readAsDataURL(fileOrBlob);
+  });
+}
+
 async function comprasOcrSpace(fileOrBlob,engine){
-  const form=new FormData();
-  form.append('file',fileOrBlob);
-  form.append('language','spa');
-  form.append('isOverlayRequired','false');
-  form.append('scale','true');
-  form.append('isTable','true');
-  form.append('detectOrientation','true');
-  form.append('OCREngine',String(engine||1));
-  const resp=await fetch('/api/ocr',{method:'POST',body:form});
+  const b64=await comprasToBase64(fileOrBlob);
+  const resp=await fetch('/api/ocr',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({base64:b64,engine:engine||1})
+  });
   const json=await resp.json();
+  if(!resp.ok) throw new Error(json.error||'Error proxy OCR');
   if(json.IsErroredOnProcessing) throw new Error((json.ErrorMessage||[]).join('; ')||'OCR.space error');
   return (json.ParsedResults||[]).map(r=>r.ParsedText||'').join('\n');
 }
