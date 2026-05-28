@@ -800,6 +800,7 @@ const PROD_MAP={
   'PROD-000035':'MATERIAL DE RELLENO 0/4',
   'PROD-000057':'REVUELTO 0/20','PROD-000058':'ZAHORRA 0/40',
   'PROD-000048':'MATERIAL DE RELLENO 0/4','PROD-000059':'TIERRA VEGETAL',
+  'PROD-000003':'MATERIAL TODO UNO CANTERA',
 };
 const PRECIOS={
   'ARIDO AF-T-0/4-I':16.10,'ARIDO AG-T-4/12-I':15.10,
@@ -807,7 +808,7 @@ const PRECIOS={
   'ARIDO AG-T-40/70-I':16.00,'REVUELTO 0/20':15.60,
   'REVUELTO 0/10':15.60,'ZAHORRA 0/40':15.60,
   'MATERIAL DE RELLENO 0/4':2.00,'TIERRA VEGETAL':18.00,
-  'PIEDRA PARA MURO (UD)':0,
+  'PIEDRA PARA MURO (UD)':0,'MATERIAL TODO UNO CANTERA':15.10,
 };
 const IGIC_PCT=3;
 const PRECIOS_ESP={
@@ -4433,7 +4434,7 @@ function renderFacturacion(){
     html+=`<div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
       <div>
         <div style="font-family:'Syne',sans-serif;font-size:.92rem;font-weight:700;color:var(--accent)">${cli}</div>
-        <div style="font-size:.68rem;color:var(--muted);margin-top:2px">${(cData.totalKg/1000).toFixed(2)} Tn · ${pedidos.filter(r=>r.nombreCliente===cli).length} viajes</div>
+        <div style="font-size:.68rem;color:var(--muted);margin-top:2px">${(cData.totalKg/1000).toFixed(2)} Tn · ${pedidos.filter(r=>(r.nombreCliente||'').trim()===cli).length} viajes</div>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <div style="text-align:right">
