@@ -7479,28 +7479,49 @@ function comprasFileSelected(input){
   }
 }
 
-const GOOGLE_VISION_KEY='AIzaSyDyo2lnjTzbR6cb55lq8gD0qULO6uNKiQw';
-
-function comprasFileToBase64(fileOrBlob){
-  return new Promise((resolve,reject)=>{
-    const reader=new FileReader();
-    reader.onload=()=>resolve(reader.result.split(',')[1]);
-    reader.onerror=()=>reject(new Error('Error leyendo archivo'));
-    reader.readAsDataURL(fileOrBlob);
-  });
+async function comprasOcrSpace(fileOrBlob,engine){
+  const form=new FormData();
+  form.append('file',fileOrBlob);
+  form.append('language','spa');
+  form.append('isOverlayRequired','false');
+  form.append('scale','true');
+  form.append('isTable','true');
+  form.append('detectOrientation','true');
+  form.append('OCREngine',String(engine||1));
+  const resp=await fetch('/api/ocr',{method:'POST',body:form});
+  const json=await resp.json();
+  if(json.IsErroredOnProcessing) throw new Error((json.ErrorMessage||[]).join('; ')||'OCR.space error');
+  return (json.ParsedResults||[]).map(r=>r.ParsedText||'').join('\n');
 }
 
-async function comprasGoogleVision(fileOrBlob){
-  const b64=await comprasFileToBase64(fileOrBlob);
-  const body={requests:[{image:{content:b64},features:[{type:'TEXT_DETECTION'}],imageContext:{languageHints:['es']}}]};
-  const resp=await fetch('https://vision.googleapis.com/v1/images:annotate?key='+GOOGLE_VISION_KEY,{
-    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
+function comprasPreprocessImg(fileOrBlob){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>{
+      const minW=2000;
+      const scale=img.width<minW?(minW/img.width):1;
+      const w=Math.round(img.width*scale);
+      const h=Math.round(img.height*scale);
+      const canvas=document.createElement('canvas');
+      canvas.width=w;canvas.height=h;
+      const ctx=canvas.getContext('2d');
+      ctx.fillStyle='#fff';
+      ctx.fillRect(0,0,w,h);
+      ctx.drawImage(img,0,0,w,h);
+      // Binarización
+      const imgData=ctx.getImageData(0,0,w,h);
+      const d=imgData.data;
+      for(let i=0;i<d.length;i+=4){
+        const gray=d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114;
+        const bw=gray<160?0:255;
+        d[i]=d[i+1]=d[i+2]=bw;
+      }
+      ctx.putImageData(imgData,0,0);
+      canvas.toBlob(b=>resolve(b),'image/png');
+    };
+    img.onerror=()=>reject(new Error('No se pudo cargar imagen'));
+    img.src=URL.createObjectURL(fileOrBlob);
   });
-  const json=await resp.json();
-  if(json.error) throw new Error(json.error.message||'Google Vision error');
-  const ann=json.responses&&json.responses[0];
-  if(ann&&ann.error) throw new Error(ann.error.message);
-  return (ann&&ann.fullTextAnnotation&&ann.fullTextAnnotation.text)||'';
 }
 
 async function comprasRunOCR(file){
@@ -7511,8 +7532,16 @@ async function comprasRunOCR(file){
   s2.style.display='block';
 
   try{
-    prog.textContent='Analizando con Google Vision...';
-    const text=await comprasGoogleVision(file);
+    prog.textContent='Preparando imagen...';
+    const processed=await comprasPreprocessImg(file);
+    prog.textContent='Analizando (Engine 1)...';
+    let text=await comprasOcrSpace(processed,1);
+    // Si poco texto, reintentar con Engine 2
+    if(text.trim().length<30){
+      prog.textContent='Reintentando (Engine 2)...';
+      const text2=await comprasOcrSpace(processed,2);
+      if(text2.trim().length>text.trim().length) text=text2;
+    }
     document.getElementById('compras-ocr-text').value=text;
     comprasParseOCR(text);
     s2.style.display='none';
@@ -7682,27 +7711,47 @@ async function comprasRunOCRPdf(file){
   s2.style.display='block';
 
   try{
-    prog.textContent='Leyendo PDF...';
-    const arrayBuf=await file.arrayBuffer();
-    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
-    const pdf=await pdfjsLib.getDocument({data:arrayBuf}).promise;
-    let allText='';
-    for(let p=1;p<=pdf.numPages;p++){
-      prog.textContent=`Renderizando página ${p}/${pdf.numPages}...`;
-      const page=await pdf.getPage(p);
-      const scale=3;
-      const viewport=page.getViewport({scale});
-      const canvas=document.createElement('canvas');
-      canvas.width=viewport.width;canvas.height=viewport.height;
-      const ctx=canvas.getContext('2d');
-      await page.render({canvasContext:ctx,viewport}).promise;
-      const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
-      prog.textContent=`Google Vision página ${p}/${pdf.numPages}...`;
-      const pText=await comprasGoogleVision(blob);
-      allText+=pText+'\n';
+    // Intentar enviar PDF directo a OCR.space (soporta PDF nativo)
+    prog.textContent='Analizando PDF (Engine 1)...';
+    let text=await comprasOcrSpace(file,1);
+    if(text.trim().length<30){
+      prog.textContent='Reintentando PDF (Engine 2)...';
+      const text2=await comprasOcrSpace(file,2);
+      if(text2.trim().length>text.trim().length) text=text2;
     }
-    document.getElementById('compras-ocr-text').value=allText;
-    comprasParseOCR(allText);
+    // Si sigue poco texto, renderizar páginas a imagen
+    if(text.trim().length<30){
+      prog.textContent='Renderizando páginas...';
+      const arrayBuf=await file.arrayBuffer();
+      pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+      const pdf=await pdfjsLib.getDocument({data:arrayBuf}).promise;
+      let allText='';
+      for(let p=1;p<=pdf.numPages;p++){
+        prog.textContent=`Página ${p}/${pdf.numPages}...`;
+        const page=await pdf.getPage(p);
+        const viewport=page.getViewport({scale:3});
+        const canvas=document.createElement('canvas');
+        canvas.width=viewport.width;canvas.height=viewport.height;
+        const ctx=canvas.getContext('2d');
+        await page.render({canvasContext:ctx,viewport}).promise;
+        // Binarización
+        const imgData=ctx.getImageData(0,0,canvas.width,canvas.height);
+        const d=imgData.data;
+        for(let i=0;i<d.length;i+=4){
+          const gray=d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114;
+          const bw=gray<160?0:255;
+          d[i]=d[i+1]=d[i+2]=bw;
+        }
+        ctx.putImageData(imgData,0,0);
+        const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
+        prog.textContent=`OCR página ${p}/${pdf.numPages}...`;
+        const pText=await comprasOcrSpace(blob,1);
+        allText+=pText+'\n';
+      }
+      text=allText;
+    }
+    document.getElementById('compras-ocr-text').value=text;
+    comprasParseOCR(text);
     s2.style.display='none';
     s3.style.display='block';
   }catch(e){
