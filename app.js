@@ -7511,35 +7511,6 @@ async function comprasGeminiOCR(fileOrBlob){
   return json.data;
 }
 
-function comprasPreprocessImg(fileOrBlob){
-  return new Promise((resolve,reject)=>{
-    const img=new Image();
-    img.onload=()=>{
-      const minW=2000;
-      const scale=img.width<minW?(minW/img.width):1;
-      const w=Math.round(img.width*scale);
-      const h=Math.round(img.height*scale);
-      const canvas=document.createElement('canvas');
-      canvas.width=w;canvas.height=h;
-      const ctx=canvas.getContext('2d');
-      ctx.fillStyle='#fff';
-      ctx.fillRect(0,0,w,h);
-      ctx.drawImage(img,0,0,w,h);
-      // Binarización
-      const imgData=ctx.getImageData(0,0,w,h);
-      const d=imgData.data;
-      for(let i=0;i<d.length;i+=4){
-        const gray=d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114;
-        const bw=gray<160?0:255;
-        d[i]=d[i+1]=d[i+2]=bw;
-      }
-      ctx.putImageData(imgData,0,0);
-      canvas.toBlob(b=>resolve(b),'image/png');
-    };
-    img.onerror=()=>reject(new Error('No se pudo cargar imagen'));
-    img.src=URL.createObjectURL(fileOrBlob);
-  });
-}
 
 async function comprasRunOCR(file){
   const s1=document.getElementById('compras-step1');
