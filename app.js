@@ -808,7 +808,7 @@ const PRECIOS={
   'ARIDO AG-T-40/70-I':16.00,'REVUELTO 0/20':15.60,
   'REVUELTO 0/10':15.60,'ZAHORRA 0/40':15.60,
   'MATERIAL DE RELLENO 0/4':2.00,'TIERRA VEGETAL':18.00,
-  'PIEDRA PARA MURO (UD)':0,'MATERIAL TODO UNO CANTERA':15.10,
+  'PIEDRA PARA MURO (UD)':19.80,'MATERIAL TODO UNO CANTERA':15.10,
 };
 const IGIC_PCT=3;
 const PRECIOS_ESP={
@@ -7479,6 +7479,22 @@ function comprasFileSelected(input){
   }
 }
 
+const OCR_SPACE_KEY='K84665184588957';
+
+async function comprasOcrSpace(fileOrBlob){
+  const form=new FormData();
+  form.append('file',fileOrBlob);
+  form.append('apikey',OCR_SPACE_KEY);
+  form.append('language','spa');
+  form.append('isOverlayRequired','false');
+  form.append('scale','true');
+  form.append('OCREngine','2');
+  const resp=await fetch('https://api.ocr.space/parse/image',{method:'POST',body:form});
+  const json=await resp.json();
+  if(json.IsErroredOnProcessing) throw new Error(json.ErrorMessage||'OCR.space error');
+  return (json.ParsedResults||[]).map(r=>r.ParsedText||'').join('\n');
+}
+
 async function comprasRunOCR(file){
   const s1=document.getElementById('compras-step1');
   const s2=document.getElementById('compras-step2');
@@ -7487,17 +7503,28 @@ async function comprasRunOCR(file){
   s2.style.display='block';
 
   try{
-    const worker=await Tesseract.createWorker('spa',1,{logger:m=>{if(m.status==='recognizing text')prog.textContent=Math.round(m.progress*100)+'%';}});
-    const{data:{text}}=await worker.recognize(file);
-    await worker.terminate();
-
+    // Intentar OCR.space primero (más preciso)
+    prog.textContent='Analizando con OCR.space...';
+    const text=await comprasOcrSpace(file);
     document.getElementById('compras-ocr-text').value=text;
     comprasParseOCR(text);
     s2.style.display='none';
     s3.style.display='block';
   }catch(e){
-    s2.style.display='none';
-    comprasShowError('Error OCR: '+e.message);
+    // Fallback a Tesseract
+    try{
+      prog.textContent='Fallback Tesseract...';
+      const worker=await Tesseract.createWorker('spa',1,{logger:m=>{if(m.status==='recognizing text')prog.textContent=Math.round(m.progress*100)+'%';}});
+      const{data:{text}}=await worker.recognize(file);
+      await worker.terminate();
+      document.getElementById('compras-ocr-text').value=text;
+      comprasParseOCR(text);
+      s2.style.display='none';
+      s3.style.display='block';
+    }catch(e2){
+      s2.style.display='none';
+      comprasShowError('Error OCR: '+e2.message);
+    }
   }
 }
 
@@ -7658,38 +7685,57 @@ async function comprasRunOCRPdf(file){
   const s3=document.getElementById('compras-step3');
   const prog=document.getElementById('compras-ocr-progress');
   s2.style.display='block';
-  prog.textContent='Leyendo PDF...';
 
   try{
-    const arrayBuf=await file.arrayBuffer();
-    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
-    const pdf=await pdfjsLib.getDocument({data:arrayBuf}).promise;
-    const page=await pdf.getPage(1);
-
-    // Renderizar página a canvas a 2x escala para mejor OCR
-    const scale=2;
-    const viewport=page.getViewport({scale});
-    const canvas=document.createElement('canvas');
-    canvas.width=viewport.width;
-    canvas.height=viewport.height;
-    const ctx=canvas.getContext('2d');
-    await page.render({canvasContext:ctx,viewport}).promise;
-
-    prog.textContent='Analizando texto...';
-
-    // Convertir canvas a blob para Tesseract
-    const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
-    const worker=await Tesseract.createWorker('spa',1,{logger:m=>{if(m.status==='recognizing text')prog.textContent=Math.round(m.progress*100)+'%';}});
-    const{data:{text}}=await worker.recognize(blob);
-    await worker.terminate();
-
+    // Intentar OCR.space directo con PDF (soporta PDF nativo)
+    prog.textContent='Analizando PDF con OCR.space...';
+    const text=await comprasOcrSpace(file);
     document.getElementById('compras-ocr-text').value=text;
     comprasParseOCR(text);
     s2.style.display='none';
     s3.style.display='block';
   }catch(e){
-    s2.style.display='none';
-    comprasShowError('Error OCR PDF: '+(e.message||e));
+    // Fallback: renderizar PDF a imagen + Tesseract
+    try{
+      prog.textContent='Fallback: leyendo PDF...';
+      const arrayBuf=await file.arrayBuffer();
+      pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+      const pdf=await pdfjsLib.getDocument({data:arrayBuf}).promise;
+      let allText='';
+      for(let p=1;p<=pdf.numPages;p++){
+        prog.textContent=`Página ${p}/${pdf.numPages}...`;
+        const page=await pdf.getPage(p);
+        const scale=3;
+        const viewport=page.getViewport({scale});
+        const canvas=document.createElement('canvas');
+        canvas.width=viewport.width;
+        canvas.height=viewport.height;
+        const ctx=canvas.getContext('2d');
+        await page.render({canvasContext:ctx,viewport}).promise;
+        // Binarización para mejor OCR
+        const imgData=ctx.getImageData(0,0,canvas.width,canvas.height);
+        const d=imgData.data;
+        for(let i=0;i<d.length;i+=4){
+          const gray=d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114;
+          const bw=gray<140?0:255;
+          d[i]=d[i+1]=d[i+2]=bw;
+        }
+        ctx.putImageData(imgData,0,0);
+        const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
+        prog.textContent=`OCR página ${p}/${pdf.numPages}...`;
+        const worker=await Tesseract.createWorker('spa',1,{logger:m=>{if(m.status==='recognizing text')prog.textContent=`Pág ${p}: ${Math.round(m.progress*100)}%`;}});
+        const{data:{text:pText}}=await worker.recognize(blob);
+        await worker.terminate();
+        allText+=pText+'\n';
+      }
+      document.getElementById('compras-ocr-text').value=allText;
+      comprasParseOCR(allText);
+      s2.style.display='none';
+      s3.style.display='block';
+    }catch(e2){
+      s2.style.display='none';
+      comprasShowError('Error OCR PDF: '+(e2.message||e2));
+    }
   }
 }
 
