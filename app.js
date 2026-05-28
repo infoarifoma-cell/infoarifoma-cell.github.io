@@ -7481,14 +7481,46 @@ function comprasFileSelected(input){
 
 const OCR_SPACE_KEY='K84665184588957';
 
-async function comprasOcrSpace(fileOrBlob){
+function comprasPreprocessImg(fileOrBlob){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>{
+      // Escalar a mínimo 2000px de ancho para mejor OCR
+      const minW=2000;
+      const scale=img.width<minW?(minW/img.width):1;
+      const w=Math.round(img.width*scale);
+      const h=Math.round(img.height*scale);
+      const canvas=document.createElement('canvas');
+      canvas.width=w;canvas.height=h;
+      const ctx=canvas.getContext('2d');
+      // Fondo blanco
+      ctx.fillStyle='#fff';
+      ctx.fillRect(0,0,w,h);
+      ctx.drawImage(img,0,0,w,h);
+      // Binarización + aumento de contraste
+      const imgData=ctx.getImageData(0,0,w,h);
+      const d=imgData.data;
+      for(let i=0;i<d.length;i+=4){
+        const gray=d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114;
+        const bw=gray<160?0:255;
+        d[i]=d[i+1]=d[i+2]=bw;
+      }
+      ctx.putImageData(imgData,0,0);
+      canvas.toBlob(b=>resolve(b),'image/png');
+    };
+    img.onerror=()=>reject(new Error('No se pudo cargar imagen'));
+    img.src=URL.createObjectURL(fileOrBlob);
+  });
+}
+
+async function comprasOcrSpace(fileOrBlob,engine){
   const form=new FormData();
   form.append('file',fileOrBlob);
   form.append('apikey',OCR_SPACE_KEY);
   form.append('language','spa');
   form.append('isOverlayRequired','false');
   form.append('scale','true');
-  form.append('OCREngine','2');
+  form.append('OCREngine',String(engine||1));
   const resp=await fetch('https://api.ocr.space/parse/image',{method:'POST',body:form});
   const json=await resp.json();
   if(json.IsErroredOnProcessing) throw new Error(json.ErrorMessage||'OCR.space error');
@@ -7503,19 +7535,37 @@ async function comprasRunOCR(file){
   s2.style.display='block';
 
   try{
-    // Intentar OCR.space primero (más preciso)
-    prog.textContent='Analizando con OCR.space...';
-    const text=await comprasOcrSpace(file);
+    // Preprocesar imagen (escalar + binarizar)
+    prog.textContent='Preparando imagen...';
+    const processed=await comprasPreprocessImg(file);
+    // Intentar Engine 1 (mejor con imágenes reales)
+    prog.textContent='Analizando con OCR.space (Engine 1)...';
+    let text='';
+    try{
+      text=await comprasOcrSpace(processed,1);
+    }catch(e1){
+      // Si Engine 1 falla, intentar Engine 2
+      prog.textContent='Reintentando con Engine 2...';
+      text=await comprasOcrSpace(processed,2);
+    }
+    // Si texto muy corto, intentar con el otro engine
+    if(text.trim().length<20){
+      prog.textContent='Poco texto, reintentando...';
+      const text2=await comprasOcrSpace(processed, text.trim().length<20?2:1);
+      if(text2.trim().length>text.trim().length) text=text2;
+    }
     document.getElementById('compras-ocr-text').value=text;
     comprasParseOCR(text);
     s2.style.display='none';
     s3.style.display='block';
   }catch(e){
-    // Fallback a Tesseract
+    // Fallback a Tesseract con imagen preprocesada
     try{
       prog.textContent='Fallback Tesseract...';
+      let blob=file;
+      try{blob=await comprasPreprocessImg(file);}catch(ep){}
       const worker=await Tesseract.createWorker('spa',1,{logger:m=>{if(m.status==='recognizing text')prog.textContent=Math.round(m.progress*100)+'%';}});
-      const{data:{text}}=await worker.recognize(file);
+      const{data:{text}}=await worker.recognize(blob);
       await worker.terminate();
       document.getElementById('compras-ocr-text').value=text;
       comprasParseOCR(text);
