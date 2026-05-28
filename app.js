@@ -7488,23 +7488,27 @@ function comprasFileSelected(input){
 function comprasToBase64(fileOrBlob){
   return new Promise((resolve,reject)=>{
     const reader=new FileReader();
-    reader.onload=()=>resolve(reader.result.split(',')[1]);
+    reader.onload=()=>{
+      const full=reader.result;
+      const b64=full.split(',')[1];
+      const mime=full.match(/^data:([^;]+);/)?.[1]||'image/png';
+      resolve({base64:b64,mimeType:mime});
+    };
     reader.onerror=()=>reject(new Error('Error leyendo archivo'));
     reader.readAsDataURL(fileOrBlob);
   });
 }
 
-async function comprasOcrSpace(fileOrBlob,engine){
-  const b64=await comprasToBase64(fileOrBlob);
+async function comprasGeminiOCR(fileOrBlob){
+  const {base64,mimeType}=await comprasToBase64(fileOrBlob);
   const resp=await fetch('/api/ocr',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({base64:b64,engine:engine||1})
+    body:JSON.stringify({base64,mimeType})
   });
   const json=await resp.json();
-  if(!resp.ok) throw new Error(json.error||'Error proxy OCR');
-  if(json.IsErroredOnProcessing) throw new Error((json.ErrorMessage||[]).join('; ')||'OCR.space error');
-  return (json.ParsedResults||[]).map(r=>r.ParsedText||'').join('\n');
+  if(!resp.ok) throw new Error(json.error||'Error OCR');
+  return json;
 }
 
 function comprasPreprocessImg(fileOrBlob){
@@ -7545,24 +7549,40 @@ async function comprasRunOCR(file){
   s2.style.display='block';
 
   try{
-    prog.textContent='Preparando imagen...';
-    const processed=await comprasPreprocessImg(file);
-    prog.textContent='Analizando (Engine 1)...';
-    let text=await comprasOcrSpace(processed,1);
-    // Si poco texto, reintentar con Engine 2
-    if(text.trim().length<30){
-      prog.textContent='Reintentando (Engine 2)...';
-      const text2=await comprasOcrSpace(processed,2);
-      if(text2.trim().length>text.trim().length) text=text2;
-    }
-    document.getElementById('compras-ocr-text').value=text;
-    comprasParseOCR(text);
+    prog.textContent='Analizando con Gemini AI...';
+    const result=await comprasGeminiOCR(file);
+    comprasApplyGemini(result);
     s2.style.display='none';
     s3.style.display='block';
   }catch(e){
     s2.style.display='none';
     comprasShowError('Error OCR: '+e.message);
   }
+}
+
+function comprasApplyGemini(result){
+  const p=result.parsed;
+  const rawText=p?.textoCompleto||result.rawText||'';
+  document.getElementById('compras-ocr-text').value=rawText;
+  // Aplicar campos directamente si Gemini los extrajo
+  if(p){
+    if(p.proveedor){
+      // Buscar match en proveedores conocidos
+      const normProv=comprasNormalize(p.proveedor);
+      let bestMatch='',bestScore=0;
+      for(const prov of COMPRAS_PROVEEDORES){
+        const score=comprasFuzzyScore(normProv,comprasNormalize(prov));
+        const score2=comprasFuzzyScore(comprasNormalize(prov),normProv);
+        const best=Math.max(score,score2);
+        if(best>bestScore){bestScore=best;bestMatch=prov;}
+      }
+      document.getElementById('compras-proveedor').value=bestScore>=0.4?bestMatch:'';
+    }
+    if(p.nFactura) document.getElementById('compras-nfactura').value=p.nFactura;
+    if(p.fecha) document.getElementById('compras-fecha').value=p.fecha;
+  }
+  // Si Gemini no extrajo algún campo, intentar parseo clásico como fallback
+  if(!p||!p.proveedor||!p.fecha) comprasParseOCR(rawText);
 }
 
 function comprasNormalize(s){return s.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9]/g,'');}
@@ -7724,47 +7744,21 @@ async function comprasRunOCRPdf(file){
   s2.style.display='block';
 
   try{
-    // Intentar enviar PDF directo a OCR.space (soporta PDF nativo)
-    prog.textContent='Analizando PDF (Engine 1)...';
-    let text=await comprasOcrSpace(file,1);
-    if(text.trim().length<30){
-      prog.textContent='Reintentando PDF (Engine 2)...';
-      const text2=await comprasOcrSpace(file,2);
-      if(text2.trim().length>text.trim().length) text=text2;
-    }
-    // Si sigue poco texto, renderizar páginas a imagen
-    if(text.trim().length<30){
-      prog.textContent='Renderizando páginas...';
-      const arrayBuf=await file.arrayBuffer();
-      pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
-      const pdf=await pdfjsLib.getDocument({data:arrayBuf}).promise;
-      let allText='';
-      for(let p=1;p<=pdf.numPages;p++){
-        prog.textContent=`Página ${p}/${pdf.numPages}...`;
-        const page=await pdf.getPage(p);
-        const viewport=page.getViewport({scale:3});
-        const canvas=document.createElement('canvas');
-        canvas.width=viewport.width;canvas.height=viewport.height;
-        const ctx=canvas.getContext('2d');
-        await page.render({canvasContext:ctx,viewport}).promise;
-        // Binarización
-        const imgData=ctx.getImageData(0,0,canvas.width,canvas.height);
-        const d=imgData.data;
-        for(let i=0;i<d.length;i+=4){
-          const gray=d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114;
-          const bw=gray<160?0:255;
-          d[i]=d[i+1]=d[i+2]=bw;
-        }
-        ctx.putImageData(imgData,0,0);
-        const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
-        prog.textContent=`OCR página ${p}/${pdf.numPages}...`;
-        const pText=await comprasOcrSpace(blob,1);
-        allText+=pText+'\n';
-      }
-      text=allText;
-    }
-    document.getElementById('compras-ocr-text').value=text;
-    comprasParseOCR(text);
+    // Renderizar primera página del PDF a imagen y enviar a Gemini
+    prog.textContent='Leyendo PDF...';
+    const arrayBuf=await file.arrayBuffer();
+    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+    const pdf=await pdfjsLib.getDocument({data:arrayBuf}).promise;
+    const page=await pdf.getPage(1);
+    const viewport=page.getViewport({scale:2});
+    const canvas=document.createElement('canvas');
+    canvas.width=viewport.width;canvas.height=viewport.height;
+    const ctx=canvas.getContext('2d');
+    await page.render({canvasContext:ctx,viewport}).promise;
+    const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
+    prog.textContent='Analizando con Gemini AI...';
+    const result=await comprasGeminiOCR(blob);
+    comprasApplyGemini(result);
     s2.style.display='none';
     s3.style.display='block';
   }catch(e){
