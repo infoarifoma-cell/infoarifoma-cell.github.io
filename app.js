@@ -7485,14 +7485,13 @@ function comprasFileSelected(input){
   }
 }
 
-function comprasToBase64(fileOrBlob){
+function comprasReadFile(fileOrBlob){
   return new Promise((resolve,reject)=>{
     const reader=new FileReader();
     reader.onload=()=>{
-      const full=reader.result;
-      const b64=full.split(',')[1];
-      const mime=full.match(/^data:([^;]+);/)?.[1]||'image/png';
-      resolve({base64:b64,mimeType:mime});
+      const dataUrl=reader.result;
+      const mime=dataUrl.match(/^data:([^;]+);/)?.[1]||'image/png';
+      resolve({mimeType:mime,fileData:dataUrl});
     };
     reader.onerror=()=>reject(new Error('Error leyendo archivo'));
     reader.readAsDataURL(fileOrBlob);
@@ -7500,15 +7499,16 @@ function comprasToBase64(fileOrBlob){
 }
 
 async function comprasGeminiOCR(fileOrBlob){
-  const {base64,mimeType}=await comprasToBase64(fileOrBlob);
+  const {mimeType,fileData}=await comprasReadFile(fileOrBlob);
   const resp=await fetch('/api/ocr',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({base64,mimeType})
+    body:JSON.stringify({mimeType,fileData})
   });
   const json=await resp.json();
   if(!resp.ok) throw new Error(json.error||'Error OCR');
-  return json;
+  if(!json.success) throw new Error(json.error||'Error procesando factura');
+  return json.data;
 }
 
 function comprasPreprocessImg(fileOrBlob){
@@ -7549,9 +7549,9 @@ async function comprasRunOCR(file){
   s2.style.display='block';
 
   try{
-    prog.textContent='Analizando con Gemini AI...';
-    const result=await comprasGeminiOCR(file);
-    comprasApplyGemini(result);
+    prog.textContent='Analizando con IA...';
+    const data=await comprasGeminiOCR(file);
+    comprasApplyAI(data);
     s2.style.display='none';
     s3.style.display='block';
   }catch(e){
@@ -7560,29 +7560,32 @@ async function comprasRunOCR(file){
   }
 }
 
-function comprasApplyGemini(result){
-  const p=result.parsed;
-  const rawText=p?.textoCompleto||result.rawText||'';
-  document.getElementById('compras-ocr-text').value=rawText;
-  // Aplicar campos directamente si Gemini los extrajo
-  if(p){
-    if(p.proveedor){
-      // Buscar match en proveedores conocidos
-      const normProv=comprasNormalize(p.proveedor);
-      let bestMatch='',bestScore=0;
-      for(const prov of COMPRAS_PROVEEDORES){
-        const score=comprasFuzzyScore(normProv,comprasNormalize(prov));
-        const score2=comprasFuzzyScore(comprasNormalize(prov),normProv);
-        const best=Math.max(score,score2);
-        if(best>bestScore){bestScore=best;bestMatch=prov;}
-      }
-      document.getElementById('compras-proveedor').value=bestScore>=0.4?bestMatch:'';
+function comprasApplyAI(data){
+  // Mostrar texto resumen en el campo OCR
+  const lines=[];
+  if(data.vendor?.name) lines.push('Proveedor: '+data.vendor.name);
+  if(data.invoiceNumber) lines.push('Nº Factura: '+data.invoiceNumber);
+  if(data.invoiceDate) lines.push('Fecha: '+data.invoiceDate);
+  if(data.totalAmount) lines.push('Total: '+data.totalAmount+' '+(data.currency||'EUR'));
+  if(data.lineItems?.length) data.lineItems.forEach(l=>lines.push('  - '+l.description+': '+l.amount));
+  if(data.summaryOfAccuracy) lines.push('\n'+data.summaryOfAccuracy);
+  document.getElementById('compras-ocr-text').value=lines.join('\n');
+
+  // Aplicar proveedor
+  if(data.vendor?.name){
+    const normProv=comprasNormalize(data.vendor.name);
+    let bestMatch='',bestScore=0;
+    for(const prov of COMPRAS_PROVEEDORES){
+      const np=comprasNormalize(prov);
+      const score=Math.max(comprasFuzzyScore(normProv,np),comprasFuzzyScore(np,normProv));
+      if(score>bestScore){bestScore=score;bestMatch=prov;}
     }
-    if(p.nFactura) document.getElementById('compras-nfactura').value=p.nFactura;
-    if(p.fecha) document.getElementById('compras-fecha').value=p.fecha;
+    document.getElementById('compras-proveedor').value=bestScore>=0.4?bestMatch:'';
   }
-  // Si Gemini no extrajo algún campo, intentar parseo clásico como fallback
-  if(!p||!p.proveedor||!p.fecha) comprasParseOCR(rawText);
+  // Aplicar nº factura
+  if(data.invoiceNumber) document.getElementById('compras-nfactura').value=data.invoiceNumber;
+  // Aplicar fecha
+  if(data.invoiceDate) document.getElementById('compras-fecha').value=data.invoiceDate;
 }
 
 function comprasNormalize(s){return s.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9]/g,'');}
@@ -7756,9 +7759,9 @@ async function comprasRunOCRPdf(file){
     const ctx=canvas.getContext('2d');
     await page.render({canvasContext:ctx,viewport}).promise;
     const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
-    prog.textContent='Analizando con Gemini AI...';
-    const result=await comprasGeminiOCR(blob);
-    comprasApplyGemini(result);
+    prog.textContent='Analizando con IA...';
+    const data=await comprasGeminiOCR(blob);
+    comprasApplyAI(data);
     s2.style.display='none';
     s3.style.display='block';
   }catch(e){

@@ -1,0 +1,6 @@
+{
+  "name": "Lector OCR de Facturas",
+  "description": "Un preciso lector OCR de facturas y recibos en formato PDF e imágenes, con extracción inteligente de datos y analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
