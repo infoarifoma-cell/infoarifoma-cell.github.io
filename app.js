@@ -3485,8 +3485,8 @@ const MACHINES=[
   {id:'M1',name:'Machacadora RT12010',tipo:'MACHACADORA',modelo:'RT1210',fabricante:'MOPSA'},
   {id:'AP1',name:'Alimentador AP1',tipo:'ALIMENTADOR',modelo:'CINTAS',fabricante:'MOPSA'},
   {id:'AM3',name:'Alimentador Banda AM3',tipo:'ALIMENTADOR',modelo:'CINTAS',fabricante:'MOPSA'},
-  {id:'AT1',name:'Alimentador Bandeja AT1',tipo:'ALIMENTADOR',modelo:'CINTAS',fabricante:'MOPSA'},
-  {id:'AT2',name:'Alimentador Bandeja AT2',tipo:'ALIMENTADOR',modelo:'CINTAS',fabricante:'MOPSA'},
+  {id:'AT1',name:'Alimentador Bandeja AT1',tipo:'ALIMENTADOR',modelo:'AT1',fabricante:'MOPSA'},
+  {id:'AT2',name:'Alimentador Bandeja AT2',tipo:'ALIMENTADOR',modelo:'AT2',fabricante:'MOPSA'},
   {id:'T1',name:'Cinta T1',tipo:'CINTA TRANSPORTADORA',modelo:'CINTAS',fabricante:'MOPSA'},{id:'T2',name:'Cinta T2',tipo:'CINTA TRANSPORTADORA',modelo:'CINTAS',fabricante:'MOPSA'},{id:'T3',name:'Cinta T3',tipo:'CINTA TRANSPORTADORA',modelo:'CINTAS',fabricante:'MOPSA'},{id:'T4',name:'Cinta T4',tipo:'CINTA TRANSPORTADORA',modelo:'CINTAS',fabricante:'MOPSA'},{id:'T5',name:'Cinta T5',tipo:'CINTA TRANSPORTADORA',modelo:'CINTAS',fabricante:'MOPSA'},{id:'T6',name:'Cinta T6',tipo:'CINTA TRANSPORTADORA',modelo:'CINTAS',fabricante:'MOPSA'},{id:'T7',name:'Cinta T7',tipo:'CINTA TRANSPORTADORA',modelo:'CINTAS',fabricante:'MOPSA'},
   {id:'TE1',name:'Cinta TE1',tipo:'CINTA TRANSPORTADORA',modelo:'CINTAS',fabricante:'MOPSA'},{id:'TE2',name:'Cinta TE2',tipo:'CINTA TRANSPORTADORA',modelo:'CINTAS',fabricante:'MOPSA'},{id:'TE3',name:'Cinta TE3',tipo:'CINTA TRANSPORTADORA',modelo:'CINTAS',fabricante:'MOPSA'},{id:'T04',name:'Cinta T04',tipo:'CINTA TRANSPORTADORA',modelo:'CINTAS',fabricante:'MOPSA'},{id:'T412',name:'Cinta T412',tipo:'CINTA TRANSPORTADORA',modelo:'CINTAS',fabricante:'MOPSA'},{id:'T1220',name:'Cinta T1220',tipo:'CINTA TRANSPORTADORA',modelo:'CINTAS',fabricante:'MOPSA'},{id:'TS01',name:'Cinta TS01',tipo:'CINTA TRANSPORTADORA',modelo:'CINTAS',fabricante:'MOPSA'},{id:'TS02',name:'Cinta TS02',tipo:'CINTA TRANSPORTADORA',modelo:'CINTAS',fabricante:'MOPSA'},
   {id:'C1',name:'Criba Vibrante C1',tipo:'CRIBA VIBRANTE',modelo:'VKW7203',fabricante:'GRANIER'},{id:'C2',name:'Criba Vibrante C2',tipo:'CRIBA VIBRANTE',modelo:'VKW7203',fabricante:'GRANIER'},{id:'CE',name:'Criba Vibrante CE',tipo:'CRIBA VIBRANTE',modelo:'VKW7203',fabricante:'GRANIER'},
@@ -3551,7 +3551,13 @@ async function goStep2(){if(!selMachine)return;const grid=document.getElementByI
     // Forzar recarga desde Supabase siempre
     const json=await apiFetch('?accion=gamasNormas').catch(()=>({ok:false}));
     if(json.ok)normasData=json.data||[];
-    const dynGamas=normasData.filter(n=>(n.Modelo||'').trim().toUpperCase()===(selMachine.modelo||'').trim().toUpperCase());
+    const mid=(selMachine.id||'').trim().toUpperCase();
+    const mmod=(selMachine.modelo||'').trim().toUpperCase();
+    const dynGamas=normasData.filter(n=>{
+      const nm=(n.Modelo||'').trim().toUpperCase();
+      // Coincide por ID de activo o por modelo
+      return nm===mid||nm===mmod;
+    });
     dynGamas.forEach(n=>{
       const checks=[];for(let i=1;i<=60;i++)if(n['n'+i])checks.push(n['n'+i]);
       gamas.push({id:n.Numero||'DB-'+n.id,modelo:n.Modelo,nombre:n.Gama||n.Numero||'Gama '+n.id,intervalo:n.Intervalo||0,checks,_src:'db',_dbId:n.id});
