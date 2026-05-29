@@ -7649,8 +7649,16 @@ async function comprasSubir(){
       }
     }
 
-    const encodedPath=folderPath.split('/').map(s=>encodeURIComponent(s)).join('/');
-    const uploadUrl='https://graph.microsoft.com/v1.0/me/drive/root:/'+encodedPath+'/'+encodeURIComponent(fileName)+':/content';
+    // Obtener ID de la carpeta destino para evitar problemas de encoding en path
+    const encodedFolder=folderPath.split('/').map(s=>encodeURIComponent(s)).join('/');
+    const folderInfoRes=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+encodedFolder,{
+      headers:{'Authorization':'Bearer '+token}
+    });
+    if(!folderInfoRes.ok){throw new Error('Carpeta no encontrada: '+folderPath);}
+    const folderInfo=await folderInfoRes.json();
+    const folderId=folderInfo.id;
+
+    const uploadUrl='https://graph.microsoft.com/v1.0/me/drive/items/'+folderId+':/'+encodeURIComponent(fileName)+':/content';
 
     btn.textContent='Subiendo...';
     const resp=await fetch(uploadUrl,{
