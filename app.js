@@ -7447,6 +7447,7 @@ let _comprasFile=null;
 let _comprasFileName='';
 let _comprasFileBuffer=null;
 let _comprasFileType='';
+let _comprasVendorsBC=[];
 
 function getMsalInstance(){
   if(_msalInstance)return _msalInstance;
@@ -7465,10 +7466,27 @@ async function comprasGetToken(){
   return r.accessToken;
 }
 
-function comprasInitProveedores(){
+async function comprasInitProveedores(){
   const dl=document.getElementById('compras-proveedores-list');
-  if(!dl||dl.children.length)return;
-  COMPRAS_PROVEEDORES.forEach(p=>{const o=document.createElement('option');o.value=p;dl.appendChild(o);});
+  if(!dl)return;
+  // Si ya cargamos de BC, no recargar
+  if(_comprasVendorsBC.length&&dl.children.length)return;
+  // Intentar cargar desde BC
+  try{
+    const token=await getBCToken();
+    const resp=await fetch('/api/bc/vendors',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});
+    const data=await resp.json();
+    if(data.ok&&data.vendors.length){
+      _comprasVendorsBC=data.vendors;
+      dl.innerHTML='';
+      _comprasVendorsBC.forEach(v=>{const o=document.createElement('option');o.value=v.name;dl.appendChild(o);});
+      return;
+    }
+  }catch(e){console.warn('No se pudo cargar vendors de BC, usando lista local:',e.message);}
+  // Fallback: lista hardcoded
+  if(!dl.children.length){
+    COMPRAS_PROVEEDORES.forEach(p=>{const o=document.createElement('option');o.value=p;dl.appendChild(o);});
+  }
 }
 
 function comprasFileSelected(input){
@@ -7559,9 +7577,10 @@ function comprasParseOCR(text){
   const normText=comprasNormalize(text);
   const lines=text.split(/\n/).map(l=>l.trim()).filter(Boolean);
 
-  // ── Detectar proveedor (fuzzy) ──
+  // ── Detectar proveedor (fuzzy) — preferir lista BC, fallback hardcoded ──
+  const provList=_comprasVendorsBC.length?_comprasVendorsBC.map(v=>v.name):COMPRAS_PROVEEDORES;
   let bestMatch='',bestScore=0;
-  for(const p of COMPRAS_PROVEEDORES){
+  for(const p of provList){
     const normP=comprasNormalize(p);
     const score=comprasFuzzyScore(normText,normP);
     // Priorizar matches más largos a igualdad de score
