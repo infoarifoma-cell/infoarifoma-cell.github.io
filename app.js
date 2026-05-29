@@ -7999,11 +7999,9 @@ function comprasReset(){
 // ============================================================
 // STOCK ÁRIDOS — Gráficos montaña desde Google Sheet (hoja STOCK)
 // ============================================================
-// Columnas en hoja STOCK: N=0/4, O=4/12, P=12/20, Q=20/40
-// Filas: 7 en adelante = meses (Ene, Feb, Mar...)
-// Cada producto tiene 3 filas por mes-bloque: inicio, final, actual
-// N7=inicio ene 0/4, N8=final ene, N9=actual ene, N10=inicio feb...
-// Ajustar según layout real del sheet.
+// Hoja STOCK: cada fila = un día. Col C=fecha, N=0/4, O=4/12, P=12/20, Q=20/40
+// Fila 5 = existencias iniciales, fila 6+ = datos diarios
+// Se agrupa por mes: primer valor = inicio mes, último = final mes
 
 const STOCK_SHEET_ID = '1fxHwVEgcIrRdyPh-TJ-k84QFBHXX-P3mNRCiWYaeDTQ';
 const STOCK_SHEET_TAB = 'STOCK';
@@ -8017,6 +8015,7 @@ const STOCK_COLORS = {
 const STOCK_LABELS = {'04':'0/4','412':'4/12','1220':'12/20','2040':'20/40'};
 
 let _stockData = null;
+let _stockRawDaily = null;
 let _stockCharts = {mini04:null, mini412:null, mini1220:null, mini2040:null, grande:null};
 let _stockInited = false;
 
@@ -8035,11 +8034,10 @@ function initStock() {
 }
 
 async function cargarStock() {
-  const anyo = document.getElementById('stock-anyo').value;
+  const anyo = parseInt(document.getElementById('stock-anyo').value);
   try {
-    // Leer columnas N, O, P, Q desde fila 5 (cabeceras posibles) hasta fila 50
-    // gviz query: select N,O,P,Q — columnas son 0-indexed: N=col13, O=col14, P=col15, Q=col16
-    const query = `select N,O,P,Q`;
+    // Leer fecha (C) y stock (N,O,P,Q)
+    const query = `select C,N,O,P,Q`;
     const url = `https://docs.google.com/spreadsheets/d/${STOCK_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(STOCK_SHEET_TAB)}&tq=${encodeURIComponent(query)}`;
     const res = await fetch(url);
     const txt = await res.text();
@@ -8047,45 +8045,61 @@ async function cargarStock() {
     const gviz = JSON.parse(jsonStr);
     const rows = gviz.table.rows || [];
 
-    // Parse: empezamos desde fila-índice 6 (=fila 7 del sheet, 0-indexed tras cabecera)
-    // Estructura esperada: cada fila es un mes, con inicio/final/actual como sub-filas
-    // O cada fila es directamente un valor mensual
-    // Vamos a leer todos los valores y organizarlos
-    const raw = { '04': [], '412': [], '1220': [], '2040': [] };
     const keys = ['04', '412', '1220', '2040'];
-
-    // Empezar desde fila-índice que corresponde a row 7 del sheet
-    // gviz devuelve desde fila 1 (excluyendo cabecera fila 1)
-    // Si los datos empiezan en N7, y fila 1 es cabecera, el índice en rows es 5 (7-2)
-    // Pero depende de si hay cabecera. Intentamos leer todos los valores numéricos.
+    // Parse todas las filas con fecha y valores
+    const daily = []; // {date, '04':v, '412':v, ...}
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
-      for (let k = 0; k < 4; k++) {
-        const cell = r.c && r.c[k];
-        const v = cell ? (cell.v != null ? Number(cell.v) : null) : null;
-        raw[keys[k]].push(v);
+      if (!r.c) continue;
+      // Fecha en col 0 (C)
+      const dateCell = r.c[0];
+      let fecha = null;
+      if (dateCell && dateCell.v) {
+        // gviz dates: "Date(2026,0,1)" or string
+        const dv = dateCell.v;
+        if (typeof dv === 'string' && dv.startsWith('Date(')) {
+          const parts = dv.replace('Date(','').replace(')','').split(',').map(Number);
+          fecha = new Date(parts[0], parts[1], parts[2]);
+        } else if (dv instanceof Date) {
+          fecha = dv;
+        } else if (typeof dv === 'string') {
+          fecha = new Date(dv);
+        }
       }
+      // Stock values (cols 1-4 = N,O,P,Q)
+      const vals = {};
+      let hasAny = false;
+      for (let k = 0; k < 4; k++) {
+        const cell = r.c[k + 1];
+        const v = cell && cell.v != null ? Number(cell.v) : null;
+        vals[keys[k]] = v;
+        if (v != null && !isNaN(v)) hasAny = true;
+      }
+      if (hasAny) daily.push({ fecha, ...vals });
     }
 
-    // Filtrar: buscar el patrón de datos
-    // Los datos por mes tienen 3 valores: inicio, final, actual
-    // Organizamos por bloques de 3 filas a partir del primer dato no-null
+    _stockRawDaily = daily;
+
+    // Filtrar por año y agrupar por mes
+    const filtered = daily.filter(d => d.fecha && d.fecha.getFullYear() === anyo);
     _stockData = {};
     for (const key of keys) {
-      const arr = raw[key];
-      // Encontrar primera fila con dato
-      let startIdx = arr.findIndex(v => v != null && !isNaN(v));
-      if (startIdx < 0) { _stockData[key] = []; continue; }
-      const datos = [];
+      const meses = [];
       for (let m = 0; m < 12; m++) {
-        const idx = startIdx + m * 3;
-        if (idx >= arr.length) break;
-        const inicio = arr[idx] ?? null;
-        const final_ = arr[idx + 1] ?? null;
-        const actual = arr[idx + 2] ?? null;
-        datos.push({ mes: STOCK_MESES[m], inicio, final: final_, actual });
+        const delMes = filtered.filter(d => d.fecha.getMonth() === m && d[key] != null);
+        if (delMes.length === 0) {
+          meses.push({ mes: STOCK_MESES[m], inicio: null, final: null, actual: null });
+          continue;
+        }
+        const inicio = delMes[0][key];
+        const final_ = delMes[delMes.length - 1][key];
+        // "actual" = último valor del mes actual, null para meses pasados
+        const hoy = new Date();
+        const esActual = (hoy.getFullYear() === anyo && hoy.getMonth() === m);
+        const actual = esActual ? final_ : null;
+        meses.push({ mes: STOCK_MESES[m], inicio, final: final_, actual });
       }
-      _stockData[key] = datos;
+      _stockData[key] = meses;
     }
 
     renderStockOverview();
@@ -8102,10 +8116,11 @@ function renderStockOverview() {
   const keys = ['04', '412', '1220', '2040'];
   for (const key of keys) {
     const datos = _stockData[key] || [];
-    // Valor actual = último valor "actual" no-null
-    const ultimoActual = [...datos].reverse().find(d => d.actual != null);
+    // Valor actual = último valor disponible (actual del mes en curso o final del último mes con datos)
+    const ultimoVal = [...datos].reverse().find(d => d.actual != null || d.final != null);
     const elActual = document.getElementById('stock-actual-' + key);
-    elActual.textContent = ultimoActual ? ultimoActual.actual.toLocaleString('es-ES') + ' Tn' : '—';
+    const valShow = ultimoVal ? (ultimoVal.actual ?? ultimoVal.final) : null;
+    elActual.textContent = valShow != null ? valShow.toLocaleString('es-ES') + ' Tn' : '—';
 
     // Mini chart
     const canvasId = 'stock-mini-' + key;
