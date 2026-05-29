@@ -7409,7 +7409,8 @@ const COMPRAS_CLIENT_ID='20d8ca37-34e7-4ad4-b379-97c5b22f15ad';
 const COMPRAS_TENANT_ID='5bd828f2-1899-48ba-a269-c37733f41806';
 const COMPRAS_REDIRECT=location.origin+location.pathname;
 const COMPRAS_SCOPES=['Files.ReadWrite.All'];
-const COMPRAS_ONEDRIVE_BASE='Escritorio/Arifoma/06. ADMINISTRACION/06.01 PROVEEDORES';
+const COMPRAS_ONEDRIVE_BASE='06. ADMINISTRACION/06.01 PROVEEDORES';
+const COMPRAS_SHARE_URL='https://grpsite-my.sharepoint.com/:f:/g/personal/greyes_arifoma_com/IgD8XOuwUpjWQ4E17TuO5-PoAWbx8HnqElIXhD2fQerh_QM';
 const COMPRAS_MESES=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
 const COMPRAS_PROVEEDORES=[
   '(ANEFA) ASOCIACION NACIONAL DE EMPRESARIOS FABRICANTES DE ARIDO','AENOR','AGONEY LUJAN PEREZ','AGUAS DE GUAYADEQUE SL','ALIANZA ALEMAN BLAKER',
@@ -7647,17 +7648,25 @@ async function comprasSubir(){
     const fileName=safeNfac?(safeNfac+' '+fecha+ext):(fecha+'_factura'+ext);
     const folderPath=COMPRAS_ONEDRIVE_BASE+'/'+prov+'/'+year+'/'+mes;
 
-    // Navegar por IDs desde root de me/drive
-    btn.textContent='Creando carpetas...';
-    const rootRes=await fetch('https://graph.microsoft.com/v1.0/me/drive/root?$select=id',{
+    // Resolver carpeta Arifoma via share link
+    btn.textContent='Conectando con OneDrive...';
+    const shareToken='u!'+btoa(COMPRAS_SHARE_URL).replace(/=+$/,'').replace(/\//g,'_').replace(/\+/g,'-');
+    const shareRes=await fetch('https://graph.microsoft.com/v1.0/shares/'+shareToken+'/driveItem?$select=id,parentReference',{
       headers:{'Authorization':'Bearer '+token}
     });
-    if(!rootRes.ok) throw new Error('No se pudo acceder a OneDrive');
-    let parentId=(await rootRes.json()).id;
+    if(!shareRes.ok){
+      const errText=await shareRes.text();
+      console.error('Share resolve error:',shareRes.status,errText);
+      throw new Error('No se pudo acceder a carpeta Arifoma ('+shareRes.status+')');
+    }
+    const shareItem=await shareRes.json();
+    const driveId=shareItem.parentReference.driveId;
+    let parentId=shareItem.id;
 
-    // Navegar carpetas base (Escritorio / Arifoma / 06. ADMINISTRACION / 06.01 PROVEEDORES)
+    // Navegar subcarpetas (06. ADMINISTRACION / 06.01 PROVEEDORES)
+    btn.textContent='Creando carpetas...';
     for(const seg of COMPRAS_ONEDRIVE_BASE.split('/')){
-      const listRes=await fetch('https://graph.microsoft.com/v1.0/me/drive/items/'+parentId+'/children?$select=id,name,folder&$top=200',{
+      const listRes=await fetch('https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+parentId+'/children?$select=id,name,folder&$top=200',{
         headers:{'Authorization':'Bearer '+token}
       });
       if(!listRes.ok) throw new Error('No se pudo listar carpeta: '+seg);
@@ -7673,7 +7682,7 @@ async function comprasSubir(){
 
     for(const name of [prov,String(year),mes]){
       // Primero buscar si ya existe (comparación case-insensitive + trim)
-      const listRes=await fetch('https://graph.microsoft.com/v1.0/me/drive/items/'+parentId+'/children?$select=id,name,folder&$top=200',{
+      const listRes=await fetch('https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+parentId+'/children?$select=id,name,folder&$top=200',{
         headers:{'Authorization':'Bearer '+token}
       });
       if(!listRes.ok) throw new Error('No se pudo listar carpeta para buscar "'+name+'"');
@@ -7685,7 +7694,7 @@ async function comprasSubir(){
         parentId=found.id;
       }else{
         // No existe — crear
-        const createRes=await fetch('https://graph.microsoft.com/v1.0/me/drive/items/'+parentId+'/children',{
+        const createRes=await fetch('https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+parentId+'/children',{
           method:'POST',
           headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
           body:JSON.stringify({name,folder:{}})
@@ -7697,7 +7706,7 @@ async function comprasSubir(){
 
     const folderId=parentId;
 
-    const uploadUrl='https://graph.microsoft.com/v1.0/me/drive/items/'+folderId+':/'+encodeURIComponent(fileName)+':/content';
+    const uploadUrl='https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+folderId+':/'+encodeURIComponent(fileName)+':/content';
 
     btn.textContent='Subiendo...';
     const resp=await fetch(uploadUrl,{
@@ -7710,8 +7719,7 @@ async function comprasSubir(){
 
     document.getElementById('compras-step3').style.display='none';
     document.getElementById('compras-step4').style.display='block';
-    const displayPath=folderPath.replace(/^Escritorio\//,'');
-    document.getElementById('compras-ruta-destino').textContent=displayPath+'/'+fileName;
+    document.getElementById('compras-ruta-destino').textContent='Arifoma/'+folderPath+'/'+fileName;
   }catch(e){
     comprasShowError('Error al subir: '+e.message);
   }finally{
