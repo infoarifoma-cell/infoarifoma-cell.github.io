@@ -1903,7 +1903,14 @@
               <div style="font-size:2rem">✓</div>
               <div style="font-weight:600;margin:8px 0">Archivo subido correctamente</div>
               <div id="compras-ruta-destino" style="font-size:.75rem;color:var(--muted)"></div>
-              <button class="btn-sec" style="margin-top:12px" onclick="comprasReset()">Escanear otra</button>
+              <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+                <button class="btn-main" id="compras-btn-pedido" onclick="comprasCrearPedidoCompra()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                  Crear Pedido de Compra en BC
+                </button>
+                <button class="btn-sec" onclick="comprasReset()">Escanear otra</button>
+              </div>
+              <div id="compras-pedido-resultado" style="display:none;margin-top:12px;padding:10px;border-radius:8px;font-size:.8rem"></div>
             </div>
 
             <!-- Error -->

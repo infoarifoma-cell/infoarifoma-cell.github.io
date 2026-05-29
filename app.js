@@ -7668,6 +7668,52 @@ async function comprasSubir(){
   }
 }
 
+async function comprasCrearPedidoCompra(){
+  const prov=document.getElementById('compras-proveedor').value.trim();
+  const nfac=document.getElementById('compras-nfactura').value.trim();
+  const fecha=document.getElementById('compras-fecha').value;
+  const btn=document.getElementById('compras-btn-pedido');
+  const resDiv=document.getElementById('compras-pedido-resultado');
+
+  if(!prov){alert('No hay proveedor');return;}
+
+  btn.disabled=true;btn.textContent='Creando pedido...';
+  resDiv.style.display='none';
+
+  try{
+    const token=await getBCToken();
+    const orderDate=fecha||null;
+
+    const resp=await fetch('/api/bc/pedido-compra',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        token,
+        vendorName:prov,
+        orderDate,
+        vendorInvoiceNumber:nfac||null
+      })
+    });
+
+    const data=await resp.json();
+    if(!data.ok) throw new Error(data.error);
+
+    const o=data.order;
+    resDiv.style.display='block';
+    resDiv.style.background='var(--success-bg,#d4edda)';
+    resDiv.style.color='var(--success-text,#155724)';
+    resDiv.innerHTML=`✓ Pedido de compra <b>${o.number||''}</b> creado en BC`+(o.vendorName?` para <b>${o.vendorName}</b>`:'');
+    btn.style.display='none';
+  }catch(e){
+    resDiv.style.display='block';
+    resDiv.style.background='var(--danger-bg,#f8d7da)';
+    resDiv.style.color='var(--danger-text,#721c24)';
+    resDiv.textContent='Error: '+e.message;
+  }finally{
+    btn.disabled=false;btn.textContent='Crear Pedido de Compra en BC';
+  }
+}
+
 async function comprasRunOCRPdf(file){
   const s2=document.getElementById('compras-step2');
   const s3=document.getElementById('compras-step3');
