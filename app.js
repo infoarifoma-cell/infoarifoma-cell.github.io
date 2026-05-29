@@ -7630,18 +7630,21 @@ async function comprasSubir(){
     const fileName=safeNfac?(safeNfac+' '+fecha+ext):(fecha+'_factura'+ext);
     const folderPath=COMPRAS_ONEDRIVE_BASE+'/'+prov+'/'+year+'/'+mes;
 
-    // Crear carpetas navegando por ID para evitar problemas de encoding
+    // Navegar por IDs desde root para evitar problemas de encoding
     btn.textContent='Creando carpetas...';
-    const basEncoded=COMPRAS_ONEDRIVE_BASE.split('/').map(s=>encodeURIComponent(s)).join('/');
-    const baseRes=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+basEncoded,{
-      headers:{'Authorization':'Bearer '+token}
-    });
-    if(!baseRes.ok){
-      const baseErr=await baseRes.text();
-      console.error('Base folder error:',baseRes.status,basEncoded,baseErr);
-      throw new Error('Carpeta base no encontrada ('+baseRes.status+'). Path: '+basEncoded);
+    const baseParts=COMPRAS_ONEDRIVE_BASE.split('/');
+    let parentId='root';
+
+    for(const seg of baseParts){
+      const listRes=await fetch('https://graph.microsoft.com/v1.0/me/drive/items/'+parentId+'/children?$select=id,name',{
+        headers:{'Authorization':'Bearer '+token}
+      });
+      if(!listRes.ok) throw new Error('No se pudo listar carpeta: '+seg);
+      const listJson=await listRes.json();
+      const found=(listJson.value||[]).find(i=>i.name===seg);
+      if(!found) throw new Error('Carpeta "'+seg+'" no encontrada en OneDrive');
+      parentId=found.id;
     }
-    let parentId=(await baseRes.json()).id;
 
     for(const name of [prov,String(year),mes]){
       const createRes=await fetch('https://graph.microsoft.com/v1.0/me/drive/items/'+parentId+'/children',{
