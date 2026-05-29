@@ -5230,13 +5230,26 @@ async function enviarBCCliente(bcIdx, btn) {
             lineObjectNumber: info.cod,
             description: `${prod} - ${proy}`,
             quantity: parseFloat((info.kg / 1000).toFixed(3)),
-            unitPrice: info.precioTn,
-            projectNo: pData.proyectoCod || '',
-            projectTaskNo: pData.proyectoCod ? 'INGRESOS' : ''
+            unitPrice: info.precioTn
           })
         });
         console.log('Enviando línea:', prod, '→ cod:', info.cod, '→ PROD-'+String(info.cod).padStart(6,'0'));
-        if (lineRes.ok) lineCount++;
+        if (lineRes.ok) {
+          lineCount++;
+          // Asignar dimensión PROYECTO si hay proyectoCod
+          const proyCod = pData.proyectoCod || '';
+          if (proyCod) {
+            try {
+              const lineData = await lineRes.json();
+              const lineId = lineData.id;
+              const dimUrl = `${base}(${companyId})/salesInvoices(${invId})/salesInvoiceLines(${lineId})/dimensionSetLines`;
+              await fetch(dimUrl, {
+                method: 'POST', headers,
+                body: JSON.stringify({ id: lineId, code: 'PROYECTO', valueCode: proyCod })
+              });
+            } catch(dimErr) { console.warn('Dimensión PROYECTO no asignada:', dimErr.message); }
+          }
+        }
         else console.error('Línea fallida:', prod, await lineRes.text());
       }
     }
@@ -5444,12 +5457,24 @@ async function facturarAlbaranesSeleccionados() {
           lineObjectNumber: info.cod,
           description: `${info.prod} - ${info.proy} [Alb.${albRef}]`,
           quantity: parseFloat(tn.toFixed(3)),
-          unitPrice: precioTn,
-          projectNo: info.proyCod || '',
-          projectTaskNo: info.proyCod ? 'INGRESOS' : ''
+          unitPrice: precioTn
         })
       });
-      if (lineRes.ok) lineCount++;
+      if (lineRes.ok) {
+        lineCount++;
+        // Asignar dimensión PROYECTO si hay proyectoCod
+        if (info.proyCod) {
+          try {
+            const lineData = await lineRes.json();
+            const lineId = lineData.id;
+            const dimUrl = `${base}(${companyId})/salesInvoices(${invId})/salesInvoiceLines(${lineId})/dimensionSetLines`;
+            await fetch(dimUrl, {
+              method: 'POST', headers: headers2,
+              body: JSON.stringify({ id: lineId, code: 'PROYECTO', valueCode: info.proyCod })
+            });
+          } catch(dimErr) { console.warn('Dimensión PROYECTO no asignada:', dimErr.message); }
+        }
+      }
       else console.error('Línea fallida:', info.prod, await lineRes.text());
     }
 
