@@ -247,13 +247,27 @@ function resetSessionTimeout() {
 });
 
 window.appInitialized = false;
-setTimeout(() => {
-  if (!window.appInitialized) {
-    window.appInitialized = true;
-    checkGoogleSession().catch(e => console.error('checkGoogleSession error:', e));
-    resetSessionTimeout();
+
+// Detectar retorno de OAuth: mostrar loading inmediatamente para evitar flash del login
+(function() {
+  const hash = window.location.hash || '';
+  const search = window.location.search || '';
+  if (hash.includes('access_token') || search.includes('code=')) {
+    const loading = document.getElementById('login-loading');
+    if (loading) loading.style.display = 'block';
   }
-}, 100);
+})();
+
+// Usar onAuthStateChange para reaccionar a sesión sin polling
+_supabase.auth.onAuthStateChange((event, session) => {
+  if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session && session.user) {
+    if (!window.appInitialized) {
+      window.appInitialized = true;
+      checkGoogleSession().catch(e => console.error('checkGoogleSession error:', e));
+      resetSessionTimeout();
+    }
+  }
+});
 
 // ── FICHAJES ─────────────────────────────────────────────────
 
