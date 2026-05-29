@@ -7687,8 +7687,9 @@ async function comprasSubir(){
       });
       if(!listRes.ok) throw new Error('No se pudo listar carpeta para buscar "'+name+'"');
       const listJson=await listRes.json();
-      const nameNorm=name.trim().toLowerCase();
-      const found=(listJson.value||[]).find(i=>i.folder&&i.name.trim().toLowerCase()===nameNorm);
+      const nameNorm=name.trim().toLowerCase().normalize('NFC');
+      console.log('Buscando "'+name+'" en:',listJson.value.map(i=>JSON.stringify(i.name)+' ['+[...i.name].map(c=>c.charCodeAt(0)).join(',')+']'));
+      const found=(listJson.value||[]).find(i=>i.folder&&i.name.trim().toLowerCase().normalize('NFC')===nameNorm);
 
       if(found){
         parentId=found.id;
