@@ -79,7 +79,7 @@ export default async function handler(req, res) {
     // Crear purchase order
     const orderBody = { vendorNumber };
     if (orderDate) orderBody.orderDate = orderDate;
-    if (vendorInvoiceNumber) orderBody.vendorInvoiceNumber = vendorInvoiceNumber;
+    if (vendorInvoiceNumber) orderBody.externalDocumentNumber = vendorInvoiceNumber;
 
     const orderRes = await fetch(`${base}(${companyId})/purchaseOrders`, {
       method: 'POST',
