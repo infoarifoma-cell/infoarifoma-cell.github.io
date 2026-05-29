@@ -133,11 +133,11 @@ async function googleLogin() {
 }
 
 let _checkingSession = false;
-async function checkGoogleSession() {
+async function checkGoogleSession(existingSession) {
   if (_checkingSession || window._appInitialized) return;
   _checkingSession = true;
   try {
-  const { data: { session } } = await _supabase.auth.getSession();
+  const session = existingSession || (await _supabase.auth.getSession()).data.session;
   if (session && session.user) {
     const email = session.user.email;
     _sessionToken = session.access_token;
@@ -263,7 +263,7 @@ _supabase.auth.onAuthStateChange((event, session) => {
   if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session && session.user) {
     if (!window.appInitialized) {
       window.appInitialized = true;
-      checkGoogleSession().catch(e => console.error('checkGoogleSession error:', e));
+      checkGoogleSession(session).catch(e => console.error('checkGoogleSession error:', e));
       resetSessionTimeout();
     }
   }

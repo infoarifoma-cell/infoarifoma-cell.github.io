@@ -657,21 +657,24 @@ async function initApp(){
     }
   });
 
-  // Actualizar estado HOY desde Supabase (fuente de verdad)
+  // Lanzar queries en paralelo para reducir tiempo de carga
   const hoy = new Date().toISOString().slice(0, 10);
-  try {
-    const fichajeHoy = await dbQuery({ action: 'select', table: 'tblFichaje',
+  const [fichajeHoy, initData] = await Promise.all([
+    dbQuery({ action: 'select', table: 'tblFichaje',
       filters: [{ column: 'fecha', op: 'eq', value: hoy }],
       options: { select: 'empleado,entrada,salida,fentrada' }
-    });
-    const data = fichajeHoy.data;
+    }).catch(e => { console.error('Error fichaje hoy:', e); return { ok: false }; }),
+    cargarInit().catch(e => { console.warn('cargarInit error:', e); })
+  ]);
 
+  // Procesar fichajes de hoy
+  try {
+    const data = fichajeHoy.data;
     if (fichajeHoy.ok && data && data.length > 0) {
       WORKERS.forEach(n => {
         fst.workers[n].working = false;
         fst.workers[n].entradaTs = null;
       });
-
       data.forEach(r => {
         const nombreDB = r.empleado.toUpperCase();
         const worker = WORKERS.find(w => w.toUpperCase() === nombreDB);
@@ -683,20 +686,16 @@ async function initApp(){
         }
       });
     } else {
-      // Si Supabase falla o no tiene datos, recalc desde registros locales
       WORKERS.forEach(n => recalcWorker(n));
     }
   } catch(e) {
     console.error('Error actualizando estado HOY:', e);
-    // Si falla, recalc desde registros locales
     WORKERS.forEach(n => recalcWorker(n));
   }
 
-  // Renderizar DESPUÉS de actualizar estado desde Supabase
   renderWgrid();renderStats();renderVac();renderCal();initOT();
   WORKERS.forEach(n => renderWcard(n));
   initBasculaUI();
-  await cargarInit();
   // Load OT history in background for reminders
   apiFetch('?accion=historialOT').then(j=>{if(j.ok){prevData=j.data;renderInicioMant();}}).catch(()=>{});
   goPage('inicio');

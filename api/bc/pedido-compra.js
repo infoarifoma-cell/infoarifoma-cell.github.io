@@ -76,10 +76,9 @@ export default async function handler(req, res) {
       }
     }
 
-    // Crear purchase order
+    // Crear purchase order (solo vendorNumber y orderDate — purchaseOrder no acepta más campos)
     const orderBody = { vendorNumber };
     if (orderDate) orderBody.orderDate = orderDate;
-    if (vendorInvoiceNumber) orderBody.externalDocumentNumber = vendorInvoiceNumber;
 
     const orderRes = await fetch(`${base}(${companyId})/purchaseOrders`, {
       method: 'POST',
