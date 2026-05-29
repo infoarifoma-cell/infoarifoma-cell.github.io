@@ -7779,6 +7779,7 @@ async function comprasRunOCRPdf(file){
   try{
     // Renderizar primera página del PDF a imagen y enviar a Gemini
     prog.textContent='Leyendo PDF...';
+    await _ensurePdfjs();
     const arrayBuf=await file.arrayBuffer();
     pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
     const pdf=await pdfjsLib.getDocument({data:arrayBuf}).promise;
