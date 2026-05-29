@@ -7411,6 +7411,7 @@ const COMPRAS_REDIRECT=location.origin+location.pathname;
 const COMPRAS_SCOPES=['Files.ReadWrite.All'];
 const COMPRAS_ONEDRIVE_BASE='06. ADMINISTRACION/06.01 PROVEEDORES';
 const COMPRAS_SHARE_URL='https://grpsite-my.sharepoint.com/:f:/g/personal/greyes_arifoma_com/IgD8XOuwUpjWQ4E17TuO5-PoAWbx8HnqElIXhD2fQerh_QM';
+const COMPRAS_DRIVE_ID='b!Mvvmobm-60ylbsJyProxDg3J3fYAU-FOosc6zcHhJ_NymG1YW6EgToC6VQU2bPsH';
 const COMPRAS_MESES=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
 const COMPRAS_PROVEEDORES=[
   '(ANEFA) ASOCIACION NACIONAL DE EMPRESARIOS FABRICANTES DE ARIDO','AENOR','AGONEY LUJAN PEREZ','AGUAS DE GUAYADEQUE SL','ALIANZA ALEMAN BLAKER',
@@ -7648,31 +7649,27 @@ async function comprasSubir(){
     const fileName=safeNfac?(safeNfac+' '+fecha+ext):(fecha+'_factura'+ext);
     const folderPath=COMPRAS_ONEDRIVE_BASE+'/'+prov+'/'+year+'/'+mes;
 
-    // Resolver carpeta Arifoma via share link, luego navegar por IDs
+    // Navegar por IDs usando driveId conocido
     btn.textContent='Creando carpetas...';
-    const baseParts=COMPRAS_ONEDRIVE_BASE.split('/');
+    const driveId=COMPRAS_DRIVE_ID;
+    const allParts=COMPRAS_ONEDRIVE_BASE.split('/');
 
-    // Encodear share URL a sharing token
-    const shareToken='u!'+btoa(COMPRAS_SHARE_URL).replace(/=+$/,'').replace(/\//g,'_').replace(/\+/g,'-');
-    const shareRes=await fetch('https://graph.microsoft.com/v1.0/shares/'+shareToken+'/driveItem?$select=id,parentReference',{
+    // Empezar desde root del drive
+    const rootRes=await fetch('https://graph.microsoft.com/v1.0/drives/'+driveId+'/root?$select=id',{
       headers:{'Authorization':'Bearer '+token}
     });
-    if(!shareRes.ok){
-      console.error('Share resolve error:',shareRes.status,await shareRes.text());
-      throw new Error('No se pudo resolver carpeta Arifoma compartida');
-    }
-    const shareItem=await shareRes.json();
-    const driveId=shareItem.parentReference.driveId;
-    let parentId=shareItem.id;
+    if(!rootRes.ok) throw new Error('No se pudo acceder al drive');
+    let parentId=(await rootRes.json()).id;
 
-    // Navegar subcarpetas dentro de Arifoma (06. ADMINISTRACION / 06.01 PROVEEDORES)
-    for(const seg of baseParts){
-      const listRes=await fetch('https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+parentId+'/children?$select=id,name&$top=200',{
+    // Navegar carpetas base (Arifoma / 06. ADMINISTRACION / 06.01 PROVEEDORES)
+    for(const seg of allParts){
+      const listRes=await fetch('https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+parentId+'/children?$select=id,name,folder&$top=200',{
         headers:{'Authorization':'Bearer '+token}
       });
       if(!listRes.ok) throw new Error('No se pudo listar carpeta: '+seg);
       const listJson=await listRes.json();
-      const found=(listJson.value||[]).find(i=>i.name===seg);
+      const segNorm=seg.trim().toLowerCase();
+      const found=(listJson.value||[]).find(i=>i.folder&&i.name.trim().toLowerCase()===segNorm);
       if(!found){
         console.error('Buscando "'+seg+'" en carpetas:',listJson.value.map(i=>i.name));
         throw new Error('Carpeta "'+seg+'" no encontrada en OneDrive');
