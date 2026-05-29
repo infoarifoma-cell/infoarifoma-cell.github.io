@@ -7635,15 +7635,18 @@ async function comprasSubir(){
     const provPath=COMPRAS_ONEDRIVE_BASE+'/'+prov;
     const yearPath=provPath+'/'+year;
     const mesPath=yearPath+'/'+mes;
-    for(const fp of [yearPath,mesPath]){
+    for(const fp of [provPath,yearPath,mesPath]){
       const parentPath=fp.substring(0,fp.lastIndexOf('/'));
       const folderName=fp.substring(fp.lastIndexOf('/')+1);
       const parentEncoded=parentPath.split('/').map(s=>encodeURIComponent(s)).join('/');
-      await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+parentEncoded+':/children',{
+      const fRes=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+parentEncoded+':/children',{
         method:'POST',
         headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
         body:JSON.stringify({name:folderName,folder:{},'@microsoft.graph.conflictBehavior':'fail'})
       });
+      if(!fRes.ok&&fRes.status!==409){
+        console.warn('Carpeta '+folderName+' error:',fRes.status,await fRes.text());
+      }
     }
 
     const encodedPath=folderPath.split('/').map(s=>encodeURIComponent(s)).join('/');
