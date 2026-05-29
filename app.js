@@ -7648,7 +7648,10 @@ async function comprasSubir(){
       if(!listRes.ok) throw new Error('No se pudo listar carpeta: '+seg);
       const listJson=await listRes.json();
       const found=(listJson.value||[]).find(i=>i.name===seg);
-      if(!found) throw new Error('Carpeta "'+seg+'" no encontrada en OneDrive');
+      if(!found){
+        console.error('Buscando "'+seg+'" en carpetas:',listJson.value.map(i=>i.name));
+        throw new Error('Carpeta "'+seg+'" no encontrada en OneDrive');
+      }
       parentId=found.id;
     }
 
