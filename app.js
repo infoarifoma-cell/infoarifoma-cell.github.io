@@ -7486,7 +7486,25 @@ function comprasFileSelected(input){
 }
 
 
+// ── Lazy loaders: Tesseract y PDF.js ───────────────────────
+function _loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+async function _ensureTesseract() {
+  if (typeof Tesseract !== 'undefined') return;
+  await _loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
+}
+async function _ensurePdfjs() {
+  if (typeof pdfjsLib !== 'undefined') return;
+  await _loadScript('https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js');
+}
+
 async function comprasTesseractOCR(file){
+  await _ensureTesseract();
   const prog=document.getElementById('compras-ocr-progress');
   const {data:{text}}=await Tesseract.recognize(file,'spa',{
     logger:m=>{
@@ -7854,6 +7872,7 @@ function comprasImgToPdf(file){
 let _comprasPdf=null,_comprasPdfPage=1,_comprasPdfZoom=1;
 
 async function comprasShowPdfViewer(file){
+  await _ensurePdfjs();
   const viewer=document.getElementById('compras-pdf-viewer');
   viewer.style.display='block';
   const arrayBuf=await file.arrayBuffer();
