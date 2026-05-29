@@ -7630,13 +7630,19 @@ async function comprasSubir(){
     const fileName=safeNfac?(safeNfac+' '+fecha+ext):(fecha+'_factura'+ext);
     const folderPath=COMPRAS_ONEDRIVE_BASE+'/'+prov+'/'+year+'/'+mes;
 
-    // Navegar por IDs desde root para evitar problemas de encoding
+    // Navegar por IDs desde root para evitar problemas de encoding con puntos/espacios
     btn.textContent='Creando carpetas...';
     const baseParts=COMPRAS_ONEDRIVE_BASE.split('/');
-    let parentId='root';
+
+    // Obtener ID del root
+    const rootRes=await fetch('https://graph.microsoft.com/v1.0/me/drive/root?$select=id',{
+      headers:{'Authorization':'Bearer '+token}
+    });
+    if(!rootRes.ok) throw new Error('No se pudo acceder a OneDrive root');
+    let parentId=(await rootRes.json()).id;
 
     for(const seg of baseParts){
-      const listRes=await fetch('https://graph.microsoft.com/v1.0/me/drive/items/'+parentId+'/children?$select=id,name',{
+      const listRes=await fetch('https://graph.microsoft.com/v1.0/me/drive/items/'+parentId+'/children?$select=id,name&$top=200',{
         headers:{'Authorization':'Bearer '+token}
       });
       if(!listRes.ok) throw new Error('No se pudo listar carpeta: '+seg);
