@@ -650,6 +650,9 @@ async function initApp(){
 
   loadFst();
 
+  // Cargar productos y vendors de BC en background
+  cargarProductosBC();
+
   // Event delegation para botones de fichaje
   document.addEventListener('click', e => {
     if (e.target.classList.contains('wbtn')) {
@@ -792,16 +795,31 @@ let CLI_PROY={
   'TRANSPORTES ROMANO PERERA SL':[{nombre:'TRANSPORTE ROMANO MASPALOMAS',codigo:'PV-012'}],
   'TRANSPORTES Y GRUAS SANCHEZ CANARIAS SL':[{nombre:'OBRAS GRUAS SANCHEZ CANARIAS SL',codigo:'PV-017'}],
 };
-const PROD_MAP={
+// Fallback local — se sobreescribe con datos de BC al cargar
+let PROD_MAP={
   'PROD-000027':'ARIDO AF-T-0/4-I','PROD-000028':'ARIDO AG-T-4/12-I',
   'PROD-000029':'ARIDO AG-T-12/20-I','PROD-000030':'ARIDO AG-T-20/40-I',
-  'PROD-000031':'ARIDO AG-T-40/70-I','PROD-000032':'REVUELTO 0/20',
+  'PROD-000031':'ARIDO AG-T-40/70-I','PROD-000032':'ESCOLLERA',
   'PROD-000033':'REVUELTO 0/10','PROD-000034':'PIEDRA PARA MURO (UD)',
   'PROD-000035':'MATERIAL DE RELLENO 0/4',
-  'PROD-000057':'REVUELTO 0/20','PROD-000058':'ZAHORRA 0/40',
+  'PROD-000038':'ZAHORRA','PROD-000057':'REVUELTO 0/20','PROD-000058':'ZAHORRA 0/40',
   'PROD-000048':'MATERIAL DE RELLENO 0/4','PROD-000059':'TIERRA VEGETAL',
+  'PROD-000062':'PIEDRA PARA MURO',
   'PROD-000003':'MATERIAL TODO UNO CANTERA',
 };
+async function cargarProductosBC(){
+  try{
+    const token=await getBCToken();
+    const resp=await fetch('/api/bc/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});
+    const data=await resp.json();
+    if(data.ok&&data.items.length){
+      const map={};
+      data.items.forEach(i=>{if(i.number&&i.name)map[i.number]=i.name;});
+      PROD_MAP=map;
+      console.log('PROD_MAP cargado desde BC:',Object.keys(map).length,'productos');
+    }
+  }catch(e){console.warn('No se pudo cargar productos de BC, usando mapa local:',e.message);}
+}
 const PRECIOS={
   'ARIDO AF-T-0/4-I':16.10,'ARIDO AG-T-4/12-I':15.10,
   'ARIDO AG-T-12/20-I':15.10,'ARIDO AG-T-20/40-I':15.10,
@@ -5237,17 +5255,21 @@ async function enviarBCCliente(bcIdx, btn) {
         if (lineRes.ok) {
           const lineData = await lineRes.json();
           const lineId = lineData.id;
-          // Asignar dimensión PROYECTO si hay proyectoCod
+          const etag = lineData['@odata.etag'] || '*';
+          console.log('Línea creada OK, campos:', Object.keys(lineData).join(', '));
+          // Asignar proyecto si hay proyectoCod
           const proyCod = pData.proyectoCod || '';
           if (proyCod) {
             try {
-              const dimUrl = `${base}(${companyId})/salesInvoices(${invId})/salesInvoiceLines(${lineId})/dimensionSetLines`;
-              const dimRes = await fetch(dimUrl, {
-                method: 'POST', headers,
-                body: JSON.stringify({ code: 'PROYECTO', valueCode: proyCod })
+              const patchUrl = `${base}(${companyId})/salesInvoices(${invId})/salesInvoiceLines(${lineId})`;
+              const patchRes = await fetch(patchUrl, {
+                method: 'PATCH',
+                headers: { ...headers, 'If-Match': etag },
+                body: JSON.stringify({ jobNo: proyCod, jobTaskNo: 'INGRESOS' })
               });
-              if (!dimRes.ok) console.warn('Dim PROYECTO error:', await dimRes.text());
-            } catch(dimErr) { console.warn('Dimensión PROYECTO no asignada:', dimErr.message); }
+              if (!patchRes.ok) console.warn('PATCH proyecto error (jobNo='+proyCod+'):', await patchRes.text());
+              else console.log('Proyecto asignado OK:', proyCod, 'INGRESOS');
+            } catch(e) { console.warn('Error asignando proyecto:', e.message); }
           }
           lineCount++;
         }
@@ -5464,16 +5486,19 @@ async function facturarAlbaranesSeleccionados() {
       if (lineRes.ok) {
         const lineData = await lineRes.json();
         const lineId = lineData.id;
-        // Asignar dimensión PROYECTO si hay proyectoCod
+        const etag = lineData['@odata.etag'] || '*';
+        // Asignar proyecto si hay proyectoCod
         if (info.proyCod) {
           try {
-            const dimUrl = `${base}(${companyId})/salesInvoices(${invId})/salesInvoiceLines(${lineId})/dimensionSetLines`;
-            const dimRes = await fetch(dimUrl, {
-              method: 'POST', headers: headers2,
-              body: JSON.stringify({ code: 'PROYECTO', valueCode: info.proyCod })
+            const patchUrl = `${base}(${companyId})/salesInvoices(${invId})/salesInvoiceLines(${lineId})`;
+            const patchRes = await fetch(patchUrl, {
+              method: 'PATCH',
+              headers: { ...headers2, 'If-Match': etag },
+              body: JSON.stringify({ jobNo: info.proyCod, jobTaskNo: 'INGRESOS' })
             });
-            if (!dimRes.ok) console.warn('Dim PROYECTO error:', await dimRes.text());
-          } catch(dimErr) { console.warn('Dimensión PROYECTO no asignada:', dimErr.message); }
+            if (!patchRes.ok) console.warn('PATCH proyecto error:', await patchRes.text());
+            else console.log('Proyecto asignado OK:', info.proyCod, 'INGRESOS');
+          } catch(e) { console.warn('Error asignando proyecto:', e.message); }
         }
         lineCount++;
       }
