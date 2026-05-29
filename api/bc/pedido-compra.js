@@ -37,23 +37,43 @@ export default async function handler(req, res) {
 
     const companyId = company.id;
 
-    // Buscar proveedor por nombre
-    const vendorFilter = `displayName eq '${odataSafe(vendorName)}'`;
-    const vendorRes = await fetch(
-      `${base}(${companyId})/vendors?$filter=${encodeURIComponent(vendorFilter)}&$select=id,number,displayName&$top=1`,
+    // Buscar proveedor: primero exacto, luego parcial (contains)
+    let vendorNumber = '';
+    const exactFilter = `displayName eq '${odataSafe(vendorName)}'`;
+    const exactRes = await fetch(
+      `${base}(${companyId})/vendors?$filter=${encodeURIComponent(exactFilter)}&$select=id,number,displayName&$top=1`,
       { headers }
     );
-    if (!vendorRes.ok) throw new Error('Error buscando proveedor: ' + vendorRes.statusText);
+    if (!exactRes.ok) throw new Error('Error buscando proveedor: ' + exactRes.statusText);
+    const exactJson = await exactRes.json();
 
-    const vendorJson = await vendorRes.json();
-    let vendorNumber = '';
-    if (vendorJson.value && vendorJson.value.length > 0) {
-      vendorNumber = vendorJson.value[0].number;
+    if (exactJson.value && exactJson.value.length > 0) {
+      vendorNumber = exactJson.value[0].number;
     } else {
-      return res.status(404).json({
-        ok: false,
-        error: `Proveedor "${vendorName}" no encontrado en BC. Créalo primero o verifica el nombre.`
-      });
+      // Buscar parcial
+      const partialFilter = `contains(displayName,'${odataSafe(vendorName)}')`;
+      const partialRes = await fetch(
+        `${base}(${companyId})/vendors?$filter=${encodeURIComponent(partialFilter)}&$select=id,number,displayName&$top=5`,
+        { headers }
+      );
+      if (partialRes.ok) {
+        const partialJson = await partialRes.json();
+        if (partialJson.value && partialJson.value.length === 1) {
+          vendorNumber = partialJson.value[0].number;
+        } else if (partialJson.value && partialJson.value.length > 1) {
+          const nombres = partialJson.value.map(v => v.displayName).join(', ');
+          return res.status(404).json({
+            ok: false,
+            error: `Varios proveedores coinciden con "${vendorName}": ${nombres}. Usa el nombre exacto.`
+          });
+        }
+      }
+      if (!vendorNumber) {
+        return res.status(404).json({
+          ok: false,
+          error: `Proveedor "${vendorName}" no encontrado en BC. Créalo primero o verifica el nombre.`
+        });
+      }
     }
 
     // Crear purchase order
