@@ -8116,11 +8116,11 @@ function renderStockOverview() {
   const keys = ['04', '412', '1220', '2040'];
   for (const key of keys) {
     const datos = _stockData[key] || [];
-    // Valor actual = último valor disponible (actual del mes en curso o final del último mes con datos)
-    const ultimoVal = [...datos].reverse().find(d => d.actual != null || d.final != null);
+    // Valor actual = último dato diario disponible para este producto
+    const dailyFiltered = (_stockRawDaily || []).filter(d => d[key] != null);
+    const lastDaily = dailyFiltered.length ? dailyFiltered[dailyFiltered.length - 1][key] : null;
     const elActual = document.getElementById('stock-actual-' + key);
-    const valShow = ultimoVal ? (ultimoVal.actual ?? ultimoVal.final) : null;
-    elActual.textContent = valShow != null ? valShow.toLocaleString('es-ES') + ' Tn' : '—';
+    elActual.textContent = lastDaily != null ? lastDaily.toLocaleString('es-ES') + ' Tn' : '—';
 
     // Mini chart
     const canvasId = 'stock-mini-' + key;
@@ -8129,10 +8129,12 @@ function renderStockOverview() {
 
     if (_stockCharts[chartKey]) _stockCharts[chartKey].destroy();
 
-    const labels = datos.map(d => d.mes);
-    const values = datos.map(d => d.actual ?? d.final ?? d.inicio);
+    // Solo meses con datos reales
+    const datosConDatos = datos.filter(d => d.inicio != null || d.final != null);
+    const labels = datosConDatos.map(d => d.mes);
+    const values = datosConDatos.map(d => d.final ?? d.actual ?? d.inicio);
 
-    const gradient = ctx.createLinearGradient(0, 0, 0, 100);
+    const gradient = ctx.createLinearGradient(0, 0, 0, 140);
     gradient.addColorStop(0, STOCK_COLORS[key].bg);
     gradient.addColorStop(1, 'rgba(255,255,255,0)');
 
@@ -8177,7 +8179,8 @@ function abrirStockDetalle(key) {
   document.getElementById('stock-detalle').style.display = 'block';
   document.getElementById('stock-detalle-titulo').textContent = 'Stock ' + STOCK_LABELS[key];
 
-  const datos = (_stockData && _stockData[key]) || [];
+  const datosAll = (_stockData && _stockData[key]) || [];
+  const datos = datosAll.filter(d => d.inicio != null || d.final != null);
   const ctx = document.getElementById('stock-chart-grande').getContext('2d');
 
   if (_stockCharts.grande) _stockCharts.grande.destroy();
