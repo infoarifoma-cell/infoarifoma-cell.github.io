@@ -7789,15 +7789,16 @@ async function comprasCrearPedidoCompra(){
           const safeNfac=nfac?nfac.replace(/[\/\\:*?"<>|]/g,'-'):'factura';
           const fileName=safeNfac+'.pdf';
 
-          // Preparar archivo
-          let uploadFile=_comprasFile;
+          // Preparar archivo como PDF
+          let uploadBlob;
           if(_comprasFile.type&&_comprasFile.type.startsWith('image/')){
-            uploadFile=await comprasImgToPdf(_comprasFile);
+            uploadBlob=await comprasImgToPdf(_comprasFile);
+          }else{
+            uploadBlob=new Blob([await _comprasFile.arrayBuffer()],{type:'application/pdf'});
           }
 
-          // Subir attachment via multipart: crear metadata + contenido en un solo paso
+          // Crear attachment metadata
           const attUrl=`${bcBase}(${companyId})/purchaseOrders(${o.id})/attachments`;
-          // Primero crear metadata
           const attRes=await fetch(attUrl,{
             method:'POST',
             headers:bcHeaders,
@@ -7808,8 +7809,8 @@ async function comprasCrearPedidoCompra(){
             const contentUrl=`${attUrl}(${att.id})/attachmentContent`;
             const patchRes=await fetch(contentUrl,{
               method:'PATCH',
-              headers:{'Authorization':'Bearer '+token,'Content-Type':'application/octet-stream','If-Match':att['@odata.etag']||'*'},
-              body:uploadFile
+              headers:{'Authorization':'Bearer '+token,'Content-Type':'application/pdf','If-Match':att['@odata.etag']||'*'},
+              body:uploadBlob
             });
             if(!patchRes.ok) console.warn('Attachment content error:',patchRes.status,await patchRes.text());
           }else{
