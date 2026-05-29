@@ -7440,6 +7440,8 @@ const COMPRAS_PROVEEDORES=[
 let _msalInstance=null;
 let _comprasFile=null;
 let _comprasFileName='';
+let _comprasFileBuffer=null;
+let _comprasFileType='';
 
 function getMsalInstance(){
   if(_msalInstance)return _msalInstance;
@@ -7633,15 +7635,20 @@ async function comprasSubir(){
     const year=d.getFullYear();
     const mes=COMPRAS_MESES[d.getMonth()];
 
+    // Leer archivo una sola vez para evitar error de File handle expirado
+    _comprasFileBuffer=await _comprasFile.arrayBuffer();
+    _comprasFileType=_comprasFile.type||'application/octet-stream';
+
     // Si es imagen, convertir a PDF
-    let uploadFile=_comprasFile;
-    let uploadType=_comprasFile.type||'application/octet-stream';
+    let uploadFile;
+    let uploadType=_comprasFileType;
     let ext='.pdf';
-    if(_comprasFile.type&&_comprasFile.type.startsWith('image/')){
+    if(_comprasFileType.startsWith('image/')){
       btn.textContent='Convirtiendo a PDF...';
-      uploadFile=await comprasImgToPdf(_comprasFile);
+      uploadFile=await comprasImgToPdf(new Blob([_comprasFileBuffer],{type:_comprasFileType}));
       uploadType='application/pdf';
     }else{
+      uploadFile=new Blob([_comprasFileBuffer],{type:_comprasFileType});
       ext=_comprasFileName.includes('.')?_comprasFileName.substring(_comprasFileName.lastIndexOf('.')):'.pdf';
     }
 
@@ -7790,12 +7797,12 @@ async function comprasCrearPedidoCompra(){
           const safeNfac=nfac?nfac.replace(/[\/\\:*?"<>|]/g,'-'):'factura';
           const fileName=safeNfac+'.pdf';
 
-          // Preparar archivo como PDF
+          // Reusar buffer ya leído
           let uploadBlob;
-          if(_comprasFile.type&&_comprasFile.type.startsWith('image/')){
-            uploadBlob=await comprasImgToPdf(_comprasFile);
+          if(_comprasFileType.startsWith('image/')){
+            uploadBlob=await comprasImgToPdf(new Blob([_comprasFileBuffer],{type:_comprasFileType}));
           }else{
-            uploadBlob=new Blob([await _comprasFile.arrayBuffer()],{type:'application/pdf'});
+            uploadBlob=new Blob([_comprasFileBuffer],{type:'application/pdf'});
           }
 
           // Crear attachment metadata
@@ -8114,64 +8121,101 @@ function renderStockOverview() {
   document.getElementById('stock-detalle').style.display = 'none';
 
   const keys = ['04', '412', '1220', '2040'];
+
+  // --- KPI cards ---
   for (const key of keys) {
-    const datos = _stockData[key] || [];
-    // Valor actual = último dato diario disponible para este producto
     const dailyFiltered = (_stockRawDaily || []).filter(d => d[key] != null);
     const lastDaily = dailyFiltered.length ? dailyFiltered[dailyFiltered.length - 1][key] : null;
+    const prevDaily = dailyFiltered.length > 1 ? dailyFiltered[dailyFiltered.length - 2][key] : null;
     const elActual = document.getElementById('stock-actual-' + key);
-    elActual.textContent = lastDaily != null ? lastDaily.toLocaleString('es-ES') + ' Tn' : '—';
+    elActual.textContent = lastDaily != null ? lastDaily.toLocaleString('es-ES') + ' T' : '—';
 
-    // Mini chart
-    const canvasId = 'stock-mini-' + key;
-    const ctx = document.getElementById(canvasId).getContext('2d');
-    const chartKey = 'mini' + key;
-
-    if (_stockCharts[chartKey]) _stockCharts[chartKey].destroy();
-
-    // Solo meses con datos reales
-    const datosConDatos = datos.filter(d => d.inicio != null || d.final != null);
-    const labels = datosConDatos.map(d => d.mes);
-    const values = datosConDatos.map(d => d.final ?? d.actual ?? d.inicio);
-
-    const gradient = ctx.createLinearGradient(0, 0, 0, 140);
-    gradient.addColorStop(0, STOCK_COLORS[key].bg);
-    gradient.addColorStop(1, 'rgba(255,255,255,0)');
-
-    _stockCharts[chartKey] = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [{
-          data: values,
-          borderColor: STOCK_COLORS[key].line,
-          backgroundColor: gradient,
-          fill: true,
-          tension: 0.4,
-          borderWidth: 2.5,
-          pointRadius: 0,
-          pointHoverRadius: 5,
-          pointHoverBackgroundColor: STOCK_COLORS[key].line
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: {
-          callbacks: { label: ctx => ctx.parsed.y?.toLocaleString('es-ES') + ' Tn' }
-        }},
-        scales: {
-          x: { display: false },
-          y: { display: false, beginAtZero: false }
-        },
-        animation: {
-          duration: 1200,
-          easing: 'easeOutQuart'
-        },
-        interaction: { intersect: false, mode: 'index' }
-      }
-    });
+    const elDelta = document.getElementById('stock-delta-' + key);
+    if (lastDaily != null && prevDaily != null && prevDaily !== 0) {
+      const pct = ((lastDaily - prevDaily) / prevDaily * 100).toFixed(1);
+      const up = pct >= 0;
+      elDelta.innerHTML = `<span style="color:${up ? '#27ae60' : '#e74c3c'}">${up ? '▲' : '▼'} ${Math.abs(pct)}%</span> <span style="color:var(--muted)">vs anterior</span>`;
+    } else {
+      elDelta.textContent = '';
+    }
   }
+
+  // --- Evolution line chart (all products over time) ---
+  if (_stockCharts.evolucion) _stockCharts.evolucion.destroy();
+  const ctxEvo = document.getElementById('stock-chart-evolucion').getContext('2d');
+
+  // Use monthly final values for all keys
+  const allLabels = (_stockData['04'] || []).filter(d => d.inicio != null || d.final != null).map(d => d.mes);
+  const evoDatasets = keys.map(key => {
+    const datos = (_stockData[key] || []).filter(d => d.inicio != null || d.final != null);
+    return {
+      label: STOCK_LABELS[key],
+      data: datos.map(d => d.final ?? d.inicio),
+      borderColor: STOCK_COLORS[key].line,
+      backgroundColor: STOCK_COLORS[key].bg,
+      tension: 0.35,
+      pointRadius: 3,
+      pointHoverRadius: 6,
+      borderWidth: 2.5,
+      fill: false
+    };
+  });
+
+  _stockCharts.evolucion = new Chart(ctxEvo, {
+    type: 'line',
+    data: { labels: allLabels, datasets: evoDatasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { usePointStyle: true, padding: 14, font: { size: 11 } } },
+        tooltip: { callbacks: { label: c => c.dataset.label + ': ' + (c.parsed.y?.toLocaleString('es-ES') ?? '—') + ' T' } }
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: { beginAtZero: false, ticks: { callback: v => v.toLocaleString('es-ES') } }
+      },
+      animation: { duration: 1200, easing: 'easeOutQuart' },
+      interaction: { intersect: false, mode: 'index' }
+    }
+  });
+
+  // --- Grouped bar chart (latest values per product) ---
+  if (_stockCharts.barras) _stockCharts.barras.destroy();
+  const ctxBar = document.getElementById('stock-chart-barras').getContext('2d');
+
+  const barLabels = keys.map(k => STOCK_LABELS[k]);
+  const inicioVals = keys.map(k => {
+    const datos = (_stockData[k] || []).filter(d => d.inicio != null || d.final != null);
+    return datos.length ? datos[datos.length - 1].inicio : null;
+  });
+  const finalVals = keys.map(k => {
+    const datos = (_stockData[k] || []).filter(d => d.inicio != null || d.final != null);
+    return datos.length ? datos[datos.length - 1].final : null;
+  });
+
+  _stockCharts.barras = new Chart(ctxBar, {
+    type: 'bar',
+    data: {
+      labels: barLabels,
+      datasets: [
+        { label: 'Inicio mes', data: inicioVals, backgroundColor: 'rgba(150,150,150,.35)', borderColor: 'rgba(150,150,150,.7)', borderWidth: 1, borderRadius: 4 },
+        { label: 'Último', data: finalVals, backgroundColor: keys.map(k => STOCK_COLORS[k].bg.replace('.25)', '.6)')), borderColor: keys.map(k => STOCK_COLORS[k].line), borderWidth: 1.5, borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { usePointStyle: true, padding: 14, font: { size: 11 } } },
+        tooltip: { callbacks: { label: c => c.dataset.label + ': ' + (c.parsed.y?.toLocaleString('es-ES') ?? '—') + ' T' } }
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: { beginAtZero: false, ticks: { callback: v => v.toLocaleString('es-ES') } }
+      },
+      animation: { duration: 1200, easing: 'easeOutQuart' },
+      interaction: { intersect: false, mode: 'index' }
+    }
+  });
 }
 
 function abrirStockDetalle(key) {
@@ -8196,45 +8240,34 @@ function abrirStockDetalle(key) {
   datasets.push({
     label: 'Inicio mes',
     data: datos.map(d => d.inicio),
-    borderColor: 'rgba(150,150,150,.5)',
-    backgroundColor: 'transparent',
-    borderDash: [5, 3],
-    borderWidth: 1.5,
-    tension: 0.3,
-    pointRadius: 3,
-    pointBackgroundColor: 'rgba(150,150,150,.7)',
-    fill: false
+    backgroundColor: 'rgba(150,150,150,.3)',
+    borderColor: 'rgba(150,150,150,.6)',
+    borderWidth: 1,
+    borderRadius: 3
   });
 
   // Final mes
   datasets.push({
     label: 'Final mes',
     data: datos.map(d => d.final),
+    backgroundColor: STOCK_COLORS[key].bg,
     borderColor: STOCK_COLORS[key].line,
-    backgroundColor: gradient,
-    borderWidth: 2.5,
-    tension: 0.4,
-    pointRadius: 4,
-    pointBackgroundColor: STOCK_COLORS[key].line,
-    fill: true
+    borderWidth: 1.5,
+    borderRadius: 4
   });
 
   // Actual
   datasets.push({
     label: 'Actual',
     data: datos.map(d => d.actual),
+    backgroundColor: 'rgba(231,76,60,.6)',
     borderColor: '#e74c3c',
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    tension: 0.3,
-    pointRadius: 4,
-    pointStyle: 'rectRot',
-    pointBackgroundColor: '#e74c3c',
-    fill: false
+    borderWidth: 1.5,
+    borderRadius: 4
   });
 
   _stockCharts.grande = new Chart(ctx, {
-    type: 'line',
+    type: 'bar',
     data: { labels, datasets },
     options: {
       responsive: true,
