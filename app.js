@@ -7681,23 +7681,26 @@ async function comprasSubir(){
     }
 
     for(const name of [prov,String(year),mes]){
-      const createRes=await fetch('https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+parentId+'/children',{
-        method:'POST',
-        headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
-        body:JSON.stringify({name,folder:{},'@microsoft.graph.conflictBehavior':'fail'})
+      // Primero buscar si ya existe (comparación case-insensitive + trim)
+      const listRes=await fetch('https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+parentId+'/children?$select=id,name,folder&$top=200',{
+        headers:{'Authorization':'Bearer '+token}
       });
-      if(createRes.status===409){
-        const listRes=await fetch('https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+parentId+'/children?$select=id,name&$top=200',{
-          headers:{'Authorization':'Bearer '+token}
-        });
-        const listJson=await listRes.json();
-        const found=(listJson.value||[]).find(i=>i.name===name);
-        if(!found) throw new Error('Carpeta "'+name+'" no encontrada tras 409');
+      if(!listRes.ok) throw new Error('No se pudo listar carpeta para buscar "'+name+'"');
+      const listJson=await listRes.json();
+      const nameNorm=name.trim().toLowerCase();
+      const found=(listJson.value||[]).find(i=>i.folder&&i.name.trim().toLowerCase()===nameNorm);
+
+      if(found){
         parentId=found.id;
-      }else if(createRes.ok){
-        parentId=(await createRes.json()).id;
       }else{
-        throw new Error('Error creando carpeta "'+name+'": '+createRes.status+' '+await createRes.text());
+        // No existe — crear
+        const createRes=await fetch('https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+parentId+'/children',{
+          method:'POST',
+          headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+          body:JSON.stringify({name,folder:{}})
+        });
+        if(!createRes.ok) throw new Error('Error creando carpeta "'+name+'": '+createRes.status+' '+await createRes.text());
+        parentId=(await createRes.json()).id;
       }
     }
 
@@ -7771,25 +7774,29 @@ async function comprasCrearPedidoCompra(){
           const safeNfac=nfac?nfac.replace(/[\/\\:*?"<>|]/g,'-'):'factura';
           const fileName=safeNfac+'.pdf';
 
-          // Crear attachment metadata
-          const attRes=await fetch(`${bcBase}(${companyId})/purchaseOrders(${o.id})/attachments`,{
+          // Preparar archivo
+          let uploadFile=_comprasFile;
+          if(_comprasFile.type&&_comprasFile.type.startsWith('image/')){
+            uploadFile=await comprasImgToPdf(_comprasFile);
+          }
+
+          // Crear attachment con parentId del pedido
+          const attRes=await fetch(`${bcBase}(${companyId})/attachments`,{
             method:'POST',
             headers:bcHeaders,
-            body:JSON.stringify({fileName,parentType:'Journal'})
+            body:JSON.stringify({parentId:o.id,fileName})
           });
           if(attRes.ok){
             const att=await attRes.json();
-            // Subir contenido del archivo
-            let uploadFile=_comprasFile;
-            if(_comprasFile.type&&_comprasFile.type.startsWith('image/')){
-              uploadFile=await comprasImgToPdf(_comprasFile);
-            }
-            const contentUrl=`${bcBase}(${companyId})/purchaseOrders(${o.id})/attachments(${att.id})/attachmentContent`;
-            await fetch(contentUrl,{
+            const contentUrl=`${bcBase}(${companyId})/attachments(${att.id})/attachmentContent`;
+            const patchRes=await fetch(contentUrl,{
               method:'PATCH',
               headers:{'Authorization':'Bearer '+token,'Content-Type':'application/octet-stream','If-Match':'*'},
               body:uploadFile
             });
+            if(!patchRes.ok) console.warn('Attachment content upload error:',patchRes.status,await patchRes.text());
+          }else{
+            console.warn('Attachment create error:',attRes.status,await attRes.text());
           }
         }
       }catch(attErr){
