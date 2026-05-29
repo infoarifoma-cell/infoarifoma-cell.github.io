@@ -7781,21 +7781,23 @@ async function comprasCrearPedidoCompra(){
             uploadFile=await comprasImgToPdf(_comprasFile);
           }
 
-          // Crear attachment con parentId del pedido
-          const attRes=await fetch(`${bcBase}(${companyId})/attachments`,{
+          // Subir attachment via multipart: crear metadata + contenido en un solo paso
+          const attUrl=`${bcBase}(${companyId})/purchaseOrders(${o.id})/attachments`;
+          // Primero crear metadata
+          const attRes=await fetch(attUrl,{
             method:'POST',
             headers:bcHeaders,
-            body:JSON.stringify({parentId:o.id,fileName})
+            body:JSON.stringify({fileName})
           });
           if(attRes.ok){
             const att=await attRes.json();
-            const contentUrl=`${bcBase}(${companyId})/attachments(${att.id})/attachmentContent`;
+            const contentUrl=`${attUrl}(${att.id})/attachmentContent`;
             const patchRes=await fetch(contentUrl,{
               method:'PATCH',
-              headers:{'Authorization':'Bearer '+token,'Content-Type':'application/octet-stream','If-Match':'*'},
+              headers:{'Authorization':'Bearer '+token,'Content-Type':'application/octet-stream','If-Match':att['@odata.etag']||'*'},
               body:uploadFile
             });
-            if(!patchRes.ok) console.warn('Attachment content upload error:',patchRes.status,await patchRes.text());
+            if(!patchRes.ok) console.warn('Attachment content error:',patchRes.status,await patchRes.text());
           }else{
             console.warn('Attachment create error:',attRes.status,await attRes.text());
           }
