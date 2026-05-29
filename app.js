@@ -7680,31 +7680,44 @@ async function comprasSubir(){
       parentId=found.id;
     }
 
-    for(const name of [prov,String(year),mes]){
-      // Primero buscar si ya existe (comparación case-insensitive + trim)
-      const listRes=await fetch('https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+parentId+'/children?$select=id,name,folder&$top=200',{
+    // Función helper para buscar o crear carpeta
+    async function _findOrCreate(pid,name){
+      const listRes=await fetch('https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+pid+'/children?$select=id,name,folder&$top=200',{
         headers:{'Authorization':'Bearer '+token}
       });
       if(!listRes.ok) throw new Error('No se pudo listar carpeta para buscar "'+name+'"');
       const listJson=await listRes.json();
       const nameNorm=name.trim().toLowerCase().normalize('NFC').replace(/\s+/g,' ');
-      const matches=listJson.value.filter(i=>i.name.toLowerCase().includes(name.substring(0,5).toLowerCase()));
-      matches.forEach(i=>console.log('MATCH: "'+i.name+'" chars=['+[...i.name].map(c=>c.charCodeAt(0)).join(',')+'] folder='+!!i.folder+' keys='+Object.keys(i).join(',') +' vs buscado="'+name+'" chars=['+[...name].map(c=>c.charCodeAt(0)).join(',')+']'));
       const found=(listJson.value||[]).find(i=>i.folder&&i.name.trim().toLowerCase().normalize('NFC').replace(/\s+/g,' ')===nameNorm);
-
-      if(found){
-        parentId=found.id;
-      }else{
-        // No existe — crear
-        const createRes=await fetch('https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+parentId+'/children',{
-          method:'POST',
-          headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
-          body:JSON.stringify({name,folder:{}})
-        });
-        if(!createRes.ok) throw new Error('Error creando carpeta "'+name+'": '+createRes.status+' '+await createRes.text());
-        parentId=(await createRes.json()).id;
-      }
+      if(found) return {id:found.id,items:listJson.value};
+      const createRes=await fetch('https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+pid+'/children',{
+        method:'POST',
+        headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+        body:JSON.stringify({name,folder:{}})
+      });
+      if(!createRes.ok) throw new Error('Error creando carpeta "'+name+'": '+createRes.status+' '+await createRes.text());
+      return {id:(await createRes.json()).id,items:listJson.value};
     }
+
+    // Proveedor
+    const provResult=await _findOrCreate(parentId,prov);
+    parentId=provResult.id;
+
+    // Comprobar si existe subcarpeta FACTURAS dentro del proveedor
+    const provChildRes=await fetch('https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+parentId+'/children?$select=id,name,folder&$top=200',{
+      headers:{'Authorization':'Bearer '+token}
+    });
+    if(provChildRes.ok){
+      const provChildren=await provChildRes.json();
+      const facFolder=(provChildren.value||[]).find(i=>i.folder&&i.name.trim().toUpperCase()==='FACTURAS');
+      if(facFolder) parentId=facFolder.id;
+    }
+
+    // Año y mes
+    const yearResult=await _findOrCreate(parentId,String(year));
+    parentId=yearResult.id;
+    const mesResult=await _findOrCreate(parentId,mes);
+    parentId=mesResult.id;
 
     const folderId=parentId;
 
