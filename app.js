@@ -7410,7 +7410,7 @@ const COMPRAS_CLIENT_ID='20d8ca37-34e7-4ad4-b379-97c5b22f15ad';
 const COMPRAS_TENANT_ID='5bd828f2-1899-48ba-a269-c37733f41806';
 const COMPRAS_REDIRECT=location.origin+location.pathname;
 const COMPRAS_SCOPES=['Files.ReadWrite.All'];
-const COMPRAS_ONEDRIVE_BASE='Arifoma/06. ADMINISTRACION/06.01 PROVEEDORES';
+const COMPRAS_ONEDRIVE_BASE='Escritorio/Arifoma/06. ADMINISTRACION/06.01 PROVEEDORES';
 const COMPRAS_MESES=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
 const COMPRAS_PROVEEDORES=[
   '(ANEFA) ASOCIACION NACIONAL DE EMPRESARIOS FABRICANTES DE ARIDO','AENOR','AGONEY LUJAN PEREZ','AGUAS DE GUAYADEQUE SL','ALIANZA ALEMAN BLAKER',
@@ -7636,7 +7636,11 @@ async function comprasSubir(){
     const baseRes=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+basEncoded,{
       headers:{'Authorization':'Bearer '+token}
     });
-    if(!baseRes.ok) throw new Error('Carpeta base no encontrada');
+    if(!baseRes.ok){
+      const baseErr=await baseRes.text();
+      console.error('Base folder error:',baseRes.status,basEncoded,baseErr);
+      throw new Error('Carpeta base no encontrada ('+baseRes.status+'). Path: '+basEncoded);
+    }
     let parentId=(await baseRes.json()).id;
 
     for(const name of [prov,String(year),mes]){
