@@ -7755,6 +7755,48 @@ async function comprasCrearPedidoCompra(){
     if(!data.ok) throw new Error(data.error);
 
     const o=data.order;
+
+    // Adjuntar factura escaneada al pedido de compra
+    if(_comprasFile&&o.id){
+      btn.textContent='Adjuntando factura...';
+      try{
+        const bcBase=`https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/api/v2.0/companies`;
+        const bcHeaders={'Authorization':'Bearer '+token,'Content-Type':'application/json'};
+
+        const cRes=await fetch(bcBase,{headers:bcHeaders});
+        const cJson=await cRes.json();
+        const company=(cJson.value||[]).find(c=>c.name.trim()===BC_COMPANY.trim());
+        if(company){
+          const companyId=company.id;
+          const safeNfac=nfac?nfac.replace(/[\/\\:*?"<>|]/g,'-'):'factura';
+          const fileName=safeNfac+'.pdf';
+
+          // Crear attachment metadata
+          const attRes=await fetch(`${bcBase}(${companyId})/purchaseOrders(${o.id})/attachments`,{
+            method:'POST',
+            headers:bcHeaders,
+            body:JSON.stringify({fileName,parentType:'Journal'})
+          });
+          if(attRes.ok){
+            const att=await attRes.json();
+            // Subir contenido del archivo
+            let uploadFile=_comprasFile;
+            if(_comprasFile.type&&_comprasFile.type.startsWith('image/')){
+              uploadFile=await comprasImgToPdf(_comprasFile);
+            }
+            const contentUrl=`${bcBase}(${companyId})/purchaseOrders(${o.id})/attachments(${att.id})/attachmentContent`;
+            await fetch(contentUrl,{
+              method:'PATCH',
+              headers:{'Authorization':'Bearer '+token,'Content-Type':'application/octet-stream','If-Match':'*'},
+              body:uploadFile
+            });
+          }
+        }
+      }catch(attErr){
+        console.warn('No se pudo adjuntar factura:',attErr.message);
+      }
+    }
+
     resDiv.style.display='block';
     resDiv.style.background='var(--success-bg,#d4edda)';
     resDiv.style.color='var(--success-text,#155724)';
