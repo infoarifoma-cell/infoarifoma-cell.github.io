@@ -7630,33 +7630,38 @@ async function comprasSubir(){
     const fileName=safeNfac?(safeNfac+' '+fecha+ext):(fecha+'_factura'+ext);
     const folderPath=COMPRAS_ONEDRIVE_BASE+'/'+prov+'/'+year+'/'+mes;
 
-    // Crear carpetas si no existen (año y mes dentro del proveedor)
+    // Crear carpetas navegando por ID para evitar problemas de encoding
     btn.textContent='Creando carpetas...';
-    const provPath=COMPRAS_ONEDRIVE_BASE+'/'+prov;
-    const yearPath=provPath+'/'+year;
-    const mesPath=yearPath+'/'+mes;
-    for(const fp of [provPath,yearPath,mesPath]){
-      const parentPath=fp.substring(0,fp.lastIndexOf('/'));
-      const folderName=fp.substring(fp.lastIndexOf('/')+1);
-      const parentEncoded=parentPath.split('/').map(s=>encodeURIComponent(s)).join('/');
-      const fRes=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+parentEncoded+':/children',{
+    const basEncoded=COMPRAS_ONEDRIVE_BASE.split('/').map(s=>encodeURIComponent(s)).join('/');
+    const baseRes=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+basEncoded,{
+      headers:{'Authorization':'Bearer '+token}
+    });
+    if(!baseRes.ok) throw new Error('Carpeta base no encontrada');
+    let parentId=(await baseRes.json()).id;
+
+    for(const name of [prov,String(year),mes]){
+      const createRes=await fetch('https://graph.microsoft.com/v1.0/me/drive/items/'+parentId+'/children',{
         method:'POST',
         headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
-        body:JSON.stringify({name:folderName,folder:{},'@microsoft.graph.conflictBehavior':'fail'})
+        body:JSON.stringify({name,folder:{},'@microsoft.graph.conflictBehavior':'fail'})
       });
-      if(!fRes.ok&&fRes.status!==409){
-        console.warn('Carpeta '+folderName+' error:',fRes.status,await fRes.text());
+      if(createRes.status===409){
+        // Ya existe — buscar su ID
+        const listRes=await fetch('https://graph.microsoft.com/v1.0/me/drive/items/'+parentId+'/children?$filter=name%20eq%20%27'+encodeURIComponent(name)+'%27&$select=id,name',{
+          headers:{'Authorization':'Bearer '+token}
+        });
+        const listJson=await listRes.json();
+        const found=(listJson.value||[]).find(i=>i.name===name);
+        if(!found) throw new Error('Carpeta "'+name+'" no encontrada tras 409');
+        parentId=found.id;
+      }else if(createRes.ok){
+        parentId=(await createRes.json()).id;
+      }else{
+        throw new Error('Error creando carpeta "'+name+'": '+createRes.status+' '+await createRes.text());
       }
     }
 
-    // Obtener ID de la carpeta destino para evitar problemas de encoding en path
-    const encodedFolder=folderPath.split('/').map(s=>encodeURIComponent(s)).join('/');
-    const folderInfoRes=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+encodedFolder,{
-      headers:{'Authorization':'Bearer '+token}
-    });
-    if(!folderInfoRes.ok){throw new Error('Carpeta no encontrada: '+folderPath);}
-    const folderInfo=await folderInfoRes.json();
-    const folderId=folderInfo.id;
+    const folderId=parentId;
 
     const uploadUrl='https://graph.microsoft.com/v1.0/me/drive/items/'+folderId+':/'+encodeURIComponent(fileName)+':/content';
 
