@@ -4373,7 +4373,7 @@ function renderFacturacion(){
     const prod=r.productoNombre||r.productoCod||'Sin producto';
     const neto=Number(r.pesoNeto)||0;
     if(!clientes[cli])clientes[cli]={proyectos:{},totalKg:0,totalEur:0};
-    if(!clientes[cli].proyectos[proy])clientes[cli].proyectos[proy]={productos:{},totalKg:0,totalEur:0};
+    if(!clientes[cli].proyectos[proy])clientes[cli].proyectos[proy]={productos:{},totalKg:0,totalEur:0,proyectoCod:r.proyectoCod||''};
     if(!clientes[cli].proyectos[proy].productos[prod])clientes[cli].proyectos[proy].productos[prod]={viajes:0,kg:0,cod:r.productoCod||''};
     clientes[cli].proyectos[proy].productos[prod].viajes++;
     clientes[cli].proyectos[proy].productos[prod].kg+=neto;
@@ -5230,7 +5230,9 @@ async function enviarBCCliente(bcIdx, btn) {
             lineObjectNumber: info.cod,
             description: `${prod} - ${proy}`,
             quantity: parseFloat((info.kg / 1000).toFixed(3)),
-            unitPrice: info.precioTn
+            unitPrice: info.precioTn,
+            projectNo: pData.proyectoCod || '',
+            projectTaskNo: pData.proyectoCod ? 'INGRESOS' : ''
           })
         });
         console.log('Enviando línea:', prod, '→ cod:', info.cod, '→ PROD-'+String(info.cod).padStart(6,'0'));
@@ -5421,7 +5423,8 @@ async function facturarAlbaranesSeleccionados() {
         const cod = r.productoCod || '';
         const proy = r.proyectoName || r.proyectoCod || '';
         const key = `${cod}||${proy}`;
-        if (!prodLines[key]) prodLines[key] = { cod, prod, proy, kg: 0, viajes: 0, albNums: new Set() };
+        const proyCod = r.proyectoCod || '';
+        if (!prodLines[key]) prodLines[key] = { cod, prod, proy, proyCod, kg: 0, viajes: 0, albNums: new Set() };
         prodLines[key].kg += Number(r.pesoNeto) || 0;
         prodLines[key].viajes++;
         prodLines[key].albNums.add(alb.numPedido);
@@ -5441,7 +5444,9 @@ async function facturarAlbaranesSeleccionados() {
           lineObjectNumber: info.cod,
           description: `${info.prod} - ${info.proy} [Alb.${albRef}]`,
           quantity: parseFloat(tn.toFixed(3)),
-          unitPrice: precioTn
+          unitPrice: precioTn,
+          projectNo: info.proyCod || '',
+          projectTaskNo: info.proyCod ? 'INGRESOS' : ''
         })
       });
       if (lineRes.ok) lineCount++;
@@ -8124,17 +8129,25 @@ function renderStockOverview() {
 
   // --- KPI cards ---
   for (const key of keys) {
-    const dailyFiltered = (_stockRawDaily || []).filter(d => d[key] != null);
-    const lastDaily = dailyFiltered.length ? dailyFiltered[dailyFiltered.length - 1][key] : null;
-    const prevDaily = dailyFiltered.length > 1 ? dailyFiltered[dailyFiltered.length - 2][key] : null;
+    const meses = _stockData[key] || [];
+    // Find current month's actual value, or last month with final value
+    let lastVal = null, prevVal = null;
+    for (let i = meses.length - 1; i >= 0; i--) {
+      if (lastVal == null && (meses[i].actual != null || meses[i].final != null)) {
+        lastVal = meses[i].actual ?? meses[i].final;
+        // Previous = inicio of same month
+        prevVal = meses[i].inicio;
+        break;
+      }
+    }
     const elActual = document.getElementById('stock-actual-' + key);
-    elActual.textContent = lastDaily != null ? lastDaily.toLocaleString('es-ES') + ' T' : '—';
+    elActual.textContent = lastVal != null ? lastVal.toLocaleString('es-ES') + ' T' : '—';
 
     const elDelta = document.getElementById('stock-delta-' + key);
-    if (lastDaily != null && prevDaily != null && prevDaily !== 0) {
-      const pct = ((lastDaily - prevDaily) / prevDaily * 100).toFixed(1);
+    if (lastVal != null && prevVal != null && prevVal !== 0) {
+      const pct = ((lastVal - prevVal) / prevVal * 100).toFixed(1);
       const up = pct >= 0;
-      elDelta.innerHTML = `<span style="color:${up ? '#27ae60' : '#e74c3c'}">${up ? '▲' : '▼'} ${Math.abs(pct)}%</span> <span style="color:var(--muted)">vs anterior</span>`;
+      elDelta.innerHTML = `<span style="color:${up ? '#27ae60' : '#e74c3c'}">${up ? '▲' : '▼'} ${Math.abs(pct)}%</span> <span style="color:var(--muted)">vs inicio mes</span>`;
     } else {
       elDelta.textContent = '';
     }
