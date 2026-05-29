@@ -338,6 +338,9 @@
       <button class="bnav-more-btn" onclick="bnavGo('produccion')" id="bm-produccion">
         <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 15h14M4 15V8l3-2v9M9 15V5l3-2v12M14 15V3"/></svg>Producc.
       </button>
+      <button class="bnav-more-btn" onclick="bnavGo('stock')" id="bm-stock">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 14l4-6 3 4 4-8 5 10"/><path d="M1 14h16" opacity=".4"/></svg>Stock
+      </button>
       <button class="bnav-more-btn" onclick="bnavGo('camiones')" id="bm-camiones">
         <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="7" width="11" height="7" rx="1"/><path d="M12 9h3l2 3v2h-5V9z"/><circle cx="4.5" cy="14.5" r="1.5"/><circle cx="13.5" cy="14.5" r="1.5"/></svg>Camiones
       </button>
@@ -437,6 +440,9 @@
         <div class="sidebar-section">Planta</div>
         <button class="snav-btn" onclick="goPage('produccion')" id="snav-produccion">
           <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 15h14M4 15V8l3-2v9M9 15V5l3-2v12M14 15V3"/></svg>Producción
+        </button>
+        <button class="snav-btn" onclick="goPage('stock')" id="snav-stock">
+          <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 14l4-6 3 4 4-8 5 10"/><path d="M1 14h16" opacity=".4"/></svg>Stock
         </button>
         <div class="snav-divider"></div>
         <div class="sidebar-section">Transporte</div>
@@ -855,6 +861,69 @@
                 <button class="btn-cancel" onclick="cerrarProdEdit()">Cancelar</button>
                 <button class="btn-save" onclick="guardarProdEdit()">Guardar</button>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ STOCK ══ -->
+        <div class="page" id="pg-stock">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+            <div class="sec-title" style="margin:0">Stock Áridos</div>
+            <select class="inp" id="stock-anyo" onchange="cargarStock()" style="width:100px"></select>
+          </div>
+
+          <!-- Vista general: 4 mini gráficos -->
+          <div id="stock-overview" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:16px">
+            <div class="card stock-card" onclick="abrirStockDetalle('04')" style="cursor:pointer;padding:14px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <span style="font-weight:700;font-size:.95rem">0/4</span>
+                <span id="stock-actual-04" style="font-family:'DM Mono',monospace;font-size:.85rem;color:var(--accent);font-weight:600"></span>
+              </div>
+              <canvas id="stock-mini-04" height="100"></canvas>
+            </div>
+            <div class="card stock-card" onclick="abrirStockDetalle('412')" style="cursor:pointer;padding:14px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <span style="font-weight:700;font-size:.95rem">4/12</span>
+                <span id="stock-actual-412" style="font-family:'DM Mono',monospace;font-size:.85rem;color:var(--accent);font-weight:600"></span>
+              </div>
+              <canvas id="stock-mini-412" height="100"></canvas>
+            </div>
+            <div class="card stock-card" onclick="abrirStockDetalle('1220')" style="cursor:pointer;padding:14px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <span style="font-weight:700;font-size:.95rem">12/20</span>
+                <span id="stock-actual-1220" style="font-family:'DM Mono',monospace;font-size:.85rem;color:var(--accent);font-weight:600"></span>
+              </div>
+              <canvas id="stock-mini-1220" height="100"></canvas>
+            </div>
+            <div class="card stock-card" onclick="abrirStockDetalle('2040')" style="cursor:pointer;padding:14px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <span style="font-weight:700;font-size:.95rem">20/40</span>
+                <span id="stock-actual-2040" style="font-family:'DM Mono',monospace;font-size:.85rem;color:var(--accent);font-weight:600"></span>
+              </div>
+              <canvas id="stock-mini-2040" height="100"></canvas>
+            </div>
+          </div>
+
+          <!-- Vista detalle (se muestra al clicar un gráfico) -->
+          <div id="stock-detalle" style="display:none">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+              <button class="btn-sec" style="font-size:.75rem;padding:6px 12px" onclick="cerrarStockDetalle()">&larr; Volver</button>
+              <div id="stock-detalle-titulo" style="font-weight:700;font-size:1.1rem"></div>
+            </div>
+            <div class="card" style="padding:16px">
+              <canvas id="stock-chart-grande" height="300"></canvas>
+            </div>
+            <div class="card" style="padding:16px;margin-top:12px;overflow-x:auto">
+              <div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px">Datos mensuales (Tn)</div>
+              <table id="stock-tabla-detalle" style="width:100%;border-collapse:collapse;font-size:.82rem">
+                <thead><tr style="border-bottom:2px solid var(--border)">
+                  <th style="text-align:left;padding:6px 8px">Mes</th>
+                  <th style="text-align:right;padding:6px 8px">Inicio</th>
+                  <th style="text-align:right;padding:6px 8px">Final</th>
+                  <th style="text-align:right;padding:6px 8px">Actual</th>
+                </tr></thead>
+                <tbody></tbody>
+              </table>
             </div>
           </div>
         </div>

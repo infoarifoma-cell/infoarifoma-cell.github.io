@@ -505,7 +505,7 @@ const DIAS_LAB_2026=[18,18,22,20,20,21,23,21,22,21,21,18];
 const HORAS_DIA_STD=8; // Jornada estándar convenio
 const PRODS=['ARIDO AF-T-0/4-I','ARIDO AG-T-4/12-I','ARIDO AG-T-12/20-I','ARIDO AG-T-20/40-I','ARIDO AG-T-40/70-I','REVUELTO 0/20','REVUELTO 0/10','PIEDRA PARA MURO (UD)','MATERIAL DE RELLENO 0/4'];
 const PROD_CAT={'ARIDO AF-T-0/4-I':'0/4','ARIDO AG-T-4/12-I':'4/12','ARIDO AG-T-12/20-I':'12/20','ARIDO AG-T-20/40-I':'20/40'};
-const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas','historico-ventas':'Histórico de Ventas',caja:'Caja',costes:'Análisis de Costes',produccion:'Producción Planta',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',preventivo:'Mantenimiento Preventivo',compras:'Escanear Factura',choferes:'Conductores'};
+const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas','historico-ventas':'Histórico de Ventas',caja:'Caja',costes:'Análisis de Costes',produccion:'Producción Planta',stock:'Stock Áridos',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',preventivo:'Mantenimiento Preventivo',compras:'Escanear Factura',choferes:'Conductores'};
 
 // Login via Google OAuth — ver funciones.js: googleLogin() y checkGoogleSession()
 
@@ -565,6 +565,7 @@ function goPage(id){
   if(id==='compras')comprasInitProveedores();
   if(id==='gasoil')cargarGasoil();
   if(id==='produccion')initProduccion();
+  if(id==='stock')initStock();
   if(id==='facturacion')initFacturacion();
   if(id==='caja')initCaja();
   if(id==='costes')initCostes();
@@ -7993,4 +7994,261 @@ function comprasReset(){
   document.getElementById('compras-nfactura').value='';
   document.getElementById('compras-fecha').value='';
   document.getElementById('compras-ocr-text').value='';
+}
+
+// ============================================================
+// STOCK ÁRIDOS — Gráficos montaña desde Google Sheet (hoja STOCK)
+// ============================================================
+// Columnas en hoja STOCK: N=0/4, O=4/12, P=12/20, Q=20/40
+// Filas: 7 en adelante = meses (Ene, Feb, Mar...)
+// Cada producto tiene 3 filas por mes-bloque: inicio, final, actual
+// N7=inicio ene 0/4, N8=final ene, N9=actual ene, N10=inicio feb...
+// Ajustar según layout real del sheet.
+
+const STOCK_SHEET_ID = '1fxHwVEgcIrRdyPh-TJ-k84QFBHXX-P3mNRCiWYaeDTQ';
+const STOCK_SHEET_TAB = 'STOCK';
+const STOCK_MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const STOCK_COLORS = {
+  '04':   {line:'#6b7d2e', bg:'rgba(107,125,46,.25)'},
+  '412':  {line:'#2e6b7d', bg:'rgba(46,107,125,.25)'},
+  '1220': {line:'#7d2e6b', bg:'rgba(125,46,107,.25)'},
+  '2040': {line:'#c0792b', bg:'rgba(192,121,43,.25)'}
+};
+const STOCK_LABELS = {'04':'0/4','412':'4/12','1220':'12/20','2040':'20/40'};
+
+let _stockData = null;
+let _stockCharts = {mini04:null, mini412:null, mini1220:null, mini2040:null, grande:null};
+let _stockInited = false;
+
+function initStock() {
+  if (!_stockInited) {
+    const sel = document.getElementById('stock-anyo');
+    const yr = new Date().getFullYear();
+    for (let y = yr; y >= yr - 3; y--) {
+      const o = document.createElement('option');
+      o.value = y; o.textContent = y;
+      sel.appendChild(o);
+    }
+    _stockInited = true;
+  }
+  cargarStock();
+}
+
+async function cargarStock() {
+  const anyo = document.getElementById('stock-anyo').value;
+  try {
+    // Leer columnas N, O, P, Q desde fila 5 (cabeceras posibles) hasta fila 50
+    // gviz query: select N,O,P,Q — columnas son 0-indexed: N=col13, O=col14, P=col15, Q=col16
+    const query = `select N,O,P,Q`;
+    const url = `https://docs.google.com/spreadsheets/d/${STOCK_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(STOCK_SHEET_TAB)}&tq=${encodeURIComponent(query)}`;
+    const res = await fetch(url);
+    const txt = await res.text();
+    const jsonStr = txt.replace(/^[^(]*\(/, '').replace(/\);?\s*$/, '');
+    const gviz = JSON.parse(jsonStr);
+    const rows = gviz.table.rows || [];
+
+    // Parse: empezamos desde fila-índice 6 (=fila 7 del sheet, 0-indexed tras cabecera)
+    // Estructura esperada: cada fila es un mes, con inicio/final/actual como sub-filas
+    // O cada fila es directamente un valor mensual
+    // Vamos a leer todos los valores y organizarlos
+    const raw = { '04': [], '412': [], '1220': [], '2040': [] };
+    const keys = ['04', '412', '1220', '2040'];
+
+    // Empezar desde fila-índice que corresponde a row 7 del sheet
+    // gviz devuelve desde fila 1 (excluyendo cabecera fila 1)
+    // Si los datos empiezan en N7, y fila 1 es cabecera, el índice en rows es 5 (7-2)
+    // Pero depende de si hay cabecera. Intentamos leer todos los valores numéricos.
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      for (let k = 0; k < 4; k++) {
+        const cell = r.c && r.c[k];
+        const v = cell ? (cell.v != null ? Number(cell.v) : null) : null;
+        raw[keys[k]].push(v);
+      }
+    }
+
+    // Filtrar: buscar el patrón de datos
+    // Los datos por mes tienen 3 valores: inicio, final, actual
+    // Organizamos por bloques de 3 filas a partir del primer dato no-null
+    _stockData = {};
+    for (const key of keys) {
+      const arr = raw[key];
+      // Encontrar primera fila con dato
+      let startIdx = arr.findIndex(v => v != null && !isNaN(v));
+      if (startIdx < 0) { _stockData[key] = []; continue; }
+      const datos = [];
+      for (let m = 0; m < 12; m++) {
+        const idx = startIdx + m * 3;
+        if (idx >= arr.length) break;
+        const inicio = arr[idx] ?? null;
+        const final_ = arr[idx + 1] ?? null;
+        const actual = arr[idx + 2] ?? null;
+        datos.push({ mes: STOCK_MESES[m], inicio, final: final_, actual });
+      }
+      _stockData[key] = datos;
+    }
+
+    renderStockOverview();
+  } catch (e) {
+    console.error('Error cargando stock:', e);
+  }
+}
+
+function renderStockOverview() {
+  if (!_stockData) return;
+  document.getElementById('stock-overview').style.display = '';
+  document.getElementById('stock-detalle').style.display = 'none';
+
+  const keys = ['04', '412', '1220', '2040'];
+  for (const key of keys) {
+    const datos = _stockData[key] || [];
+    // Valor actual = último valor "actual" no-null
+    const ultimoActual = [...datos].reverse().find(d => d.actual != null);
+    const elActual = document.getElementById('stock-actual-' + key);
+    elActual.textContent = ultimoActual ? ultimoActual.actual.toLocaleString('es-ES') + ' Tn' : '—';
+
+    // Mini chart
+    const canvasId = 'stock-mini-' + key;
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    const chartKey = 'mini' + key;
+
+    if (_stockCharts[chartKey]) _stockCharts[chartKey].destroy();
+
+    const labels = datos.map(d => d.mes);
+    const values = datos.map(d => d.actual ?? d.final ?? d.inicio);
+
+    const gradient = ctx.createLinearGradient(0, 0, 0, 100);
+    gradient.addColorStop(0, STOCK_COLORS[key].bg);
+    gradient.addColorStop(1, 'rgba(255,255,255,0)');
+
+    _stockCharts[chartKey] = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          borderColor: STOCK_COLORS[key].line,
+          backgroundColor: gradient,
+          fill: true,
+          tension: 0.4,
+          borderWidth: 2.5,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          pointHoverBackgroundColor: STOCK_COLORS[key].line
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: {
+          callbacks: { label: ctx => ctx.parsed.y?.toLocaleString('es-ES') + ' Tn' }
+        }},
+        scales: {
+          x: { display: false },
+          y: { display: false, beginAtZero: false }
+        },
+        animation: {
+          duration: 1200,
+          easing: 'easeOutQuart'
+        },
+        interaction: { intersect: false, mode: 'index' }
+      }
+    });
+  }
+}
+
+function abrirStockDetalle(key) {
+  document.getElementById('stock-overview').style.display = 'none';
+  document.getElementById('stock-detalle').style.display = 'block';
+  document.getElementById('stock-detalle-titulo').textContent = 'Stock ' + STOCK_LABELS[key];
+
+  const datos = (_stockData && _stockData[key]) || [];
+  const ctx = document.getElementById('stock-chart-grande').getContext('2d');
+
+  if (_stockCharts.grande) _stockCharts.grande.destroy();
+
+  const labels = datos.map(d => d.mes);
+  const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+  gradient.addColorStop(0, STOCK_COLORS[key].bg);
+  gradient.addColorStop(1, 'rgba(255,255,255,0)');
+
+  const datasets = [];
+
+  // Inicio mes
+  datasets.push({
+    label: 'Inicio mes',
+    data: datos.map(d => d.inicio),
+    borderColor: 'rgba(150,150,150,.5)',
+    backgroundColor: 'transparent',
+    borderDash: [5, 3],
+    borderWidth: 1.5,
+    tension: 0.3,
+    pointRadius: 3,
+    pointBackgroundColor: 'rgba(150,150,150,.7)',
+    fill: false
+  });
+
+  // Final mes
+  datasets.push({
+    label: 'Final mes',
+    data: datos.map(d => d.final),
+    borderColor: STOCK_COLORS[key].line,
+    backgroundColor: gradient,
+    borderWidth: 2.5,
+    tension: 0.4,
+    pointRadius: 4,
+    pointBackgroundColor: STOCK_COLORS[key].line,
+    fill: true
+  });
+
+  // Actual
+  datasets.push({
+    label: 'Actual',
+    data: datos.map(d => d.actual),
+    borderColor: '#e74c3c',
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    tension: 0.3,
+    pointRadius: 4,
+    pointStyle: 'rectRot',
+    pointBackgroundColor: '#e74c3c',
+    fill: false
+  });
+
+  _stockCharts.grande = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { usePointStyle: true, padding: 16, font: { size: 12 } } },
+        tooltip: { callbacks: { label: c => c.dataset.label + ': ' + (c.parsed.y?.toLocaleString('es-ES') ?? '—') + ' Tn' } }
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: { beginAtZero: false, ticks: { callback: v => v.toLocaleString('es-ES') } }
+      },
+      animation: { duration: 1500, easing: 'easeOutQuart' },
+      interaction: { intersect: false, mode: 'index' }
+    }
+  });
+
+  // Tabla
+  const tbody = document.querySelector('#stock-tabla-detalle tbody');
+  tbody.innerHTML = '';
+  for (const d of datos) {
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid var(--border)';
+    tr.innerHTML = `<td style="padding:6px 8px">${d.mes}</td>
+      <td style="text-align:right;padding:6px 8px">${d.inicio != null ? d.inicio.toLocaleString('es-ES') : '—'}</td>
+      <td style="text-align:right;padding:6px 8px">${d.final != null ? d.final.toLocaleString('es-ES') : '—'}</td>
+      <td style="text-align:right;padding:6px 8px;font-weight:600;color:var(--accent)">${d.actual != null ? d.actual.toLocaleString('es-ES') : '—'}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+function cerrarStockDetalle() {
+  document.getElementById('stock-detalle').style.display = 'none';
+  document.getElementById('stock-overview').style.display = '';
 }
