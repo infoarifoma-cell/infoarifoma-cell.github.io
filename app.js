@@ -7689,7 +7689,7 @@ async function comprasSubir(){
       const listJson=await listRes.json();
       const nameNorm=name.trim().toLowerCase().normalize('NFC');
       const matches=listJson.value.filter(i=>i.name.toLowerCase().includes(name.substring(0,5).toLowerCase()));
-      console.log('Buscando "'+name+'" ('+nameNorm+') coincidencias parciales:',matches.map(i=>'"'+i.name+'" chars=['+[...i.name].map(c=>c.charCodeAt(0)).join(',')+'] folder='+!!i.folder));
+      matches.forEach(i=>console.log('MATCH: "'+i.name+'" chars=['+[...i.name].map(c=>c.charCodeAt(0)).join(',')+'] folder='+!!i.folder+' vs buscado="'+name+'" chars=['+[...name].map(c=>c.charCodeAt(0)).join(',')+']'));
       if(!matches.length)console.log('Todas las carpetas:',listJson.value.filter(i=>i.folder).map(i=>i.name).join(' | '));
       const found=(listJson.value||[]).find(i=>i.folder&&i.name.trim().toLowerCase().normalize('NFC')===nameNorm);
 
