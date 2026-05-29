@@ -7434,7 +7434,7 @@ const COMPRAS_PROVEEDORES=[
   'SEGURIDAD INDUSTRIAL, MEDIO AMBIENTE Y CALIDAD, S. L','SPAR JUAN GRANDE','SUMINISTROS SANTANA DOMINGUEZ SA','Salazar','Santana Jerez',
   'Secular 2022','Securitas Direct','Sernamol','Sertego','Señal Canary','Sika','Sopranes','Suim',
   'TALLER DE MECANIZADO SALVADOR ORTEGA MORENO','TRANSPORTES JUAN ELEUTERIO MARTERL SLU','Tamaran','Telefonica','Transportes Sanchez',
-  'Transportistas','Vallate','WURTH','ismael Garcia'
+  'Transportistas','Vallate','WURTH','ISMAEL GARCIA OJEDA'
 ];
 
 let _msalInstance=null;
