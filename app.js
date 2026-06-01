@@ -5208,6 +5208,30 @@ async function enviarBCCliente(bcIdx, btn) {
     const mes = (mesEl?.value ? parseInt(mesEl.value) : now.getMonth()) + 1;
     const anyo = anyoEl?.value ? parseInt(anyoEl.value) : now.getFullYear();
     const invoiceDate = `${anyo}-${String(mes).padStart(2,'0')}-01`;
+    const extDoc = `APP-${cli.substring(0,10).replace(/\s/g,'-')}-${anyo}${String(mes).padStart(2,'0')}`;
+
+    // Comprobar si ya existe factura para este cliente/mes en BC
+    btn.textContent = 'Comprobando...';
+    const chkHeaders = { 'Authorization': `Bearer ${token}` };
+    const chkBase = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/api/v2.0/companies`;
+    const chkCRes = await fetch(chkBase, { headers: chkHeaders });
+    const chkCJson = await chkCRes.json();
+    const chkCompany = chkCJson.value.find(c => c.name.trim() === BC_COMPANY.trim());
+    if (chkCompany) {
+      const chkUrl = `${chkBase}(${chkCompany.id})/salesInvoices?$filter=externalDocumentNumber eq '${extDoc}'&$select=id,number,externalDocumentNumber&$top=1`;
+      const chkRes = await fetch(chkUrl, { headers: chkHeaders });
+      if (chkRes.ok) {
+        const chkData = await chkRes.json();
+        if (chkData.value && chkData.value.length > 0) {
+          const existing = chkData.value[0];
+          if (!confirm(`⚠️ Ya existe una factura para "${cli}" en ${String(mes).padStart(2,'0')}/${anyo}:\n\nNº: ${existing.number || existing.id}\nRef: ${existing.externalDocumentNumber}\n\n¿Crear otra igualmente?`)) {
+            btn.disabled = false;
+            btn.textContent = 'Enviar a BC';
+            return;
+          }
+        }
+      }
+    }
 
     btn.textContent = 'Creando factura...';
 
@@ -5219,7 +5243,7 @@ async function enviarBCCliente(bcIdx, btn) {
         token,
         customerNumber: customerNo,
         invoiceDate,
-        externalDocumentNumber: `APP-${cli.substring(0,10).replace(/\s/g,'-')}-${anyo}${String(mes).padStart(2,'0')}`
+        externalDocumentNumber: extDoc
       })
     });
 
@@ -5428,6 +5452,30 @@ async function facturarAlbaranesSeleccionados() {
     const now = new Date();
     const invoiceDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const extDoc = `ALB-${customerName.substring(0, 10).replace(/\s/g, '-')}-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    // Comprobar si ya existe factura para este cliente/mes en BC
+    btn.textContent = 'Comprobando...';
+    const chkHeaders = { 'Authorization': `Bearer ${token}` };
+    const chkBase = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/api/v2.0/companies`;
+    const chkCRes = await fetch(chkBase, { headers: chkHeaders });
+    const chkCJson = await chkCRes.json();
+    const chkCompany = chkCJson.value.find(c => c.name.trim() === BC_COMPANY.trim());
+    if (chkCompany) {
+      const mesStr = String(now.getMonth() + 1).padStart(2, '0');
+      const chkUrl = `${chkBase}(${chkCompany.id})/salesInvoices?$filter=externalDocumentNumber eq '${extDoc}'&$select=id,number,externalDocumentNumber&$top=1`;
+      const chkRes = await fetch(chkUrl, { headers: chkHeaders });
+      if (chkRes.ok) {
+        const chkData = await chkRes.json();
+        if (chkData.value && chkData.value.length > 0) {
+          const existing = chkData.value[0];
+          if (!confirm(`⚠️ Ya existe una factura para "${customerName}" en ${mesStr}/${now.getFullYear()}:\n\nNº: ${existing.number || existing.id}\nRef: ${existing.externalDocumentNumber}\n\n¿Crear otra igualmente?`)) {
+            btn.disabled = false;
+            btn.textContent = 'Crear factura en BC';
+            return;
+          }
+        }
+      }
+    }
 
     // Crear factura via backend
     const invRes = await fetch('/api/bc/facturas', {
