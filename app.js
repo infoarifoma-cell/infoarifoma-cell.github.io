@@ -8223,6 +8223,10 @@ function comprasReset(){
   document.getElementById('compras-nfactura').value='';
   document.getElementById('compras-fecha').value='';
   document.getElementById('compras-ocr-text').value='';
+  const btnPed=document.getElementById('compras-btn-pedido');
+  if(btnPed){btnPed.style.display='';btnPed.disabled=false;btnPed.textContent='Crear Pedido de Compra en BC';}
+  const resDiv=document.getElementById('compras-pedido-resultado');
+  if(resDiv){resDiv.style.display='none';resDiv.innerHTML='';}
 }
 
 // ============================================================
