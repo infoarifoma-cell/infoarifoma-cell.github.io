@@ -4561,22 +4561,47 @@ async function _comprobarEstadoFacturacionBC(clientes) {
     }
     const mesPad = String(mes).padStart(2, '0');
 
-    // Buscar todas las facturas del mes
-    const desde = `${anyo}-${mesPad}-01`;
-    const hasta = `${anyo}-${mesPad}-28`;
-    const invUrl = `${base}(${company.id})/salesInvoices?$filter=invoiceDate ge ${desde} and invoiceDate le ${hasta}&$select=id,number,customerNumber,customerName,externalDocumentNumber,status&$top=500`;
-    const invRes = await fetch(invUrl, { headers });
-    if (!invRes.ok) return;
-    const invData = await invRes.json();
-    const facturas = invData.value || [];
+    // Obtener todos los customerNumber únicos de los clientes mostrados
+    const cliCustMap = {};
+    Object.keys(clientes).forEach(cli => {
+      const pedidoCli = factData?.find(r => (r.nombreCliente || '').trim() === cli.trim());
+      cliCustMap[cli] = pedidoCli?.codigoCliente || '';
+    });
 
-    // Mapear clientes facturados (por nombre o por externalDocumentNumber)
+    // Calcular último día del mes
+    const ultimoDia = new Date(anyo, mes, 0).getDate();
+    const desde = `${anyo}-${mesPad}-01`;
+    const hasta = `${anyo}-${mesPad}-${String(ultimoDia).padStart(2,'0')}`;
+
+    // Buscar borradores (salesInvoices)
+    let allFacturas = [];
+    try {
+      const draftUrl = `${base}(${company.id})/salesInvoices?$filter=invoiceDate ge ${desde} and invoiceDate le ${hasta}&$select=id,number,customerNumber,customerName,totalAmountIncludingTax,externalDocumentNumber,status&$top=500`;
+      const draftRes = await fetch(draftUrl, { headers });
+      if (draftRes.ok) {
+        const draftData = await draftRes.json();
+        (draftData.value || []).forEach(f => { f._tipo = 'Borrador'; allFacturas.push(f); });
+      }
+    } catch (e) {}
+
+    // Buscar facturas registradas/contabilizadas (postedSalesInvoices)
+    try {
+      const postUrl = `${base}(${company.id})/postedSalesInvoices?$filter=invoiceDate ge ${desde} and invoiceDate le ${hasta}&$select=id,number,customerNumber,customerName,totalAmountIncludingTax,externalDocumentNumber&$top=500`;
+      const postRes = await fetch(postUrl, { headers });
+      if (postRes.ok) {
+        const postData = await postRes.json();
+        const ids = new Set(allFacturas.map(f => f.id));
+        (postData.value || []).forEach(f => { if (!ids.has(f.id)) { f._tipo = 'Registrada'; allFacturas.push(f); } });
+      }
+    } catch (e) {}
+
+    // Mapear por customerNumber
     const facturadoMap = {};
-    facturas.forEach(f => {
-      const name = (f.customerName || '').trim();
-      if (name) {
-        if (!facturadoMap[name]) facturadoMap[name] = [];
-        facturadoMap[name].push(f);
+    allFacturas.forEach(f => {
+      const custNo = (f.customerNumber || '').trim();
+      if (custNo) {
+        if (!facturadoMap[custNo]) facturadoMap[custNo] = [];
+        facturadoMap[custNo].push(f);
       }
     });
 
@@ -4584,10 +4609,12 @@ async function _comprobarEstadoFacturacionBC(clientes) {
     Object.keys(clientes).sort((a, b) => clientes[b].totalEur - clientes[a].totalEur).forEach((cli, bcIdx) => {
       const el = document.getElementById(`fact-estado-${bcIdx}`);
       if (!el) return;
-      const facts = facturadoMap[cli];
+      const custNo = cliCustMap[cli];
+      const facts = custNo ? facturadoMap[custNo] : null;
       if (facts && facts.length > 0) {
         const nums = facts.map(f => f.number).filter(Boolean).join(', ');
-        el.textContent = `✅ Facturada (${nums})`;
+        const totalBC = facts.reduce((s, f) => s + (f.totalAmountIncludingTax || 0), 0);
+        el.textContent = `✅ Facturada ${nums} · ${totalBC.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
         el.style.background = 'rgba(46,125,50,.12)';
         el.style.color = '#2e7d32';
       } else {
