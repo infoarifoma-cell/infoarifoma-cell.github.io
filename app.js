@@ -4461,6 +4461,7 @@ function renderFacturacion(){
         <div style="font-size:.68rem;color:var(--muted);margin-top:2px">${(cData.totalKg/1000).toFixed(2)} Tn · ${pedidos.filter(r=>(r.nombreCliente||'').trim()===cli).length} viajes</div>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
+        <span id="fact-estado-${bcIdx}" style="font-size:.7rem;font-weight:700;padding:4px 10px;border-radius:6px;background:rgba(150,150,150,.15);color:var(--muted)">⏳</span>
         <div style="text-align:right">
           <div style="font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:700;color:var(--accent2)">${cData.totalEur.toFixed(2)} €</div>
           <div style="font-size:.65rem;color:var(--muted)">+ ${cIgic.toFixed(2)} € IGIC = ${(cData.totalEur+cIgic).toFixed(2)} €</div>
@@ -4528,6 +4529,76 @@ function renderFacturacion(){
     html+=`</div>`;
   });
   document.getElementById('fact-desglose').innerHTML=html;
+
+  // Comprobar estado facturación en BC (background)
+  _comprobarEstadoFacturacionBC(clientes);
+}
+
+async function _comprobarEstadoFacturacionBC(clientes) {
+  try {
+    if (typeof getBCToken !== 'function') return;
+    const token = await getBCToken();
+    const headers = { 'Authorization': `Bearer ${token}` };
+    const base = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/api/v2.0/companies`;
+    const cRes = await fetch(base, { headers });
+    const cJson = await cRes.json();
+    const company = (cJson.value || []).find(c => c.name.trim() === BC_COMPANY.trim());
+    if (!company) return;
+
+    // Determinar mes/año del filtro
+    const now = new Date();
+    const mesEl = document.getElementById('fact-mes');
+    const anyoEl = document.getElementById('fact-anyo');
+    const fechaDesdeStr = document.getElementById('fact-fecha-desde').value;
+    const fechaHastaStr = document.getElementById('fact-fecha-hasta').value;
+    let mes, anyo;
+    if (fechaDesdeStr) {
+      const [y, m] = fechaDesdeStr.split('-');
+      mes = parseInt(m); anyo = parseInt(y);
+    } else {
+      mes = (mesEl?.value ? parseInt(mesEl.value) : now.getMonth()) + 1;
+      anyo = anyoEl?.value ? parseInt(anyoEl.value) : now.getFullYear();
+    }
+    const mesPad = String(mes).padStart(2, '0');
+
+    // Buscar todas las facturas del mes
+    const desde = `${anyo}-${mesPad}-01`;
+    const hasta = `${anyo}-${mesPad}-28`;
+    const invUrl = `${base}(${company.id})/salesInvoices?$filter=invoiceDate ge ${desde} and invoiceDate le ${hasta}&$select=id,number,customerNumber,customerName,externalDocumentNumber,status&$top=500`;
+    const invRes = await fetch(invUrl, { headers });
+    if (!invRes.ok) return;
+    const invData = await invRes.json();
+    const facturas = invData.value || [];
+
+    // Mapear clientes facturados (por nombre o por externalDocumentNumber)
+    const facturadoMap = {};
+    facturas.forEach(f => {
+      const name = (f.customerName || '').trim();
+      if (name) {
+        if (!facturadoMap[name]) facturadoMap[name] = [];
+        facturadoMap[name].push(f);
+      }
+    });
+
+    // Actualizar badges
+    Object.keys(clientes).sort((a, b) => clientes[b].totalEur - clientes[a].totalEur).forEach((cli, bcIdx) => {
+      const el = document.getElementById(`fact-estado-${bcIdx}`);
+      if (!el) return;
+      const facts = facturadoMap[cli];
+      if (facts && facts.length > 0) {
+        const nums = facts.map(f => f.number).filter(Boolean).join(', ');
+        el.textContent = `✅ Facturada (${nums})`;
+        el.style.background = 'rgba(46,125,50,.12)';
+        el.style.color = '#2e7d32';
+      } else {
+        el.textContent = '⬚ Sin facturar';
+        el.style.background = 'rgba(211,47,47,.1)';
+        el.style.color = '#d32f2f';
+      }
+    });
+  } catch (e) {
+    console.warn('Error comprobando estado facturación BC:', e.message);
+  }
 }
 
 // ── INFORME MENSUAL POR CLIENTE ──────────────────────────────
