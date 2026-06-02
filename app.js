@@ -814,7 +814,7 @@ async function cargarProductosBC(){
     const data=await resp.json();
     if(data.ok&&data.items.length){
       const map={};
-      data.items.forEach(i=>{if(i.number&&i.name)map[i.number]=i.name;});
+      data.items.forEach(i=>{if(i.number&&(i.displayName||i.name))map[i.number]=i.displayName||i.name;});
       PROD_MAP=map;
       console.log('PROD_MAP cargado desde BC:',Object.keys(map).length,'productos');
     }
