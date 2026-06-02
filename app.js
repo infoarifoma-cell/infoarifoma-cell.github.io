@@ -565,6 +565,7 @@ function goPage(id){
   if(id==='compras')comprasInitProveedores();
   if(id==='gasoil')cargarGasoil();
   if(id==='produccion')initProduccion();
+  if(id==='informes'){const fi=document.getElementById('inf-fecha');if(fi&&!fi.value)fi.value=new Date().toISOString().slice(0,10);}
   if(id==='stock')initStock();
   if(id==='facturacion')initFacturacion();
   if(id==='caja')initCaja();
@@ -8300,6 +8301,283 @@ function comprasReset(){
   if(btnPed){btnPed.style.display='';btnPed.disabled=false;btnPed.textContent='Crear Pedido de Compra en BC';}
   const resDiv=document.getElementById('compras-pedido-resultado');
   if(resDiv){resDiv.style.display='none';resDiv.innerHTML='';}
+}
+
+// ============================================================
+// INFORMES DIARIOS PLANTA
+// ============================================================
+
+const INF_MAQUINARIA = [
+  'CAT 330','CAT 336','PALA 966G','DUMPER 769','LAGARTO HM400','CAT 365'
+];
+
+let _infData = null; // cache último informe cargado
+
+async function cargarInformeDiario() {
+  const fecha = document.getElementById('inf-fecha').value;
+  if (!fecha) { alert('Selecciona una fecha'); return; }
+
+  document.getElementById('inf-empty').style.display = 'none';
+  document.getElementById('inf-content').style.display = 'none';
+  document.getElementById('inf-loading').style.display = 'block';
+
+  try {
+    // Cargar en paralelo: fichajes, pedidos, producción, gasoil
+    const [fichajesRes, pedidosRes, produccionRes, gasoilRes] = await Promise.all([
+      dbQuery({ action:'select', table:'tblFichaje', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'empleado,entrada,salida,tiempodia'} }),
+      dbQuery({ action:'select', table:'tblpedidos', filters:[{column:'fechaHora',op:'like',value:fecha.split('-').reverse().join('/')+' %'}], options:{select:'fechaHora,matriculacam,pesoBruto,pesoNeto,productoNombre,nombreCliente,numPedido,numLinea',order:'fechaHora'} }),
+      dbQuery({ action:'select', table:'PRODUCCION', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'fecha,tipoDia,t04,t412,t1220,t2040,tnDia,horasPlanta'} }),
+      dbQuery({ action:'select', table:'GASOIL', filters:[{column:'fecha',op:'like',value:fecha.split('-').reverse().join('/')+'%'}], options:{select:'fecha,origen,destino,litros,tipo'} }),
+    ]);
+
+    _infData = {
+      fecha,
+      fichajes: fichajesRes.data || [],
+      pedidos: pedidosRes.data || [],
+      produccion: (produccionRes.data || []).find(r => r.fecha === fecha) || null,
+      gasoil: gasoilRes.data || [],
+    };
+
+    _renderInforme(_infData);
+    document.getElementById('inf-loading').style.display = 'none';
+    document.getElementById('inf-content').style.display = 'block';
+  } catch(e) {
+    document.getElementById('inf-loading').style.display = 'none';
+    document.getElementById('inf-empty').style.display = 'block';
+    document.getElementById('inf-empty').textContent = 'Error: ' + e.message;
+    console.error('Error informe:', e);
+  }
+}
+
+function _renderInforme(d) {
+  const fmt = v => Number(v||0).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+  // Maquinaria (fija)
+  const maqBody = document.getElementById('inf-maquinaria-body');
+  maqBody.innerHTML = INF_MAQUINARIA.map(m =>
+    `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:5px 8px;font-weight:600">${m}</td>
+      <td style="padding:5px 8px;text-align:center"><input type="number" min="0" max="24" style="width:50px;text-align:center;border:1px solid var(--border);border-radius:4px;padding:2px;background:var(--surface2)" placeholder="7"></td>
+      <td style="padding:5px 8px;text-align:center"><input type="number" min="0" max="24" style="width:50px;text-align:center;border:1px solid var(--border);border-radius:4px;padding:2px;background:var(--surface2)" placeholder="17"></td>
+      <td style="padding:5px 8px;text-align:center" class="inf-maq-horas">—</td>
+      <td style="padding:5px 8px"><input type="text" style="width:100%;border:1px solid var(--border);border-radius:4px;padding:2px 4px;background:var(--surface2)" placeholder="Trabajo..."></td>
+    </tr>`
+  ).join('');
+  // Calcular horas al cambiar desde/hasta
+  maqBody.querySelectorAll('tr').forEach(row => {
+    const [desdeTd, hastaTd, horasTd] = [row.children[1], row.children[2], row.children[3]];
+    const calc = () => {
+      const desde = parseFloat(desdeTd.querySelector('input').value);
+      const hasta = parseFloat(hastaTd.querySelector('input').value);
+      horasTd.textContent = (!isNaN(desde)&&!isNaN(hasta)&&hasta>desde) ? (hasta-desde) : '—';
+    };
+    desdeTd.querySelector('input').addEventListener('input', calc);
+    hastaTd.querySelector('input').addEventListener('input', calc);
+  });
+
+  // Personal (fichajes)
+  const perBody = document.getElementById('inf-personal-body');
+  if (!d.fichajes.length) {
+    perBody.innerHTML = '<tr><td colspan="4" style="padding:8px;color:var(--muted)">Sin fichajes</td></tr>';
+  } else {
+    perBody.innerHTML = d.fichajes.map(f => {
+      const horas = f.tiempodia ? parseFloat(String(f.tiempodia).replace(',','.')) : null;
+      return `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:5px 8px;font-weight:600">${f.empleado||'—'}</td>
+        <td style="padding:5px 8px;text-align:center;color:var(--accent2)">${f.entrada||'—'}</td>
+        <td style="padding:5px 8px;text-align:center;color:var(--danger)">${f.salida||'—'}</td>
+        <td style="padding:5px 8px;text-align:center">${horas!=null?horas:'—'}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Producción
+  const prodDiv = document.getElementById('inf-produccion-body');
+  if (!d.produccion) {
+    prodDiv.innerHTML = '<div style="color:var(--muted)">Sin datos de producción</div>';
+  } else {
+    const p = d.produccion;
+    prodDiv.innerHTML = `
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <div><span style="color:var(--muted)">Tipo día:</span> <b>${p.tipoDia||'—'}</b></div>
+        <div><span style="color:var(--muted)">Total Tn:</span> <b>${fmt(p.tnDia)}</b></div>
+        <div><span style="color:var(--muted)">H.Planta:</span> <b>${p.horasPlanta||'—'}</b></div>
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:8px">
+        <div><span style="color:var(--muted)">0/4:</span> <b>${fmt(p.t04)} Tn</b></div>
+        <div><span style="color:var(--muted)">4/12:</span> <b>${fmt(p.t412)} Tn</b></div>
+        <div><span style="color:var(--muted)">12/20:</span> <b>${fmt(p.t1220)} Tn</b></div>
+        <div><span style="color:var(--muted)">20/40:</span> <b>${fmt(p.t2040)} Tn</b></div>
+      </div>`;
+  }
+
+  // Ventas
+  const ventBody = document.getElementById('inf-ventas-body');
+  let totalNeto = 0, totalImporte = 0;
+  if (!d.pedidos.length) {
+    ventBody.innerHTML = '<tr><td colspan="8" style="padding:8px;color:var(--muted)">Sin pesadas</td></tr>';
+  } else {
+    ventBody.innerHTML = d.pedidos.map(p => {
+      const hora = (p.fechaHora||'').split(' ')[1]||'';
+      const neto = Number(p.pesoNeto||0)/1000;
+      const precio = getPrecioTn(p.nombreCliente, p.productoNombre);
+      const total = neto * precio;
+      totalNeto += neto;
+      totalImporte += total;
+      return `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:4px 8px;color:var(--muted)">${hora}</td>
+        <td style="padding:4px 8px">${p.matriculacam||'—'}</td>
+        <td style="padding:4px 8px;text-align:right">${Number(p.pesoBruto||0).toLocaleString()}</td>
+        <td style="padding:4px 8px;text-align:right">${Number(p.pesoNeto||0).toLocaleString()}</td>
+        <td style="padding:4px 8px">${p.productoNombre||'—'}</td>
+        <td style="padding:4px 8px">${p.nombreCliente||'—'}</td>
+        <td style="padding:4px 8px;text-align:right">${fmt(precio)}</td>
+        <td style="padding:4px 8px;text-align:right;font-weight:600">${fmt(total)} €</td>
+      </tr>`;
+    }).join('');
+  }
+  document.getElementById('inf-ventas-total-neto').textContent = fmt(totalNeto) + ' Tn';
+  document.getElementById('inf-ventas-total').textContent = fmt(totalImporte) + ' €';
+
+  // Gasoil
+  const gasoilDiv = document.getElementById('inf-gasoil-body');
+  if (!d.gasoil.length) {
+    gasoilDiv.innerHTML = '<div style="color:var(--muted)">Sin movimientos de gasoil</div>';
+  } else {
+    const totalLitros = d.gasoil.reduce((s,r)=>s+Number(r.litros||0),0);
+    gasoilDiv.innerHTML = `<table style="width:100%;border-collapse:collapse">
+      <thead><tr style="border-bottom:2px solid var(--border)">
+        <th style="text-align:left;padding:4px 8px">Origen</th>
+        <th style="text-align:left;padding:4px 8px">Destino</th>
+        <th style="text-align:left;padding:4px 8px">Tipo</th>
+        <th style="text-align:right;padding:4px 8px">Litros</th>
+      </tr></thead>
+      <tbody>${d.gasoil.map(g=>`<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:4px 8px">${g.origen||'—'}</td>
+        <td style="padding:4px 8px">${g.destino||'—'}</td>
+        <td style="padding:4px 8px">${g.tipo||'—'}</td>
+        <td style="padding:4px 8px;text-align:right">${Number(g.litros||0).toLocaleString()} L</td>
+      </tr>`).join('')}</tbody>
+      <tfoot><tr style="border-top:2px solid var(--border);font-weight:700">
+        <td colspan="3" style="padding:4px 8px">TOTAL CONSUMIDO DÍA</td>
+        <td style="padding:4px 8px;text-align:right">${totalLitros.toLocaleString()} L</td>
+      </tr></tfoot>
+    </table>`;
+  }
+}
+
+function infEnviarEmail() {
+  if (!_infData) { alert('Carga primero el informe'); return; }
+  const fechaFmt = _infData.fecha.split('-').reverse().join('/');
+  const asunto = `Datos diarios planta ${fechaFmt}`;
+  const cuerpo = `Buenas tardes,\n\nAdjunto datos diarios del día ${fechaFmt}.\n\nSaludos,\nDavid.`;
+  const outlookUrl = 'https://outlook.office365.com/owa/?path=/mail/action/compose'
+    + '&subject=' + encodeURIComponent(asunto)
+    + '&body=' + encodeURIComponent(cuerpo);
+  window.open(outlookUrl, '_blank');
+}
+
+async function infExportarExcel() {
+  if (!_infData) { alert('Carga primero el informe'); return; }
+  if (typeof ExcelJS === 'undefined') { alert('Librería Excel no cargada'); return; }
+
+  const d = _infData;
+  const fechaFmt = d.fecha.split('-').reverse().join('/');
+  const fmt2 = v => Number(v||0).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const wb = new ExcelJS.Workbook();
+
+  // Estilos
+  const hdrFill = {type:'pattern',pattern:'solid',fgColor:{argb:'FF374151'}};
+  const hdrFont = {bold:true,color:{argb:'FFFFFFFF'},size:10};
+  const boldFont = {bold:true,size:10};
+  const borderAll = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+
+  // ── HOJA MAQUINARIA ──
+  const wsMaq = wb.addWorksheet('Maquinaria');
+  wsMaq.columns = [{width:22},{width:10},{width:10},{width:10},{width:30}];
+  const maqHdr = wsMaq.addRow(['MAQUINARIA','DESDE','HASTA','HORAS','TRABAJO']);
+  maqHdr.eachCell(c=>{c.fill=hdrFill;c.font=hdrFont;c.border=borderAll;c.alignment={horizontal:'center'};});
+  maqHdr.getCell(1).alignment={horizontal:'left'};
+
+  // Leer valores del DOM
+  const maqRows = document.querySelectorAll('#inf-maquinaria-body tr');
+  INF_MAQUINARIA.forEach((m, i) => {
+    const row = maqRows[i];
+    const inputs = row ? row.querySelectorAll('input') : [];
+    const desde = inputs[0]?.value||'';
+    const hasta = inputs[1]?.value||'';
+    const trabajo = inputs[2]?.value||'';
+    const horas = (desde&&hasta&&Number(hasta)>Number(desde)) ? Number(hasta)-Number(desde) : '';
+    const r = wsMaq.addRow([m, desde, hasta, horas, trabajo]);
+    r.eachCell(c=>{c.border=borderAll;});
+  });
+
+  // ── HOJA PERSONAL ──
+  const wsPer = wb.addWorksheet('Personal');
+  wsPer.columns = [{width:22},{width:12},{width:12},{width:10}];
+  const perHdr = wsPer.addRow(['NOMBRE','ENTRADA','SALIDA','HORAS']);
+  perHdr.eachCell(c=>{c.fill=hdrFill;c.font=hdrFont;c.border=borderAll;c.alignment={horizontal:'center'};});
+  perHdr.getCell(1).alignment={horizontal:'left'};
+  d.fichajes.forEach(f => {
+    const horas = f.tiempodia ? parseFloat(String(f.tiempodia).replace(',','.')) : '';
+    const r = wsPer.addRow([f.empleado||'', f.entrada||'', f.salida||'', horas]);
+    r.eachCell(c=>{c.border=borderAll;});
+  });
+
+  // ── HOJA PRODUCCIÓN ──
+  const wsProd = wb.addWorksheet('Produccion');
+  wsProd.columns = [{width:14},{width:10},{width:12},{width:12},{width:12},{width:12},{width:12},{width:12}];
+  const prodHdr = wsProd.addRow(['FECHA','TIPO DÍA','0/4 Tn','4/12 Tn','12/20 Tn','20/40 Tn','TOTAL Tn','H.PLANTA']);
+  prodHdr.eachCell(c=>{c.fill=hdrFill;c.font=hdrFont;c.border=borderAll;c.alignment={horizontal:'center'};});
+  if (d.produccion) {
+    const p = d.produccion;
+    const r = wsProd.addRow([fechaFmt, p.tipoDia||'', Number(p.t04||0), Number(p.t412||0), Number(p.t1220||0), Number(p.t2040||0), Number(p.tnDia||0), p.horasPlanta||'']);
+    r.eachCell(c=>{c.border=borderAll;});
+  }
+
+  // ── HOJA VENTAS ──
+  const wsVent = wb.addWorksheet('Ventas');
+  wsVent.columns = [{width:10},{width:12},{width:10},{width:10},{width:22},{width:28},{width:10},{width:14}];
+  const ventHdr = wsVent.addRow(['HORA','MATRÍCULA','BRUTO','NETO','MATERIAL','CLIENTE','PRECIO','TOTAL']);
+  ventHdr.eachCell(c=>{c.fill=hdrFill;c.font=hdrFont;c.border=borderAll;c.alignment={horizontal:'center'};});
+  let totalNeto=0, totalImp=0;
+  d.pedidos.forEach(p => {
+    const hora = (p.fechaHora||'').split(' ')[1]||'';
+    const neto = Number(p.pesoNeto||0)/1000;
+    const precio = getPrecioTn(p.nombreCliente, p.productoNombre);
+    const total = neto * precio;
+    totalNeto += neto; totalImp += total;
+    const r = wsVent.addRow([hora, p.matriculacam||'', Number(p.pesoBruto||0), Number(p.pesoNeto||0), p.productoNombre||'', p.nombreCliente||'', precio, total]);
+    r.eachCell(c=>{c.border=borderAll;});
+  });
+  const totRow = wsVent.addRow(['','','','TOTAL','','','',totalImp]);
+  totRow.font=boldFont;
+  totRow.eachCell(c=>{c.border=borderAll;});
+
+  // ── HOJA GASOIL ──
+  const wsGas = wb.addWorksheet('Gasoil');
+  wsGas.columns = [{width:14},{width:16},{width:16},{width:16},{width:12}];
+  const gasHdr = wsGas.addRow(['FECHA','ORIGEN','DESTINO','TIPO','LITROS']);
+  gasHdr.eachCell(c=>{c.fill=hdrFill;c.font=hdrFont;c.border=borderAll;c.alignment={horizontal:'center'};});
+  let totalL=0;
+  d.gasoil.forEach(g => {
+    totalL += Number(g.litros||0);
+    const r = wsGas.addRow([fechaFmt, g.origen||'', g.destino||'', g.tipo||'', Number(g.litros||0)]);
+    r.eachCell(c=>{c.border=borderAll;});
+  });
+  const gasTotal = wsGas.addRow(['','','','TOTAL',totalL]);
+  gasTotal.font=boldFont;
+  gasTotal.eachCell(c=>{c.border=borderAll;});
+
+  // Descargar
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Informe_Planta_${d.fecha}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ============================================================
