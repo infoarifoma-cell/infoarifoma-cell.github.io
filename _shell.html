@@ -449,6 +449,9 @@
         <button class="snav-btn" onclick="goPage('produccion')" id="snav-produccion">
           <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 15h14M4 15V8l3-2v9M9 15V5l3-2v12M14 15V3"/></svg>Producción
         </button>
+        <button class="snav-btn" onclick="goPage('informes')" id="snav-informes">
+          <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3h12v12H3z" opacity=".3"/><path d="M6 9h6M6 12h4M6 6h3"/></svg>Informes
+        </button>
         <button class="snav-btn" onclick="goPage('stock')" id="snav-stock">
           <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 14l4-6 3 4 4-8 5 10"/><path d="M1 14h16" opacity=".4"/></svg>Stock
         </button>
@@ -871,6 +874,105 @@
               </div>
             </div>
           </div>
+        </div>
+
+        <!-- ══ INFORMES PLANTA ══ -->
+        <div class="page" id="pg-informes">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+            <div class="sec-title" style="margin:0">Informe Diario Planta</div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <input type="date" class="inp" id="inf-fecha" style="width:160px">
+              <button class="btn-main" onclick="cargarInformeDiario()" style="padding:8px 16px">Cargar</button>
+            </div>
+          </div>
+
+          <div id="inf-content" style="display:none">
+            <!-- Maquinaria -->
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px">
+              <div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px">Maquinaria</div>
+              <div style="overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse;font-size:.8rem">
+                  <thead><tr style="border-bottom:2px solid var(--border)">
+                    <th style="text-align:left;padding:6px 8px">Maquinaria</th>
+                    <th style="text-align:center;padding:6px 8px">Desde</th>
+                    <th style="text-align:center;padding:6px 8px">Hasta</th>
+                    <th style="text-align:center;padding:6px 8px">Horas</th>
+                    <th style="text-align:left;padding:6px 8px">Trabajo</th>
+                  </tr></thead>
+                  <tbody id="inf-maquinaria-body"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Personal -->
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px">
+              <div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px">Personal</div>
+              <div style="overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse;font-size:.8rem">
+                  <thead><tr style="border-bottom:2px solid var(--border)">
+                    <th style="text-align:left;padding:6px 8px">Nombre</th>
+                    <th style="text-align:center;padding:6px 8px">Entrada</th>
+                    <th style="text-align:center;padding:6px 8px">Salida</th>
+                    <th style="text-align:center;padding:6px 8px">Horas</th>
+                  </tr></thead>
+                  <tbody id="inf-personal-body"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Producción -->
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px">
+              <div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px">Producción</div>
+              <div id="inf-produccion-body" style="font-size:.8rem"></div>
+            </div>
+
+            <!-- Pesadas/Ventas -->
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px">
+              <div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px">Ventas del día</div>
+              <div style="overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse;font-size:.75rem">
+                  <thead><tr style="border-bottom:2px solid var(--border)">
+                    <th style="text-align:left;padding:6px 8px">Hora</th>
+                    <th style="text-align:left;padding:6px 8px">Matrícula</th>
+                    <th style="text-align:right;padding:6px 8px">Bruto</th>
+                    <th style="text-align:right;padding:6px 8px">Neto</th>
+                    <th style="text-align:left;padding:6px 8px">Material</th>
+                    <th style="text-align:left;padding:6px 8px">Cliente</th>
+                    <th style="text-align:right;padding:6px 8px">Precio</th>
+                    <th style="text-align:right;padding:6px 8px">Total</th>
+                  </tr></thead>
+                  <tbody id="inf-ventas-body"></tbody>
+                  <tfoot><tr style="border-top:2px solid var(--border);font-weight:700">
+                    <td colspan="3" style="padding:6px 8px">TOTAL DIARIO (sin IGIC)</td>
+                    <td style="text-align:right;padding:6px 8px" id="inf-ventas-total-neto"></td>
+                    <td colspan="3" style="padding:6px 8px"></td>
+                    <td style="text-align:right;padding:6px 8px;color:var(--accent)" id="inf-ventas-total"></td>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+
+            <!-- Gasoil -->
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px">
+              <div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px">Gasoil</div>
+              <div id="inf-gasoil-body" style="font-size:.8rem"></div>
+            </div>
+
+            <!-- Botones -->
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn-main" onclick="infExportarExcel()" style="padding:10px 20px">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                Exportar Excel
+              </button>
+              <button class="btn-sec" onclick="infEnviarEmail()" style="padding:10px 20px">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg>
+                Enviar por Email
+              </button>
+            </div>
+          </div>
+
+          <div id="inf-empty" style="padding:40px;text-align:center;color:var(--muted)">Selecciona una fecha y pulsa Cargar</div>
+          <div id="inf-loading" style="display:none;padding:40px;text-align:center;color:var(--muted)">Cargando...</div>
         </div>
 
         <!-- ══ STOCK ══ -->
