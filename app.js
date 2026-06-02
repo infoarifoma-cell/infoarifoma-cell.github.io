@@ -8025,7 +8025,7 @@ async function comprasSubir(){
     document.getElementById('compras-step3').style.display='none';
     document.getElementById('compras-step4').style.display='block';
     document.getElementById('compras-ruta-destino').textContent='Arifoma/'+folderPath+'/'+fileName;
-    comprasInitArticulos();
+    await comprasInitArticulos();
     comprasAutoArticulo(prov);
   }catch(e){
     comprasShowError('Error al subir: '+e.message);
