@@ -8341,7 +8341,7 @@ async function cargarInformeDiario() {
       pedidos: pedidosRes.data || [],
       produccion: (produccionRes.data || [])[0] || null,
       gasoil: gasoilDelDia,
-      stock: {dep1: gasoilJson.dep1||0, dep2: gasoilJson.dep2||0},
+      stock: {dep1: (stockRes.dep1||stockRes.data?.dep1)||0, dep2: (stockRes.dep2||stockRes.data?.dep2)||0},
     };
 
     _renderInforme(_infData);
