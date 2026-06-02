@@ -8326,22 +8326,41 @@ async function cargarInformeDiario() {
     const fechaDesde = fecha + 'T00:00:00';
     const fechaHasta = fecha + 'T23:59:59';
 
-    const [fichajesRes, pedidosRes, produccionRes, gasoilRes, stockRes] = await Promise.all([
+    const [fichajesRes, pedidosRes, produccionRes, gasoilRes, gasoilHistRes] = await Promise.all([
       dbQuery({ action:'select', table:'tblFichaje', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'empleado,entrada,salida,tiempodia'} }),
       dbQuery({ action:'select', table:'tblpedidos', filters:[{column:'fechaHora',op:'gte',value:fechaDesde},{column:'fechaHora',op:'lte',value:fechaHasta}], options:{select:'fechaHora,matriculacam,pesoBruto,pesoNeto,productoNombre,nombreCliente',order:'fechaHora'} }),
       dbQuery({ action:'select', table:'PRODUCCION', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'fecha,tipoDia,t04,t412,t1220,t2040,tnDia,horasPlanta'} }),
       dbQuery({ action:'select', table:'GASOIL', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'fecha,origen,destino,litros,tipo'} }),
-      apiFetch('?accion=gasoil'),
+      dbQuery({ action:'select', table:'GASOIL', filters:[{column:'fecha',op:'lte',value:fecha}], options:{select:'origen,destino,litros,tipo'} }),
     ]);
 
     const gasoilDelDia = gasoilRes.data || [];
+
+    // Calcular stock al final del día seleccionado
+    let dep1 = 0, dep2 = 0;
+    for (const m of (gasoilHistRes.data || [])) {
+      const litros = Number(m.litros || 0);
+      const origen = String(m.origen || '').toUpperCase();
+      const destino = String(m.destino || '').toUpperCase();
+      const tipo = String(m.tipo || '').toUpperCase();
+      if (tipo === 'ENTRADA') {
+        if (destino.includes('DEPOSITO 1')) dep1 += litros;
+        else if (destino.includes('DEPOSITO 2')) dep2 += litros;
+      } else if (tipo === 'SALIDA') {
+        if (origen.includes('DEPOSITO 1')) dep1 -= litros;
+        else if (origen.includes('DEPOSITO 2')) dep2 -= litros;
+      } else if (tipo === 'ENTRADA-SALIDA') {
+        // directo a máquina desde proveedor, no afecta depósitos
+      }
+    }
+
     _infData = {
       fecha,
       fichajes: fichajesRes.data || [],
       pedidos: pedidosRes.data || [],
       produccion: (produccionRes.data || [])[0] || null,
       gasoil: gasoilDelDia,
-      stock: {dep1: (stockRes.dep1||stockRes.data?.dep1)||0, dep2: (stockRes.dep2||stockRes.data?.dep2)||0},
+      stock: { dep1, dep2 },
     };
 
     _renderInforme(_infData);
