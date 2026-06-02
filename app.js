@@ -1940,7 +1940,7 @@ async function guardarPedidoEditar(){
 let ventasData=[];
 const PROD_CAT2={'ARIDO AF-T-0/4-I':'0/4','ARIDO AG-T-4/12-I':'4/12','ARIDO AG-T-12/20-I':'12/20','ARIDO AG-T-20/40-I':'20/40'};
 
-const FICHA_QR_URLS={'0/4':'https://infoarifoma-cell.github.io/fichas/04.pdf','4/12':'https://infoarifoma-cell.github.io/fichas/412.pdf','12/20':'https://infoarifoma-cell.github.io/fichas/1220.pdf','20/40':'https://infoarifoma-cell.github.io/fichas/2040.pdf'};
+const FICHA_QR_URLS={'0/4':'https://www.arifoma.com/ficha%20tecnica/04v2.pdf','4/12':'https://www.arifoma.com/ficha%20tecnica/412v2.pdf','12/20':'https://www.arifoma.com/ficha%20tecnica/1220v2.pdf','20/40':'https://www.arifoma.com/ficha%20tecnica/2040v2.pdf'};
 function _renderAlbaranQR(productoNombre){
   const qrWrap=document.getElementById('alb-qr-wrap');
   const qrCanvas=document.getElementById('alb-qr-canvas');
