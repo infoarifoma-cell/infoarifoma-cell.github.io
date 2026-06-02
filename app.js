@@ -8322,20 +8322,28 @@ async function cargarInformeDiario() {
   document.getElementById('inf-loading').style.display = 'block';
 
   try {
-    // Cargar en paralelo: fichajes, pedidos, producción, gasoil
-    const [fichajesRes, pedidosRes, produccionRes, gasoilRes] = await Promise.all([
+    // fechaHora en tblpedidos es ISO: 2026-06-02T07:10:00Z → filtrar por rango ISO
+    const fechaDesde = fecha + 'T00:00:00';
+    const fechaHasta = fecha + 'T23:59:59';
+    // GASOIL fecha es dd/mm/yyyy
+    const fechaGasoil = fecha.split('-').reverse().join('/');
+
+    const [fichajesRes, pedidosRes, produccionRes, gasoilRes, stockRes] = await Promise.all([
       dbQuery({ action:'select', table:'tblFichaje', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'empleado,entrada,salida,tiempodia'} }),
-      dbQuery({ action:'select', table:'tblpedidos', filters:[{column:'fechaHora',op:'like',value:fecha.split('-').reverse().join('/')+' %'}], options:{select:'fechaHora,matriculacam,pesoBruto,pesoNeto,productoNombre,nombreCliente,numPedido,numLinea',order:'fechaHora'} }),
+      dbQuery({ action:'select', table:'tblpedidos', filters:[{column:'fechaHora',op:'gte',value:fechaDesde},{column:'fechaHora',op:'lte',value:fechaHasta}], options:{select:'fechaHora,matriculacam,pesoBruto,pesoNeto,productoNombre,nombreCliente',order:'fechaHora'} }),
       dbQuery({ action:'select', table:'PRODUCCION', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'fecha,tipoDia,t04,t412,t1220,t2040,tnDia,horasPlanta'} }),
-      dbQuery({ action:'select', table:'GASOIL', filters:[{column:'fecha',op:'like',value:fecha.split('-').reverse().join('/')+'%'}], options:{select:'fecha,origen,destino,litros,tipo'} }),
+      dbQuery({ action:'select', table:'GASOIL', filters:[{column:'fecha',op:'eq',value:fechaGasoil}], options:{select:'fecha,origen,destino,litros,tipo'} }),
+      dbQuery({ action:'select', table:'GASOIL_STOCK', options:{select:'dep1,dep2'} }),
     ]);
 
+    const stockRow = (stockRes.data||[])[0]||{dep1:0,dep2:0};
     _infData = {
       fecha,
       fichajes: fichajesRes.data || [],
       pedidos: pedidosRes.data || [],
-      produccion: (produccionRes.data || []).find(r => r.fecha === fecha) || null,
+      produccion: (produccionRes.data || [])[0] || null,
       gasoil: gasoilRes.data || [],
+      stock: {dep1: stockRow.dep1||0, dep2: stockRow.dep2||0},
     };
 
     _renderInforme(_infData);
@@ -8351,19 +8359,19 @@ async function cargarInformeDiario() {
 
 function _renderInforme(d) {
   const fmt = v => Number(v||0).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const fmtH = v => v!=null ? parseFloat(String(v).replace(',','.')).toFixed(1) : '—';
 
-  // Maquinaria (fija)
+  // Maquinaria (fija) — inputs con value por defecto
   const maqBody = document.getElementById('inf-maquinaria-body');
   maqBody.innerHTML = INF_MAQUINARIA.map(m =>
     `<tr style="border-bottom:1px solid var(--border)">
       <td style="padding:5px 8px;font-weight:600">${m}</td>
-      <td style="padding:5px 8px;text-align:center"><input type="number" min="0" max="24" style="width:50px;text-align:center;border:1px solid var(--border);border-radius:4px;padding:2px;background:var(--surface2)" placeholder="7"></td>
-      <td style="padding:5px 8px;text-align:center"><input type="number" min="0" max="24" style="width:50px;text-align:center;border:1px solid var(--border);border-radius:4px;padding:2px;background:var(--surface2)" placeholder="17"></td>
-      <td style="padding:5px 8px;text-align:center" class="inf-maq-horas">—</td>
+      <td style="padding:5px 8px;text-align:center"><input type="number" min="0" max="24" value="7" style="width:50px;text-align:center;border:1px solid var(--border);border-radius:4px;padding:2px;background:var(--surface2)"></td>
+      <td style="padding:5px 8px;text-align:center"><input type="number" min="0" max="24" value="17" style="width:50px;text-align:center;border:1px solid var(--border);border-radius:4px;padding:2px;background:var(--surface2)"></td>
+      <td style="padding:5px 8px;text-align:center;font-weight:600" class="inf-maq-horas">10</td>
       <td style="padding:5px 8px"><input type="text" style="width:100%;border:1px solid var(--border);border-radius:4px;padding:2px 4px;background:var(--surface2)" placeholder="Trabajo..."></td>
     </tr>`
   ).join('');
-  // Calcular horas al cambiar desde/hasta
   maqBody.querySelectorAll('tr').forEach(row => {
     const [desdeTd, hastaTd, horasTd] = [row.children[1], row.children[2], row.children[3]];
     const calc = () => {
@@ -8375,20 +8383,19 @@ function _renderInforme(d) {
     hastaTd.querySelector('input').addEventListener('input', calc);
   });
 
-  // Personal (fichajes)
+  // Personal
   const perBody = document.getElementById('inf-personal-body');
   if (!d.fichajes.length) {
     perBody.innerHTML = '<tr><td colspan="4" style="padding:8px;color:var(--muted)">Sin fichajes</td></tr>';
   } else {
-    perBody.innerHTML = d.fichajes.map(f => {
-      const horas = f.tiempodia ? parseFloat(String(f.tiempodia).replace(',','.')) : null;
-      return `<tr style="border-bottom:1px solid var(--border)">
+    perBody.innerHTML = d.fichajes.map(f =>
+      `<tr style="border-bottom:1px solid var(--border)">
         <td style="padding:5px 8px;font-weight:600">${f.empleado||'—'}</td>
         <td style="padding:5px 8px;text-align:center;color:var(--accent2)">${f.entrada||'—'}</td>
         <td style="padding:5px 8px;text-align:center;color:var(--danger)">${f.salida||'—'}</td>
-        <td style="padding:5px 8px;text-align:center">${horas!=null?horas:'—'}</td>
-      </tr>`;
-    }).join('');
+        <td style="padding:5px 8px;text-align:center">${fmtH(f.tiempodia)}</td>
+      </tr>`
+    ).join('');
   }
 
   // Producción
@@ -8418,12 +8425,12 @@ function _renderInforme(d) {
     ventBody.innerHTML = '<tr><td colspan="8" style="padding:8px;color:var(--muted)">Sin pesadas</td></tr>';
   } else {
     ventBody.innerHTML = d.pedidos.map(p => {
-      const hora = (p.fechaHora||'').split(' ')[1]||'';
+      const d2 = new Date(p.fechaHora);
+      const hora = !isNaN(d2) ? pad(d2.getHours())+':'+pad(d2.getMinutes()) : (p.fechaHora||'').split(' ')[1]||'';
       const neto = Number(p.pesoNeto||0)/1000;
       const precio = getPrecioTn(p.nombreCliente, p.productoNombre);
       const total = neto * precio;
-      totalNeto += neto;
-      totalImporte += total;
+      totalNeto += neto; totalImporte += total;
       return `<tr style="border-bottom:1px solid var(--border)">
         <td style="padding:4px 8px;color:var(--muted)">${hora}</td>
         <td style="padding:4px 8px">${p.matriculacam||'—'}</td>
@@ -8439,12 +8446,22 @@ function _renderInforme(d) {
   document.getElementById('inf-ventas-total-neto').textContent = fmt(totalNeto) + ' Tn';
   document.getElementById('inf-ventas-total').textContent = fmt(totalImporte) + ' €';
 
-  // Gasoil
+  // Gasoil + Stock depósitos
   const gasoilDiv = document.getElementById('inf-gasoil-body');
+  const totalLitros = d.gasoil.reduce((s,r)=>s+Number(r.litros||0),0);
+  const stockHtml = `<div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap">
+    <div style="background:var(--surface2);border-radius:6px;padding:8px 14px;font-size:.8rem">
+      <div style="color:var(--muted);font-size:.7rem;text-transform:uppercase">DEPÓSITO 1</div>
+      <div style="font-weight:700;font-size:1rem">${Number(d.stock.dep1).toLocaleString()} L</div>
+    </div>
+    <div style="background:var(--surface2);border-radius:6px;padding:8px 14px;font-size:.8rem">
+      <div style="color:var(--muted);font-size:.7rem;text-transform:uppercase">DEPÓSITO 2</div>
+      <div style="font-weight:700;font-size:1rem">${Number(d.stock.dep2).toLocaleString()} L</div>
+    </div>
+  </div>`;
   if (!d.gasoil.length) {
-    gasoilDiv.innerHTML = '<div style="color:var(--muted)">Sin movimientos de gasoil</div>';
+    gasoilDiv.innerHTML = '<div style="color:var(--muted)">Sin movimientos de gasoil</div>' + stockHtml;
   } else {
-    const totalLitros = d.gasoil.reduce((s,r)=>s+Number(r.litros||0),0);
     gasoilDiv.innerHTML = `<table style="width:100%;border-collapse:collapse">
       <thead><tr style="border-bottom:2px solid var(--border)">
         <th style="text-align:left;padding:4px 8px">Origen</th>
@@ -8462,7 +8479,7 @@ function _renderInforme(d) {
         <td colspan="3" style="padding:4px 8px">TOTAL CONSUMIDO DÍA</td>
         <td style="padding:4px 8px;text-align:right">${totalLitros.toLocaleString()} L</td>
       </tr></tfoot>
-    </table>`;
+    </table>${stockHtml}`;
   }
 }
 
@@ -8483,23 +8500,45 @@ async function infExportarExcel() {
 
   const d = _infData;
   const fechaFmt = d.fecha.split('-').reverse().join('/');
-  const fmt2 = v => Number(v||0).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
   const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Informe ' + fechaFmt);
 
-  // Estilos
+  // Columnas
+  ws.columns = [{width:22},{width:8},{width:8},{width:8},{width:14},{width:12},{width:12},{width:12},{width:12},{width:12},{width:18},{width:28},{width:10},{width:14}];
+
   const hdrFill = {type:'pattern',pattern:'solid',fgColor:{argb:'FF374151'}};
-  const hdrFont = {bold:true,color:{argb:'FFFFFFFF'},size:10};
+  const subFill  = {type:'pattern',pattern:'solid',fgColor:{argb:'FFD1D5DB'}};
+  const hdrFont  = {bold:true,color:{argb:'FFFFFFFF'},size:10};
+  const subFont  = {bold:true,size:10};
   const boldFont = {bold:true,size:10};
-  const borderAll = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+  const border   = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+  const addHdr = (label, cols=14) => {
+    const r = ws.addRow([label]);
+    r.getCell(1).fill=hdrFill; r.getCell(1).font=hdrFont;
+    ws.mergeCells(r.number,1,r.number,cols);
+    r.height=16;
+  };
+  const addSubHdr = (vals) => {
+    const r = ws.addRow(vals);
+    r.eachCell(c=>{c.fill=subFill;c.font=subFont;c.border=border;c.alignment={horizontal:'center'};});
+    r.getCell(1).alignment={horizontal:'left'};
+  };
+  const addRow = (vals) => {
+    const r = ws.addRow(vals);
+    r.eachCell(c=>{c.border=border;});
+    return r;
+  };
+  const addBlank = () => ws.addRow([]);
 
-  // ── HOJA MAQUINARIA ──
-  const wsMaq = wb.addWorksheet('Maquinaria');
-  wsMaq.columns = [{width:22},{width:10},{width:10},{width:10},{width:30}];
-  const maqHdr = wsMaq.addRow(['MAQUINARIA','DESDE','HASTA','HORAS','TRABAJO']);
-  maqHdr.eachCell(c=>{c.fill=hdrFill;c.font=hdrFont;c.border=borderAll;c.alignment={horizontal:'center'};});
-  maqHdr.getCell(1).alignment={horizontal:'left'};
+  // ── Título ──
+  const titulo = ws.addRow([`INFORME DIARIO PLANTA — ${fechaFmt}`]);
+  titulo.getCell(1).font={bold:true,size:13}; titulo.height=20;
+  ws.mergeCells(titulo.number,1,titulo.number,14);
+  addBlank();
 
-  // Leer valores del DOM
+  // ── MAQUINARIA ──
+  addHdr('MAQUINARIA', 5);
+  addSubHdr(['MAQUINARIA','DESDE','HASTA','HORAS','TRABAJO']);
   const maqRows = document.querySelectorAll('#inf-maquinaria-body tr');
   INF_MAQUINARIA.forEach((m, i) => {
     const row = maqRows[i];
@@ -8508,75 +8547,71 @@ async function infExportarExcel() {
     const hasta = inputs[1]?.value||'';
     const trabajo = inputs[2]?.value||'';
     const horas = (desde&&hasta&&Number(hasta)>Number(desde)) ? Number(hasta)-Number(desde) : '';
-    const r = wsMaq.addRow([m, desde, hasta, horas, trabajo]);
-    r.eachCell(c=>{c.border=borderAll;});
+    addRow([m, desde?Number(desde):'', hasta?Number(hasta):'', horas, trabajo]);
   });
+  addBlank();
 
-  // ── HOJA PERSONAL ──
-  const wsPer = wb.addWorksheet('Personal');
-  wsPer.columns = [{width:22},{width:12},{width:12},{width:10}];
-  const perHdr = wsPer.addRow(['NOMBRE','ENTRADA','SALIDA','HORAS']);
-  perHdr.eachCell(c=>{c.fill=hdrFill;c.font=hdrFont;c.border=borderAll;c.alignment={horizontal:'center'};});
-  perHdr.getCell(1).alignment={horizontal:'left'};
+  // ── PERSONAL ──
+  addHdr('PERSONAL', 4);
+  addSubHdr(['NOMBRE','ENTRADA','SALIDA','HORAS']);
   d.fichajes.forEach(f => {
-    const horas = f.tiempodia ? parseFloat(String(f.tiempodia).replace(',','.')) : '';
-    const r = wsPer.addRow([f.empleado||'', f.entrada||'', f.salida||'', horas]);
-    r.eachCell(c=>{c.border=borderAll;});
+    const horas = f.tiempodia ? parseFloat(String(f.tiempodia).replace(',','.')).toFixed(1) : '';
+    addRow([f.empleado||'', f.entrada||'', f.salida||'', horas?Number(horas):'']);
   });
+  addBlank();
 
-  // ── HOJA PRODUCCIÓN ──
-  const wsProd = wb.addWorksheet('Produccion');
-  wsProd.columns = [{width:14},{width:10},{width:12},{width:12},{width:12},{width:12},{width:12},{width:12}];
-  const prodHdr = wsProd.addRow(['FECHA','TIPO DÍA','0/4 Tn','4/12 Tn','12/20 Tn','20/40 Tn','TOTAL Tn','H.PLANTA']);
-  prodHdr.eachCell(c=>{c.fill=hdrFill;c.font=hdrFont;c.border=borderAll;c.alignment={horizontal:'center'};});
+  // ── PRODUCCIÓN ──
+  addHdr('PRODUCCIÓN', 8);
+  addSubHdr(['FECHA','DÍA','0/4 Tn','4/12 Tn','12/20 Tn','20/40 Tn','TOTAL Tn','H.PLANTA']);
   if (d.produccion) {
     const p = d.produccion;
-    const r = wsProd.addRow([fechaFmt, p.tipoDia||'', Number(p.t04||0), Number(p.t412||0), Number(p.t1220||0), Number(p.t2040||0), Number(p.tnDia||0), p.horasPlanta||'']);
-    r.eachCell(c=>{c.border=borderAll;});
+    addRow([fechaFmt, p.tipoDia||'', Number(p.t04||0), Number(p.t412||0), Number(p.t1220||0), Number(p.t2040||0), Number(p.tnDia||0), p.horasPlanta||'']);
+    const totProd = ws.addRow(['','TOTALES',Number(p.t04||0),Number(p.t412||0),Number(p.t1220||0),Number(p.t2040||0),Number(p.tnDia||0),'']);
+    totProd.font=boldFont; totProd.eachCell(c=>{c.border=border;});
   }
+  addBlank();
 
-  // ── HOJA VENTAS ──
-  const wsVent = wb.addWorksheet('Ventas');
-  wsVent.columns = [{width:10},{width:12},{width:10},{width:10},{width:22},{width:28},{width:10},{width:14}];
-  const ventHdr = wsVent.addRow(['HORA','MATRÍCULA','BRUTO','NETO','MATERIAL','CLIENTE','PRECIO','TOTAL']);
-  ventHdr.eachCell(c=>{c.fill=hdrFill;c.font=hdrFont;c.border=borderAll;c.alignment={horizontal:'center'};});
+  // ── VENTAS ──
+  addHdr('VENTAS', 8);
+  addSubHdr(['FECHA-HORA','MATRÍCULA','BRUTO','NETO','MATERIAL','CLIENTE','PRECIO','TOTAL']);
   let totalNeto=0, totalImp=0;
   d.pedidos.forEach(p => {
-    const hora = (p.fechaHora||'').split(' ')[1]||'';
+    const d2 = new Date(p.fechaHora);
+    const hora = !isNaN(d2) ? fechaFmt+' '+pad(d2.getHours())+':'+pad(d2.getMinutes()) : p.fechaHora||'';
     const neto = Number(p.pesoNeto||0)/1000;
     const precio = getPrecioTn(p.nombreCliente, p.productoNombre);
     const total = neto * precio;
     totalNeto += neto; totalImp += total;
-    const r = wsVent.addRow([hora, p.matriculacam||'', Number(p.pesoBruto||0), Number(p.pesoNeto||0), p.productoNombre||'', p.nombreCliente||'', precio, total]);
-    r.eachCell(c=>{c.border=borderAll;});
+    addRow([hora, p.matriculacam||'', Number(p.pesoBruto||0), Number(p.pesoNeto||0), p.productoNombre||'', p.nombreCliente||'', precio, total]);
   });
-  const totRow = wsVent.addRow(['','','','TOTAL','','','',totalImp]);
-  totRow.font=boldFont;
-  totRow.eachCell(c=>{c.border=borderAll;});
+  const totVent = ws.addRow(['','','',totalNeto,'','','TOTAL DIARIO (sin IGIC)',totalImp]);
+  totVent.font=boldFont; totVent.eachCell(c=>{c.border=border;});
+  addBlank();
 
-  // ── HOJA GASOIL ──
-  const wsGas = wb.addWorksheet('Gasoil');
-  wsGas.columns = [{width:14},{width:16},{width:16},{width:16},{width:12}];
-  const gasHdr = wsGas.addRow(['FECHA','ORIGEN','DESTINO','TIPO','LITROS']);
-  gasHdr.eachCell(c=>{c.fill=hdrFill;c.font=hdrFont;c.border=borderAll;c.alignment={horizontal:'center'};});
+  // ── GASOIL ──
+  addHdr('GASOIL', 5);
+  addSubHdr(['FECHA','ORIGEN','DESTINO','TIPO','TOTAL (L)']);
   let totalL=0;
   d.gasoil.forEach(g => {
     totalL += Number(g.litros||0);
-    const r = wsGas.addRow([fechaFmt, g.origen||'', g.destino||'', g.tipo||'', Number(g.litros||0)]);
-    r.eachCell(c=>{c.border=borderAll;});
+    addRow([fechaFmt, g.origen||'', g.destino||'', g.tipo||'', Number(g.litros||0)]);
   });
-  const gasTotal = wsGas.addRow(['','','','TOTAL',totalL]);
-  gasTotal.font=boldFont;
-  gasTotal.eachCell(c=>{c.border=borderAll;});
+  const totGas = ws.addRow(['','','','TOTAL CONSUMIDO DÍA', totalL]);
+  totGas.font=boldFont; totGas.eachCell(c=>{c.border=border;});
+  addBlank();
+
+  // ── STOCK DEPÓSITOS ──
+  addHdr('STOCK DEPÓSITOS', 3);
+  addSubHdr(['DEPÓSITO','STOCK ACTUAL']);
+  addRow(['DEPOSITO 1', Number(d.stock.dep1)]);
+  addRow(['DEPOSITO 2', Number(d.stock.dep2)]);
 
   // Descargar
   const buf = await wb.xlsx.writeBuffer();
   const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = `Informe_Planta_${d.fecha}.xlsx`;
-  a.click();
+  a.href=url; a.download=`Informe_Planta_${d.fecha}.xlsx`; a.click();
   URL.revokeObjectURL(url);
 }
 
