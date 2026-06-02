@@ -7672,6 +7672,37 @@ let _comprasFileName='';
 let _comprasFileBuffer=null;
 let _comprasFileType='';
 let _comprasVendorsBC=[];
+let _comprasItemsBC=[];
+
+// Artículo por defecto según proveedor (nombre BC exacto → número artículo BC)
+const COMPRAS_PROVEEDOR_ARTICULO_DEFAULT={
+  // Ej: 'CEPSA CARD SL':'PROD-GASOil', — rellena según necesites
+};
+
+async function comprasInitArticulos(){
+  const dl=document.getElementById('compras-articulos-list');
+  if(!dl||_comprasItemsBC.length)return;
+  try{
+    const token=await getBCToken();
+    const resp=await fetch('/api/bc/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});
+    const data=await resp.json();
+    if(data.ok&&data.items.length){
+      _comprasItemsBC=data.items;
+      dl.innerHTML='';
+      _comprasItemsBC.forEach(it=>{const o=document.createElement('option');o.value=it.number+' — '+it.displayName;dl.appendChild(o);});
+    }
+  }catch(e){console.warn('No se pudo cargar artículos BC:',e.message);}
+}
+
+function comprasAutoArticulo(proveedorNombre){
+  const def=COMPRAS_PROVEEDOR_ARTICULO_DEFAULT[proveedorNombre];
+  if(!def)return;
+  const match=_comprasItemsBC.find(it=>it.number===def||it.displayName===def);
+  if(match){
+    const inp=document.getElementById('compras-articulo');
+    if(inp&&!inp.value)inp.value=match.number+' — '+match.displayName;
+  }
+}
 
 function getMsalInstance(){
   if(_msalInstance)return _msalInstance;
@@ -7991,6 +8022,9 @@ async function comprasSubir(){
     document.getElementById('compras-step3').style.display='none';
     document.getElementById('compras-step4').style.display='block';
     document.getElementById('compras-ruta-destino').textContent='Arifoma/'+folderPath+'/'+fileName;
+    comprasInitArticulos();
+    const prov=document.getElementById('compras-proveedor').value.trim();
+    if(prov)comprasAutoArticulo(prov);
   }catch(e){
     comprasShowError('Error al subir: '+e.message);
   }finally{
@@ -8013,6 +8047,10 @@ async function comprasCrearPedidoCompra(){
   try{
     const token=await getBCToken();
     const orderDate=fecha||null;
+    const articuloVal=(document.getElementById('compras-articulo')?.value||'').trim();
+    const itemNumber=articuloVal?articuloVal.split(' — ')[0].trim():null;
+    const quantity=document.getElementById('compras-cantidad')?.value||null;
+    const unitPrice=document.getElementById('compras-precio')?.value||null;
 
     const resp=await fetch('/api/bc/pedido-compra',{
       method:'POST',
@@ -8021,7 +8059,10 @@ async function comprasCrearPedidoCompra(){
         token,
         vendorName:prov,
         orderDate,
-        vendorInvoiceNumber:nfac||null
+        vendorInvoiceNumber:nfac||null,
+        itemNumber:itemNumber||null,
+        quantity:quantity?Number(quantity):null,
+        unitPrice:unitPrice?Number(unitPrice):null
       })
     });
 
@@ -8249,6 +8290,9 @@ function comprasReset(){
   document.getElementById('compras-nfactura').value='';
   document.getElementById('compras-fecha').value='';
   document.getElementById('compras-ocr-text').value='';
+  const artInp=document.getElementById('compras-articulo');if(artInp)artInp.value='';
+  const cantInp=document.getElementById('compras-cantidad');if(cantInp)cantInp.value='';
+  const precInp=document.getElementById('compras-precio');if(precInp)precInp.value='';
   const btnPed=document.getElementById('compras-btn-pedido');
   if(btnPed){btnPed.style.display='';btnPed.disabled=false;btnPed.textContent='Crear Pedido de Compra en BC';}
   const resDiv=document.getElementById('compras-pedido-resultado');

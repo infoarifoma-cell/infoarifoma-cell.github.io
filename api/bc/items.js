@@ -1,5 +1,5 @@
 // POST /api/bc/items
-// Devuelve lista de productos desde BC
+// Devuelve lista de artículos desde BC
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -29,13 +29,13 @@ export default async function handler(req, res) {
     const companyId = company.id;
 
     let items = [];
-    let url = `${base}(${companyId})/items?$select=number,displayName&$top=500`;
+    let url = `${base}(${companyId})/items?$select=number,displayName,unitPrice&$top=500`;
 
     while (url) {
       const iRes = await fetch(url, { headers });
-      if (!iRes.ok) throw new Error('Error obteniendo items: ' + iRes.statusText);
+      if (!iRes.ok) throw new Error('Error obteniendo artículos: ' + iRes.statusText);
       const iJson = await iRes.json();
-      items = items.concat((iJson.value || []).map(i => ({ number: i.number, name: i.displayName })));
+      items = items.concat((iJson.value || []).map(i => ({ number: i.number, displayName: i.displayName, unitPrice: i.unitPrice })));
       url = iJson['@odata.nextLink'] || null;
     }
 

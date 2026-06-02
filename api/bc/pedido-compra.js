@@ -6,7 +6,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, error: 'Método no permitido' });
   }
 
-  const { token, vendorName, orderDate, vendorInvoiceNumber } = req.body;
+  const { token, vendorName, orderDate, vendorInvoiceNumber, itemNumber, quantity, unitPrice } = req.body;
 
   if (!token || typeof token !== 'string') {
     return res.status(401).json({ ok: false, error: 'Token requerido' });
@@ -76,9 +76,10 @@ export default async function handler(req, res) {
       }
     }
 
-    // Crear purchase order (solo vendorNumber y orderDate — purchaseOrder no acepta más campos)
+    // Crear purchase order
     const orderBody = { vendorNumber };
     if (orderDate) orderBody.orderDate = orderDate;
+    if (vendorInvoiceNumber) orderBody.vendorInvoiceNumber = vendorInvoiceNumber;
 
     const orderRes = await fetch(`${base}(${companyId})/purchaseOrders`, {
       method: 'POST',
@@ -89,6 +90,28 @@ export default async function handler(req, res) {
     if (!orderRes.ok) throw new Error('No se pudo crear pedido de compra: ' + await orderRes.text());
 
     const order = await orderRes.json();
+
+    // Añadir línea si se especificó artículo
+    if (itemNumber && quantity) {
+      const lineBody = {
+        documentId: order.id,
+        lineType: 'Item',
+        lineObjectNumber: itemNumber,
+        quantity: Number(quantity)
+      };
+      if (unitPrice) lineBody.unitCost = Number(unitPrice);
+
+      const lineRes = await fetch(`${base}(${companyId})/purchaseOrders(${order.id})/purchaseOrderLines`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(lineBody)
+      });
+      if (!lineRes.ok) {
+        const errTxt = await lineRes.text();
+        console.warn('No se pudo crear línea:', errTxt);
+      }
+    }
+
     return res.status(200).json({ ok: true, order });
   } catch (error) {
     console.error('BC pedido-compra error:', error.message);
