@@ -8054,6 +8054,7 @@ async function comprasCrearPedidoCompra(){
     const quantity=document.getElementById('compras-cantidad')?.value||null;
     const unitPrice=document.getElementById('compras-precio')?.value||null;
 
+    console.log('compras payload:', {vendorName:prov, vendorInvoiceNumber:nfac, itemNumber, quantity, unitPrice});
     const resp=await fetch('/api/bc/pedido-compra',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
