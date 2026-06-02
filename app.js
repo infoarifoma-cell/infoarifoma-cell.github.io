@@ -1953,9 +1953,14 @@ function _renderAlbaranQR(productoNombre){
   else if(nombre.includes('0/4'))cat='0/4';
   if(!cat||!FICHA_QR_URLS[cat]){qrWrap.style.display='none';return;}
   qrWrap.style.display='flex';
-  if(typeof QRCode!=='undefined'){
-    QRCode.toCanvas(qrCanvas,FICHA_QR_URLS[cat],{width:88,margin:1,errorCorrectionLevel:'M'},function(err){if(err)console.error('QR error',err);});
+  function _doQR(){
+    if(typeof QRCode!=='undefined'){
+      QRCode.toCanvas(qrCanvas,FICHA_QR_URLS[cat],{width:88,margin:1,errorCorrectionLevel:'M'},function(err){if(err)console.error('QR error',err);});
+    } else {
+      setTimeout(_doQR,200);
+    }
   }
+  _doQR();
 }
 function getCat(prod){
   const p=String(prod||'').toUpperCase();
