@@ -79,7 +79,6 @@ export default async function handler(req, res) {
     // Crear purchase order
     const orderBody = { vendorNumber };
     if (orderDate) orderBody.orderDate = orderDate;
-    if (vendorInvoiceNumber) orderBody.vendorInvoiceNumber = vendorInvoiceNumber;
 
     const orderRes = await fetch(`${base}(${companyId})/purchaseOrders`, {
       method: 'POST',
@@ -90,6 +89,17 @@ export default async function handler(req, res) {
     if (!orderRes.ok) throw new Error('No se pudo crear pedido de compra: ' + await orderRes.text());
 
     const order = await orderRes.json();
+
+    // PATCH vendorInvoiceNumber por separado (BC no lo acepta en POST)
+    if (vendorInvoiceNumber) {
+      const etag = order['@odata.etag'];
+      const patchHeaders = { ...headers, 'If-Match': etag || '*' };
+      await fetch(`${base}(${companyId})/purchaseOrders(${order.id})`, {
+        method: 'PATCH',
+        headers: patchHeaders,
+        body: JSON.stringify({ vendorInvoiceNumber })
+      });
+    }
 
     // Añadir línea si se especificó artículo
     if (itemNumber && quantity) {
