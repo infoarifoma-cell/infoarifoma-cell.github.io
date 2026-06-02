@@ -8338,12 +8338,17 @@ async function cargarInformeDiario() {
     ]);
 
     const gasoilJson = stockRes;
+    // Filtrar movimientos del día — fecha guardada como d/mm/yyyy (sin cero)
+    const gasoilDelDia = (gasoilJson.data||[]).filter(g => {
+      const gf = String(g.fecha||'').trim();
+      return gf === fechaGasoil || gf === (parseInt(fd)+'/'+fm+'/'+fy);
+    });
     _infData = {
       fecha,
       fichajes: fichajesRes.data || [],
       pedidos: pedidosRes.data || [],
       produccion: (produccionRes.data || [])[0] || null,
-      gasoil: gasoilRes.data || [],
+      gasoil: gasoilDelDia,
       stock: {dep1: gasoilJson.dep1||0, dep2: gasoilJson.dep2||0},
     };
 
