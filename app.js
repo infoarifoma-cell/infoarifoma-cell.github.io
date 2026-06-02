@@ -7676,7 +7676,10 @@ let _comprasItemsBC=[];
 
 // Artículo por defecto según proveedor (nombre BC exacto → número artículo BC)
 const COMPRAS_PROVEEDOR_ARTICULO_DEFAULT={
-  // Ej: 'CEPSA CARD SL':'PROD-GASOil', — rellena según necesites
+  'ELEVACIONES ARCHIPIELAGO SAU':'PROD-000047',
+  'MASPALOMAS REPUESTOS, S.L.':'PROD-000041',
+  'INSUCAN S.L':'PROD-000041',
+  'EYSER ISLAS CANARIAS SL':'PROD-000041',
 };
 
 async function comprasInitArticulos(){
