@@ -8326,44 +8326,22 @@ async function cargarInformeDiario() {
     const fechaDesde = fecha + 'T00:00:00';
     const fechaHasta = fecha + 'T23:59:59';
 
-    const hoy = new Date().toISOString().slice(0, 10);
-    const fechaSig = fecha < hoy ? fecha.slice(0,8) + String(parseInt(fecha.slice(8))+1).padStart(2,'0') : null;
-
-    const [fichajesRes, pedidosRes, produccionRes, gasoilRes, stockRes, gasoilPostRes] = await Promise.all([
+    const [fichajesRes, pedidosRes, produccionRes, gasoilRes, stockRes] = await Promise.all([
       dbQuery({ action:'select', table:'tblFichaje', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'empleado,entrada,salida,tiempodia'} }),
       dbQuery({ action:'select', table:'tblpedidos', filters:[{column:'fechaHora',op:'gte',value:fechaDesde},{column:'fechaHora',op:'lte',value:fechaHasta}], options:{select:'fechaHora,matriculacam,pesoBruto,pesoNeto,productoNombre,nombreCliente',order:'fechaHora'} }),
       dbQuery({ action:'select', table:'PRODUCCION', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'fecha,tipoDia,t04,t412,t1220,t2040,tnDia,horasPlanta'} }),
       dbQuery({ action:'select', table:'GASOIL', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'fecha,origen,destino,litros,tipo'} }),
       apiFetch('?accion=gasoil'),
-      fechaSig ? dbQuery({ action:'select', table:'GASOIL', filters:[{column:'fecha',op:'gte',value:fechaSig}], options:{select:'origen,destino,litros,tipo'} }) : Promise.resolve({data:[]}),
     ]);
 
     const gasoilDelDia = gasoilRes.data || [];
-
-    // Stock al cierre del día = stock actual del sheet - movimientos netos posteriores al día
-    let dep1 = stockRes.dep1 || 0;
-    let dep2 = stockRes.dep2 || 0;
-    for (const m of (gasoilPostRes.data || [])) {
-      const litros = Number(m.litros || 0);
-      const origen = String(m.origen || '').toUpperCase();
-      const destino = String(m.destino || '').toUpperCase();
-      const tipo = String(m.tipo || '').toUpperCase();
-      if (tipo === 'ENTRADA') {
-        if (destino.includes('DEPOSITO 1')) dep1 -= litros;
-        else if (destino.includes('DEPOSITO 2')) dep2 -= litros;
-      } else if (tipo === 'SALIDA') {
-        if (origen.includes('DEPOSITO 1')) dep1 += litros;
-        else if (origen.includes('DEPOSITO 2')) dep2 += litros;
-      }
-    }
-
     _infData = {
       fecha,
       fichajes: fichajesRes.data || [],
       pedidos: pedidosRes.data || [],
       produccion: (produccionRes.data || [])[0] || null,
       gasoil: gasoilDelDia,
-      stock: { dep1: Math.max(0, dep1), dep2: Math.max(0, dep2) },
+      stock: { dep1: stockRes.dep1||0, dep2: stockRes.dep2||0 },
     };
 
     _renderInforme(_infData);
