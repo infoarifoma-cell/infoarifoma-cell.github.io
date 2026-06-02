@@ -1646,6 +1646,7 @@ function mostrarAlbaranUltimaLinea(){
   const esCE=/\b(0\/4|4\/12|12\/20)\b/.test(nombre);
   const ceImg=document.getElementById('alb-ce-img');
   if(ceImg)ceImg.style.display=esCE?'inline':'none';
+  _renderAlbaranQR(p.productoNombre);
   const aw=document.getElementById('albaran-wrap');
   aw.style.display='flex';
   aw.classList.add('print-active');
@@ -1734,6 +1735,7 @@ async function mostrarAlbaran(id,p){
   const esCE=/\b(0\/4|4\/12|12\/20)\b/.test(nombre);
   const ceImg=document.getElementById('alb-ce-img');
   if(ceImg)ceImg.style.display=esCE?'inline':'none';
+  _renderAlbaranQR(p.productoNombre);
   // Mostrar albarán
   const aw=document.getElementById('albaran-wrap');
   if(aw) {
@@ -1937,6 +1939,24 @@ async function guardarPedidoEditar(){
 // ── VENTAS ────────────────────────────────────────────────────
 let ventasData=[];
 const PROD_CAT2={'ARIDO AF-T-0/4-I':'0/4','ARIDO AG-T-4/12-I':'4/12','ARIDO AG-T-12/20-I':'12/20','ARIDO AG-T-20/40-I':'20/40'};
+
+const FICHA_QR_URLS={'0/4':'https://infoarifoma-cell.github.io/fichas/04.pdf','4/12':'https://infoarifoma-cell.github.io/fichas/412.pdf','12/20':'https://infoarifoma-cell.github.io/fichas/1220.pdf','20/40':'https://infoarifoma-cell.github.io/fichas/2040.pdf'};
+function _renderAlbaranQR(productoNombre){
+  const qrWrap=document.getElementById('alb-qr-wrap');
+  const qrCanvas=document.getElementById('alb-qr-canvas');
+  if(!qrWrap||!qrCanvas)return;
+  const nombre=(productoNombre||'').toUpperCase();
+  let cat=null;
+  if(nombre.includes('20/40'))cat='20/40';
+  else if(nombre.includes('12/20'))cat='12/20';
+  else if(nombre.includes('4/12'))cat='4/12';
+  else if(nombre.includes('0/4'))cat='0/4';
+  if(!cat||!FICHA_QR_URLS[cat]){qrWrap.style.display='none';return;}
+  qrWrap.style.display='flex';
+  if(typeof QRCode!=='undefined'){
+    QRCode.toCanvas(qrCanvas,FICHA_QR_URLS[cat],{width:88,margin:1,errorCorrectionLevel:'M'},function(err){if(err)console.error('QR error',err);});
+  }
+}
 function getCat(prod){
   const p=String(prod||'').toUpperCase();
   if(p.includes('12/20'))return '12/20';
