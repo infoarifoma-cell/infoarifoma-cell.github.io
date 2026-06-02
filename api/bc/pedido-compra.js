@@ -7,7 +7,6 @@ export default async function handler(req, res) {
   }
 
   const { token, vendorName, orderDate, vendorInvoiceNumber, itemNumber, quantity, unitPrice } = req.body;
-  console.log('pedido-compra payload:', { vendorName, vendorInvoiceNumber, itemNumber, quantity, unitPrice });
 
   if (!token || typeof token !== 'string') {
     return res.status(401).json({ ok: false, error: 'Token requerido' });
@@ -22,23 +21,23 @@ export default async function handler(req, res) {
   const BC_TENANT = process.env.BC_TENANT;
   const BC_ENV = process.env.BC_ENV;
   const BC_COMPANY = process.env.BC_COMPANY;
+  const BC_COMPANY_ODATA = process.env.BC_COMPANY_ODATA || BC_COMPANY;
   const base = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/api/v2.0/companies`;
+  const odataBase = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/ODataV4/Company('${encodeURIComponent(BC_COMPANY_ODATA)}')`;
   const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
 
   const odataSafe = (val) => String(val || '').replace(/'/g, "''");
 
   try {
-    // Obtener company ID
+    // Obtener company ID (para API v2.0)
     const cRes = await fetch(base, { headers });
     if (!cRes.ok) throw new Error('No se pudo obtener company: ' + cRes.statusText);
-
     const cJson = await cRes.json();
     const company = cJson.value.find(c => c.name === BC_COMPANY);
     if (!company) throw new Error('Company no encontrada: ' + BC_COMPANY);
-
     const companyId = company.id;
 
-    // Buscar proveedor: primero exacto, luego parcial (contains)
+    // Buscar proveedor
     let vendorNumber = '';
     const exactFilter = `displayName eq '${odataSafe(vendorName)}'`;
     const exactRes = await fetch(
@@ -51,7 +50,6 @@ export default async function handler(req, res) {
     if (exactJson.value && exactJson.value.length > 0) {
       vendorNumber = exactJson.value[0].number;
     } else {
-      // Buscar parcial
       const partialFilter = `contains(displayName,'${odataSafe(vendorName)}')`;
       const partialRes = await fetch(
         `${base}(${companyId})/vendors?$filter=${encodeURIComponent(partialFilter)}&$select=id,number,displayName&$top=5`,
@@ -63,21 +61,15 @@ export default async function handler(req, res) {
           vendorNumber = partialJson.value[0].number;
         } else if (partialJson.value && partialJson.value.length > 1) {
           const nombres = partialJson.value.map(v => v.displayName).join(', ');
-          return res.status(404).json({
-            ok: false,
-            error: `Varios proveedores coinciden con "${vendorName}": ${nombres}. Usa el nombre exacto.`
-          });
+          return res.status(404).json({ ok: false, error: `Varios proveedores coinciden con "${vendorName}": ${nombres}.` });
         }
       }
       if (!vendorNumber) {
-        return res.status(404).json({
-          ok: false,
-          error: `Proveedor "${vendorName}" no encontrado en BC. Créalo primero o verifica el nombre.`
-        });
+        return res.status(404).json({ ok: false, error: `Proveedor "${vendorName}" no encontrado en BC.` });
       }
     }
 
-    // Crear purchase order
+    // Crear pedido via API v2.0
     const orderBody = { vendorNumber };
     if (orderDate) orderBody.orderDate = orderDate;
 
@@ -86,25 +78,21 @@ export default async function handler(req, res) {
       headers,
       body: JSON.stringify(orderBody)
     });
-
     if (!orderRes.ok) throw new Error('No se pudo crear pedido de compra: ' + await orderRes.text());
-
     const order = await orderRes.json();
 
-    // PATCH vendorInvoiceNumber por separado (BC no lo acepta en POST)
+    // PATCH Vendor_Invoice_No via ODataV4 (API v2.0 no expone este campo)
     if (vendorInvoiceNumber) {
-      const etag = order['@odata.etag'];
-      const patchHeaders = { ...headers, 'If-Match': etag || '*' };
-      const patchRes = await fetch(`${base}(${companyId})/purchaseOrders(${order.id})`, {
+      const patchOdata = await fetch(`${odataBase}/PurchaseOrder(Document_Type='Order',No='${odataSafe(order.number)}')`, {
         method: 'PATCH',
-        headers: patchHeaders,
-        body: JSON.stringify({ vendorInvoiceNumber })
+        headers: { ...headers, 'If-Match': '*' },
+        body: JSON.stringify({ Vendor_Invoice_No: vendorInvoiceNumber })
       });
-      if (!patchRes.ok) console.warn('PATCH vendorInvoiceNumber falló:', await patchRes.text());
-      else console.log('PATCH vendorInvoiceNumber OK');
+      if (!patchOdata.ok) console.warn('PATCH Vendor_Invoice_No falló:', await patchOdata.text());
+      else console.log('PATCH Vendor_Invoice_No OK');
     }
 
-    // Añadir línea si se especificó artículo
+    // Añadir línea via API v2.0
     if (itemNumber && quantity) {
       const lineBody = {
         documentId: order.id,
@@ -119,10 +107,7 @@ export default async function handler(req, res) {
         headers,
         body: JSON.stringify(lineBody)
       });
-      if (!lineRes.ok) {
-        const errTxt = await lineRes.text();
-        console.warn('No se pudo crear línea:', errTxt);
-      }
+      if (!lineRes.ok) console.warn('No se pudo crear línea:', await lineRes.text());
     }
 
     return res.status(200).json({ ok: true, order });
