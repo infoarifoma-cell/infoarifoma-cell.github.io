@@ -7,6 +7,7 @@ export default async function handler(req, res) {
   }
 
   const { token, vendorName, orderDate, vendorInvoiceNumber, itemNumber, quantity, unitPrice } = req.body;
+  console.log('pedido-compra payload:', { vendorName, vendorInvoiceNumber, itemNumber, quantity, unitPrice });
 
   if (!token || typeof token !== 'string') {
     return res.status(401).json({ ok: false, error: 'Token requerido' });
@@ -94,11 +95,13 @@ export default async function handler(req, res) {
     if (vendorInvoiceNumber) {
       const etag = order['@odata.etag'];
       const patchHeaders = { ...headers, 'If-Match': etag || '*' };
-      await fetch(`${base}(${companyId})/purchaseOrders(${order.id})`, {
+      const patchRes = await fetch(`${base}(${companyId})/purchaseOrders(${order.id})`, {
         method: 'PATCH',
         headers: patchHeaders,
         body: JSON.stringify({ vendorInvoiceNumber })
       });
+      if (!patchRes.ok) console.warn('PATCH vendorInvoiceNumber falló:', await patchRes.text());
+      else console.log('PATCH vendorInvoiceNumber OK');
     }
 
     // Añadir línea si se especificó artículo
