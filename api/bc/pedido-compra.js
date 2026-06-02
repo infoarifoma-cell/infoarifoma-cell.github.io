@@ -100,7 +100,7 @@ export default async function handler(req, res) {
         lineObjectNumber: itemNumber,
         quantity: Number(quantity)
       };
-      if (unitPrice) lineBody.unitCost = Number(unitPrice);
+      if (unitPrice) lineBody.directUnitCost = Number(unitPrice);
 
       const lineRes = await fetch(`${base}(${companyId})/purchaseOrders(${order.id})/purchaseOrderLines`, {
         method: 'POST',
