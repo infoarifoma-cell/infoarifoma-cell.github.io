@@ -8325,25 +8325,26 @@ async function cargarInformeDiario() {
     // fechaHora en tblpedidos es ISO: 2026-06-02T07:10:00Z → filtrar por rango ISO
     const fechaDesde = fecha + 'T00:00:00';
     const fechaHasta = fecha + 'T23:59:59';
-    // GASOIL fecha es dd/mm/yyyy
-    const fechaGasoil = fecha.split('-').reverse().join('/');
+    // GASOIL fecha es d/mm/yyyy (sin cero inicial en día)
+    const [fy,fm,fd] = fecha.split('-');
+    const fechaGasoil = parseInt(fd)+'/'+fm+'/'+fy;
 
     const [fichajesRes, pedidosRes, produccionRes, gasoilRes, stockRes] = await Promise.all([
       dbQuery({ action:'select', table:'tblFichaje', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'empleado,entrada,salida,tiempodia'} }),
       dbQuery({ action:'select', table:'tblpedidos', filters:[{column:'fechaHora',op:'gte',value:fechaDesde},{column:'fechaHora',op:'lte',value:fechaHasta}], options:{select:'fechaHora,matriculacam,pesoBruto,pesoNeto,productoNombre,nombreCliente',order:'fechaHora'} }),
       dbQuery({ action:'select', table:'PRODUCCION', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'fecha,tipoDia,t04,t412,t1220,t2040,tnDia,horasPlanta'} }),
       dbQuery({ action:'select', table:'GASOIL', filters:[{column:'fecha',op:'eq',value:fechaGasoil}], options:{select:'fecha,origen,destino,litros,tipo'} }),
-      dbQuery({ action:'select', table:'GASOIL_STOCK', options:{select:'dep1,dep2'} }),
+      apiFetch('?accion=gasoil'),
     ]);
 
-    const stockRow = (stockRes.data||[])[0]||{dep1:0,dep2:0};
+    const gasoilJson = stockRes;
     _infData = {
       fecha,
       fichajes: fichajesRes.data || [],
       pedidos: pedidosRes.data || [],
       produccion: (produccionRes.data || [])[0] || null,
       gasoil: gasoilRes.data || [],
-      stock: {dep1: stockRow.dep1||0, dep2: stockRow.dep2||0},
+      stock: {dep1: gasoilJson.dep1||0, dep2: gasoilJson.dep2||0},
     };
 
     _renderInforme(_infData);
@@ -8501,7 +8502,7 @@ async function infExportarExcel() {
   const d = _infData;
   const fechaFmt = d.fecha.split('-').reverse().join('/');
   const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet('Informe ' + fechaFmt);
+  const ws = wb.addWorksheet('Informe ' + d.fecha);
 
   // Columnas
   ws.columns = [{width:22},{width:8},{width:8},{width:8},{width:14},{width:12},{width:12},{width:12},{width:12},{width:12},{width:18},{width:28},{width:10},{width:14}];
