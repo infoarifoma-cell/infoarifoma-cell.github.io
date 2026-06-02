@@ -8325,24 +8325,16 @@ async function cargarInformeDiario() {
     // fechaHora en tblpedidos es ISO: 2026-06-02T07:10:00Z → filtrar por rango ISO
     const fechaDesde = fecha + 'T00:00:00';
     const fechaHasta = fecha + 'T23:59:59';
-    // GASOIL fecha es d/mm/yyyy (sin cero inicial en día)
-    const [fy,fm,fd] = fecha.split('-');
-    const fechaGasoil = parseInt(fd)+'/'+fm+'/'+fy;
 
     const [fichajesRes, pedidosRes, produccionRes, gasoilRes, stockRes] = await Promise.all([
       dbQuery({ action:'select', table:'tblFichaje', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'empleado,entrada,salida,tiempodia'} }),
       dbQuery({ action:'select', table:'tblpedidos', filters:[{column:'fechaHora',op:'gte',value:fechaDesde},{column:'fechaHora',op:'lte',value:fechaHasta}], options:{select:'fechaHora,matriculacam,pesoBruto,pesoNeto,productoNombre,nombreCliente',order:'fechaHora'} }),
       dbQuery({ action:'select', table:'PRODUCCION', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'fecha,tipoDia,t04,t412,t1220,t2040,tnDia,horasPlanta'} }),
-      dbQuery({ action:'select', table:'GASOIL', filters:[{column:'fecha',op:'eq',value:fechaGasoil}], options:{select:'fecha,origen,destino,litros,tipo'} }),
+      dbQuery({ action:'select', table:'GASOIL', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'fecha,origen,destino,litros,tipo'} }),
       apiFetch('?accion=gasoil'),
     ]);
 
-    const gasoilJson = stockRes;
-    // Filtrar movimientos del día — fecha guardada como d/mm/yyyy (sin cero)
-    const gasoilDelDia = (gasoilJson.data||[]).filter(g => {
-      const gf = String(g.fecha||'').trim();
-      return gf === fechaGasoil || gf === (parseInt(fd)+'/'+fm+'/'+fy);
-    });
+    const gasoilDelDia = gasoilRes.data || [];
     _infData = {
       fecha,
       fichajes: fichajesRes.data || [],
