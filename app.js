@@ -5577,8 +5577,13 @@ async function facturarAlbaranesSeleccionados() {
     const now = new Date();
     const invoiceDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const selAlbs = [...selected].map(i => albaranes[i]);
-    const numPedidos = selAlbs.map(a => String(a.numPedido || '')).filter(Boolean);
-    const extDocRaw = numPedidos.join(', ');
+    const numAlbaranes = selAlbs.map(a => {
+      const linea = a.lineas[0];
+      const id = linea?.id;
+      const anyo = a.fecha ? a.fecha.getFullYear() : now.getFullYear();
+      return id ? `PEDV${anyo}-${String(id).padStart(6,'0')}` : (a.numPedido || '');
+    }).filter(Boolean);
+    const extDocRaw = numAlbaranes.join(', ');
     const extDoc = extDocRaw.length <= 35 ? extDocRaw : extDocRaw.substring(0, 32) + '...';
 
     // Comprobar si ya existe factura para este cliente/mes en BC
