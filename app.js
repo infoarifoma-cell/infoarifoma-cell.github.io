@@ -5510,6 +5510,9 @@ function renderModalAlbaranes() {
       prodResumen[p] += Number(r.pesoNeto) || 0;
     });
     const lineSummary = Object.entries(prodResumen).map(([p, kg]) => `${p} ${(kg / 1000).toFixed(2)}Tn`).join(', ');
+    const albId = alb.lineas[0]?.id;
+    const albAnyo = alb.fecha ? alb.fecha.getFullYear() : new Date().getFullYear();
+    const albNum = albId ? `PEDV${albAnyo}-${String(albId).padStart(6,'0')}` : alb.numPedido;
 
     html += `<div onclick="toggleAlbaran(${i})" style="display:flex;gap:10px;padding:12px;margin-bottom:8px;background:var(--surface);border:1.5px solid ${checked ? 'var(--accent2)' : 'var(--border)'};border-radius:var(--radius);cursor:pointer;transition:all .15s">
       <div style="width:22px;height:22px;border:2px solid ${checked ? 'var(--accent2)' : 'var(--border)'};border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:${checked ? 'var(--accent2)' : 'transparent'};transition:all .15s;margin-top:2px">
@@ -5517,7 +5520,7 @@ function renderModalAlbaranes() {
       </div>
       <div style="flex:1;min-width:0">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <div style="font-weight:700;font-size:.82rem;color:var(--text)">Albarán ${alb.numPedido}</div>
+          <div style="font-weight:700;font-size:.82rem;color:var(--text)">Albarán ${albNum}</div>
           <div style="font-family:'DM Mono',monospace;font-size:.82rem;font-weight:700;color:var(--accent2)">${alb.totalEur.toFixed(2)} €</div>
         </div>
         <div style="font-size:.68rem;color:var(--muted);margin-bottom:2px">${dateStr}${alb.proyecto ? ' · ' + alb.proyecto : ''} · ${(alb.totalKg / 1000).toFixed(2)} Tn</div>
