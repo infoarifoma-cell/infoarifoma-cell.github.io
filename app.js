@@ -8654,7 +8654,7 @@ async function infExportarExcel() {
   const ws = wb.addWorksheet('Informe ' + d.fecha);
 
   // Columnas
-  ws.columns = [{width:22},{width:8},{width:8},{width:8},{width:14},{width:12},{width:12},{width:12},{width:12},{width:12},{width:18},{width:28},{width:10},{width:14}];
+  ws.columns = [{width:22},{width:8},{width:8},{width:8},{width:14},{width:28},{width:30},{width:12},{width:12},{width:12},{width:18},{width:28},{width:10},{width:14}];
 
   const hdrFill = {type:'pattern',pattern:'solid',fgColor:{argb:'FF374151'}};
   const subFill  = {type:'pattern',pattern:'solid',fgColor:{argb:'FFD1D5DB'}};
@@ -8763,6 +8763,61 @@ async function infExportarExcel() {
   const a = document.createElement('a');
   a.href=url; a.download=`Informe_Planta_${d.fecha}.xlsx`; a.click();
   URL.revokeObjectURL(url);
+
+  // Subir a OneDrive
+  try {
+    const [yyyy, mm] = d.fecha.split('-');
+    const fileName = `Informe_Planta_${d.fecha}.xlsx`;
+    const INF_BASE = '06. ADMINISTRACION/06.11 DOCUMENTOS/Informes Diarios';
+    const token = await comprasGetToken();
+    const shareToken = 'u!' + btoa(COMPRAS_SHARE_URL).replace(/=+$/, '').replace(/\//g, '_').replace(/\+/g, '-');
+    const shareRes = await fetch('https://graph.microsoft.com/v1.0/shares/' + shareToken + '/driveItem?$select=id,parentReference', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!shareRes.ok) throw new Error('No se pudo acceder a OneDrive (' + shareRes.status + ')');
+    const shareItem = await shareRes.json();
+    const driveId = shareItem.parentReference.driveId;
+    let parentId = shareItem.id;
+
+    // Navegar/crear carpetas: 06. ADMINISTRACION / 06.11 DOCUMENTOS / Informes Diarios / año
+    async function _infFindOrCreate(pid, name) {
+      const listRes = await fetch('https://graph.microsoft.com/v1.0/drives/' + driveId + '/items/' + pid + '/children?$select=id,name,folder&$top=200', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (!listRes.ok) throw new Error('No se pudo listar carpeta "' + name + '"');
+      const listJson = await listRes.json();
+      const norm = s => s.trim().toLowerCase().normalize('NFC').replace(/\s+/g, ' ');
+      const found = (listJson.value || []).find(i => i.folder && norm(i.name) === norm(name));
+      if (found) return found.id;
+      const createRes = await fetch('https://graph.microsoft.com/v1.0/drives/' + driveId + '/items/' + pid + '/children', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, folder: {} })
+      });
+      if (!createRes.ok) throw new Error('Error creando carpeta "' + name + '": ' + await createRes.text());
+      return (await createRes.json()).id;
+    }
+
+    for (const seg of INF_BASE.split('/')) {
+      parentId = await _infFindOrCreate(parentId, seg);
+    }
+    parentId = await _infFindOrCreate(parentId, yyyy);
+    parentId = await _infFindOrCreate(parentId, COMPRAS_MESES[parseInt(mm, 10) - 1]);
+
+    const uploadUrl = 'https://graph.microsoft.com/v1.0/drives/' + driveId + '/items/' + parentId + ':/' + encodeURIComponent(fileName) + ':/content';
+    const upRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+      body: new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    });
+    if (upRes.ok) {
+      console.log('Informe subido a OneDrive: Arifoma/' + INF_BASE + '/' + yyyy + '/' + fileName);
+    } else {
+      console.warn('Error subiendo informe a OneDrive:', upRes.status, await upRes.text());
+    }
+  } catch(e) {
+    console.warn('No se pudo subir a OneDrive:', e.message);
+  }
 }
 
 // ============================================================
