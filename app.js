@@ -8654,7 +8654,7 @@ async function infExportarExcel() {
   const ws = wb.addWorksheet('Informe ' + d.fecha);
 
   // Columnas
-  ws.columns = [{width:22},{width:8},{width:8},{width:8},{width:14},{width:28},{width:30},{width:12},{width:12},{width:12},{width:18},{width:28},{width:10},{width:14}];
+  ws.columns = [{width:22},{width:20},{width:8},{width:8},{width:28},{width:30},{width:12},{width:12},{width:12},{width:12},{width:18},{width:28},{width:10},{width:14}];
 
   const hdrFill = {type:'pattern',pattern:'solid',fgColor:{argb:'FF374151'}};
   const subFill  = {type:'pattern',pattern:'solid',fgColor:{argb:'FFD1D5DB'}};
