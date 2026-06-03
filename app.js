@@ -5576,7 +5576,10 @@ async function facturarAlbaranesSeleccionados() {
     const token = await getBCToken();
     const now = new Date();
     const invoiceDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    const extDoc = `ALB-${customerName.substring(0, 10).replace(/\s/g, '-')}-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const selAlbs = [...selected].map(i => albaranes[i]);
+    const numPedidos = selAlbs.map(a => String(a.numPedido || '')).filter(Boolean);
+    const extDocRaw = numPedidos.join(', ');
+    const extDoc = extDocRaw.length <= 35 ? extDocRaw : extDocRaw.substring(0, 32) + '...';
 
     // Comprobar si ya existe factura para este cliente/mes en BC
     btn.textContent = 'Comprobando...';
@@ -6483,6 +6486,7 @@ async function cargarCostes(){
 
     info.textContent = `${costesRawData.length} movimientos cargados del ${anyo} · Producción: ${costesProduccion.length} días`;
     renderCostes();
+    renderRendimiento();
   } catch(e){
     info.textContent = 'Error: '+e.message;
     console.error('Costes error:', e);
@@ -6888,6 +6892,146 @@ function renderCostesCharts(catData, mesesActivos, prodMes, prodAcum, totalProd)
       }
     }
   });
+}
+
+// ── RENDIMIENTO ──────────────────────────────────────────────────────────────
+
+let rendCharts = {};
+
+function renderRendimiento() {
+  const wrap = document.getElementById('rendimiento-wrap');
+  if (!wrap) return;
+  if (!costesProduccion.length) { wrap.style.display = 'none'; return; }
+
+  const mesDesde = parseInt(document.getElementById('costes-mes-desde').value);
+  const mesHasta = parseInt(document.getElementById('costes-mes-hasta').value);
+  const meses = [];
+  for (let m = mesDesde; m <= mesHasta; m++) meses.push(m);
+
+  // Agregar producción por mes
+  const prodMes = {}; // { mes: { tn, horas, t04, t412, t1220, t2040 } }
+  for (const p of costesProduccion) {
+    const m = parseInt(p.fecha.split('-')[1]);
+    if (m < mesDesde || m > mesHasta) continue;
+    if (!prodMes[m]) prodMes[m] = { tn: 0, horas: 0, t04: 0, t412: 0, t1220: 0, t2040: 0 };
+    prodMes[m].tn    += parseFloat(p.tnDia)     || 0;
+    prodMes[m].horas += parseFloat(p.horasPlanta)|| 0;
+    prodMes[m].t04   += parseFloat(p.t04)        || 0;
+    prodMes[m].t412  += parseFloat(p.t412)        || 0;
+    prodMes[m].t1220 += parseFloat(p.t1220)       || 0;
+    prodMes[m].t2040 += parseFloat(p.t2040)       || 0;
+  }
+
+  const fmtN = (v, d=1) => v ? Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—';
+
+  // ── KPIs ──
+  const totalTn    = meses.reduce((s, m) => s + (prodMes[m]?.tn    || 0), 0);
+  const totalHoras = meses.reduce((s, m) => s + (prodMes[m]?.horas || 0), 0);
+  const eficMedia  = totalHoras ? totalTn / totalHoras : 0;
+  const mesesConDatos = meses.filter(m => prodMes[m]?.tn > 0);
+  const mejorMes   = mesesConDatos.reduce((best, m) => (prodMes[m].tn > (prodMes[best]?.tn || 0) ? m : best), mesesConDatos[0]);
+
+  const kpiBox = (label, value, unit = '') => `
+    <div style="background:var(--surface2);border-radius:8px;padding:12px 14px;border:1px solid var(--border)">
+      <div style="color:var(--muted);font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">${label}</div>
+      <div style="font-size:1.15rem;font-weight:800;color:var(--text)">${value}<span style="font-size:.72rem;font-weight:400;color:var(--muted);margin-left:3px">${unit}</span></div>
+    </div>`;
+
+  document.getElementById('rend-kpis').innerHTML =
+    kpiBox('Total producido', fmtN(totalTn, 0), 'tn') +
+    kpiBox('Horas planta', fmtN(totalHoras, 1), 'h') +
+    kpiBox('Eficiencia media', fmtN(eficMedia, 2), 'tn/h') +
+    (mejorMes ? kpiBox('Mejor mes', MESES_NOMBRE[mejorMes] + ' · ' + fmtN(prodMes[mejorMes].tn, 0), 'tn') : '');
+
+  // ── Tabla mensual ──
+  const MESES_NOMBRE_CORTO = { 1:'Ene',2:'Feb',3:'Mar',4:'Abr',5:'May',6:'Jun',7:'Jul',8:'Ago',9:'Sep',10:'Oct',11:'Nov',12:'Dic' };
+  const thStyle = 'padding:5px 8px;background:var(--surface2);font-weight:700;font-size:.72rem;text-align:right;border:1px solid var(--border)';
+  const thL = thStyle.replace('text-align:right', 'text-align:left');
+  const td = (v, bold = false) => `<td style="padding:4px 8px;border:1px solid var(--border);text-align:right;font-size:.75rem${bold ? ';font-weight:700' : ''}">${v}</td>`;
+
+  let tbl = `<thead><tr>
+    <th style="${thL}">Mes</th>
+    <th style="${thStyle}">Tn Total</th>
+    <th style="${thStyle}">0/4</th>
+    <th style="${thStyle}">4/12</th>
+    <th style="${thStyle}">12/20</th>
+    <th style="${thStyle}">20/40</th>
+    <th style="${thStyle}">Horas</th>
+    <th style="${thStyle}">Tn/h</th>
+  </tr></thead><tbody>`;
+
+  let sumTn=0, sumHoras=0, sumT04=0, sumT412=0, sumT1220=0, sumT2040=0;
+  for (const m of meses) {
+    const d = prodMes[m];
+    if (!d) { tbl += `<tr><td style="padding:4px 8px;border:1px solid var(--border);font-size:.75rem">${MESES_NOMBRE[m]}</td>${td('—')}${td('—')}${td('—')}${td('—')}${td('—')}${td('—')}${td('—')}</tr>`; continue; }
+    const efic = d.horas ? (d.tn / d.horas) : 0;
+    sumTn += d.tn; sumHoras += d.horas; sumT04 += d.t04; sumT412 += d.t412; sumT1220 += d.t1220; sumT2040 += d.t2040;
+    tbl += `<tr>
+      <td style="padding:4px 8px;border:1px solid var(--border);font-size:.75rem;font-weight:600">${MESES_NOMBRE[m]}</td>
+      ${td(fmtN(d.tn, 0), true)}${td(fmtN(d.t04, 0))}${td(fmtN(d.t412, 0))}${td(fmtN(d.t1220, 0))}${td(fmtN(d.t2040, 0))}${td(fmtN(d.horas, 1))}${td(fmtN(efic, 2))}
+    </tr>`;
+  }
+  // Total row
+  const eficTotal = sumHoras ? sumTn / sumHoras : 0;
+  tbl += `<tr style="background:rgba(107,125,46,.08);font-weight:900;font-size:.76rem">
+    <td style="padding:5px 8px;border:1px solid var(--border);border-top:3px double var(--accent)">TOTAL</td>
+    ${td(fmtN(sumTn, 0), true)}${td(fmtN(sumT04, 0))}${td(fmtN(sumT412, 0))}${td(fmtN(sumT1220, 0))}${td(fmtN(sumT2040, 0))}${td(fmtN(sumHoras, 1))}${td(fmtN(eficTotal, 2))}
+  </tr>`;
+  tbl += '</tbody>';
+  document.getElementById('rend-tabla').innerHTML = tbl;
+
+  // ── Gráficos ──
+  Object.values(rendCharts).forEach(c => { try { c.destroy(); } catch(e) {} });
+  rendCharts = {};
+  if (typeof Chart === 'undefined') { wrap.style.display = ''; return; }
+
+  const labels = meses.map(m => MESES_NOMBRE[m].substring(0, 3));
+
+  // Barras apiladas por producto
+  rendCharts.tn = new Chart(document.getElementById('chart-rend-tn'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: '0/4',   data: meses.map(m => prodMes[m]?.t04   || 0), backgroundColor: '#6b7d2e', borderWidth: 0 },
+        { label: '4/12',  data: meses.map(m => prodMes[m]?.t412  || 0), backgroundColor: '#d4a017', borderWidth: 0 },
+        { label: '12/20', data: meses.map(m => prodMes[m]?.t1220 || 0), backgroundColor: '#2e7d6b', borderWidth: 0 },
+        { label: '20/40', data: meses.map(m => prodMes[m]?.t2040 || 0), backgroundColor: '#4682b4', borderWidth: 0 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } },
+        tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toLocaleString('es-ES') + ' tn' } }
+      },
+      scales: { x: { stacked: true }, y: { stacked: true, ticks: { callback: v => v.toLocaleString('es-ES') + ' tn' } } }
+    }
+  });
+
+  // Línea tn/hora
+  rendCharts.efic = new Chart(document.getElementById('chart-rend-efic'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Tn/hora',
+        data: meses.map(m => { const d = prodMes[m]; return d?.horas ? +(d.tn / d.horas).toFixed(2) : 0; }),
+        borderColor: '#6b7d2e', backgroundColor: 'rgba(107,125,46,0.1)', fill: true,
+        borderWidth: 2, tension: 0.3, pointRadius: 4
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ctx.parsed.y.toFixed(2) + ' tn/h' } }
+      },
+      scales: { y: { beginAtZero: true, ticks: { callback: v => v.toFixed(1) + ' tn/h' } } }
+    }
+  });
+
+  wrap.style.display = '';
 }
 
 // ── COSTES IMPRIMIR ──────────────────────────────────────────────────────────

@@ -1172,7 +1172,7 @@
             </div>
             <div style="min-width:130px">
               <div class="label">Desde mes</div>
-              <select class="inp" id="costes-mes-desde" onchange="renderCostes()">
+              <select class="inp" id="costes-mes-desde" onchange="renderCostes();renderRendimiento()">
                 <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
                 <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
                 <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
@@ -1181,7 +1181,7 @@
             </div>
             <div style="min-width:130px">
               <div class="label">Hasta mes</div>
-              <select class="inp" id="costes-mes-hasta" onchange="renderCostes()">
+              <select class="inp" id="costes-mes-hasta" onchange="renderCostes();renderRendimiento()">
                 <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
                 <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
                 <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
@@ -1206,6 +1206,28 @@
           <div id="costes-table-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch">
             <div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Pulsa "Cargar de BC" para traer los movimientos contables del año</div>
           </div>
+          <!-- ── RENDIMIENTO ── -->
+          <div id="rendimiento-wrap" style="display:none;margin-top:28px">
+            <div style="font-size:.95rem;font-weight:700;letter-spacing:.04em;color:var(--accent);border-bottom:2px solid var(--accent);padding-bottom:6px;margin-bottom:16px">RENDIMIENTO PRODUCTIVO</div>
+            <!-- KPIs -->
+            <div id="rend-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px"></div>
+            <!-- Tabla mensual -->
+            <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+              <table id="rend-tabla" class="costes-tbl"></table>
+            </div>
+            <!-- Gráficos rendimiento -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px" id="rend-charts-grid">
+              <div class="costes-chart-box costes-chart-lg">
+                <div class="costes-chart-title">Toneladas por mes</div>
+                <div class="costes-chart-canvas"><canvas id="chart-rend-tn"></canvas></div>
+              </div>
+              <div class="costes-chart-box costes-chart-lg">
+                <div class="costes-chart-title">Tn/hora planta</div>
+                <div class="costes-chart-canvas"><canvas id="chart-rend-efic"></canvas></div>
+              </div>
+            </div>
+          </div>
+
           <!-- Gráficos (debajo de tabla) -->
           <div id="costes-charts" style="display:none;margin-top:20px">
             <div class="costes-charts-top">
