@@ -8479,7 +8479,7 @@ async function cargarInformeDiario() {
     const fechaHasta = fecha + 'T23:59:59';
 
     const [fichajesRes, pedidosRes, produccionRes, gasoilRes, stockRes] = await Promise.all([
-      dbQuery({ action:'select', table:'tblFichaje', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'empleado,entrada,salida,tiempodia'} }),
+      dbQuery({ action:'select', table:'tblFichaje', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'empleado,entrada,salida,tiempodia,fentrada,fsalida'} }),
       dbQuery({ action:'select', table:'tblpedidos', filters:[{column:'fechaHora',op:'gte',value:fechaDesde},{column:'fechaHora',op:'lte',value:fechaHasta}], options:{select:'fechaHora,matriculacam,pesoBruto,pesoNeto,productoNombre,nombreCliente',order:'fechaHora'} }),
       dbQuery({ action:'select', table:'PRODUCCION', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'fecha,tipoDia,t04,t412,t1220,t2040,tnDia,horasPlanta'} }),
       dbQuery({ action:'select', table:'GASOIL', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'fecha,origen,destino,litros,tipo'} }),
@@ -8509,6 +8509,15 @@ async function cargarInformeDiario() {
 
 function _renderInforme(d) {
   const fmt = v => Number(v||0).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
+  // Calcula horas reales desde fentrada/fsalida; si no, usa tiempodia como fallback
+  const calcHoras = f => {
+    if (f.fentrada && f.fsalida) {
+      const ms = new Date(f.fsalida) - new Date(f.fentrada);
+      if (ms > 0) return (ms / 3600000).toFixed(2);
+    }
+    if (f.tiempodia != null) return parseFloat(String(f.tiempodia).replace(',','.')).toFixed(2);
+    return '—';
+  };
   const fmtH = v => v!=null ? parseFloat(String(v).replace(',','.')).toFixed(1) : '—';
 
   // Maquinaria (fija) — inputs con value por defecto
@@ -8543,7 +8552,7 @@ function _renderInforme(d) {
         <td style="padding:5px 8px;font-weight:600">${f.empleado||'—'}</td>
         <td style="padding:5px 8px;text-align:center;color:var(--accent2)">${f.entrada||'—'}</td>
         <td style="padding:5px 8px;text-align:center;color:var(--danger)">${f.salida||'—'}</td>
-        <td style="padding:5px 8px;text-align:center">${fmtH(f.tiempodia)}</td>
+        <td style="padding:5px 8px;text-align:center">${calcHoras(f)}</td>
       </tr>`
     ).join('');
   }
@@ -8705,8 +8714,8 @@ async function infExportarExcel() {
   addHdr('PERSONAL', 4);
   addSubHdr(['NOMBRE','ENTRADA','SALIDA','HORAS']);
   d.fichajes.forEach(f => {
-    const horas = f.tiempodia ? parseFloat(String(f.tiempodia).replace(',','.')).toFixed(1) : '';
-    addRow([f.empleado||'', f.entrada||'', f.salida||'', horas?Number(horas):'']);
+    const horas = calcHoras(f);
+    addRow([f.empleado||'', f.entrada||'', f.salida||'', horas!=='—'?Number(horas):'']);
   });
   addBlank();
 
