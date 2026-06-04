@@ -8511,6 +8511,7 @@ async function cargarInformeDiario() {
 function calcHorasFichaje(f) {
   if (f.fentrada && f.fsalida) {
     const ms = new Date(f.fsalida) - new Date(f.fentrada);
+    console.log(`[calcHoras] ${f.empleado} fentrada=${f.fentrada} fsalida=${f.fsalida} ms=${ms} h=${(ms/3600000).toFixed(4)} tiempodia=${f.tiempodia}`);
     if (ms > 0) return (ms / 3600000).toFixed(2);
   }
   if (f.tiempodia != null) return parseFloat(String(f.tiempodia).replace(',','.')).toFixed(2);
