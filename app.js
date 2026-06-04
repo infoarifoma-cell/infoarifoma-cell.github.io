@@ -8507,11 +8507,13 @@ async function cargarInformeDiario() {
   }
 }
 
-// Calcula horas reales desde fentrada/fsalida; si no, usa tiempodia como fallback
+// Calcula horas reales desde entrada/salida (strings HH:MM locales); fallback a tiempodia
 function calcHorasFichaje(f) {
-  if (f.fentrada && f.fsalida) {
-    const ms = new Date(f.fsalida) - new Date(f.fentrada);
-    if (ms > 0) return (ms / 3600000).toFixed(2);
+  if (f.entrada && f.salida) {
+    const [eh, em] = f.entrada.split(':').map(Number);
+    const [sh, sm] = f.salida.split(':').map(Number);
+    const mins = (sh * 60 + sm) - (eh * 60 + em);
+    if (mins > 0) return (mins / 60).toFixed(2);
   }
   if (f.tiempodia != null) return parseFloat(String(f.tiempodia).replace(',','.')).toFixed(2);
   return '—';
@@ -8549,6 +8551,7 @@ function _renderInforme(d) {
   if (!d.fichajes.length) {
     perBody.innerHTML = '<tr><td colspan="4" style="padding:8px;color:var(--muted)">Sin fichajes</td></tr>';
   } else {
+    d.fichajes.forEach(f => console.log(`[fichaje] ${f.empleado} entrada="${f.entrada}" salida="${f.salida}" tiempodia=${f.tiempodia}`));
     perBody.innerHTML = d.fichajes.map(f =>
       `<tr style="border-bottom:1px solid var(--border)">
         <td style="padding:5px 8px;font-weight:600">${f.empleado||'—'}</td>
