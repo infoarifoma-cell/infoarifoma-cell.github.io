@@ -220,12 +220,18 @@ async function scheduleTokenRefresh(token) {
   if (refreshTime > 0) {
     _tokenRefreshTimeout = setTimeout(async () => {
       console.log('Refrescando token Google...');
-      const { data: { session } } = await _supabase.auth.getSession();
+      const { data, error } = await _supabase.auth.refreshSession();
+      const session = data?.session;
       if (session && session.access_token) {
         _initAuthClient(session.access_token);
         scheduleTokenRefresh(session.access_token);
       } else {
-        console.warn('Error refrescando token Google');
+        console.warn('Error refrescando token Google:', error?.message);
+        // Token irrecuperable — forzar re-login
+        await cerrarSesion();
+        document.getElementById('login-error').textContent = 'Sesión expirada. Inicie sesión nuevamente.';
+        document.getElementById('pinScreen').style.display = 'flex';
+        document.getElementById('shell').style.display = 'none';
       }
     }, refreshTime);
   }

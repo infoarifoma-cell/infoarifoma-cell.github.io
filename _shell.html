@@ -1257,17 +1257,6 @@
           </div>
         </div>
 
-        <!-- COSTES PRINT OVERLAY -->
-        <div id="costes-print-wrap" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;z-index:999;overflow-y:auto;padding:10mm;box-sizing:border-box">
-          <div class="costes-print-btns" style="display:flex;gap:8px;margin-bottom:12px">
-            <button onclick="window.print()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:.85rem;font-weight:700;cursor:pointer">🖨 Imprimir</button>
-            <button onclick="cerrarImprimirCostes()" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px 20px;font-size:.85rem;cursor:pointer">✕ Cerrar</button>
-          </div>
-          <div id="costes-print-header"></div>
-          <div id="costes-print-body"></div>
-          <div id="costes-print-charts-area" class="costes-print-charts" style="margin-top:15mm"></div>
-        </div>
-
         <!-- ══ VENTAS ══ -->
         <div class="page" id="pg-ventas">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
@@ -2401,6 +2390,17 @@
       <!-- Lista notas -->
       <div id="notas-lista" style="overflow-y:auto;padding:12px 20px;flex:1"></div>
     </div>
+  </div>
+
+  <!-- COSTES PRINT OVERLAY — fuera de .layout para que @media print no lo oculte -->
+  <div id="costes-print-wrap" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;z-index:999;overflow-y:auto;padding:10mm;box-sizing:border-box">
+    <div class="costes-print-btns" style="display:flex;gap:8px;margin-bottom:12px">
+      <button onclick="window.print()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:.85rem;font-weight:700;cursor:pointer">🖨 Imprimir</button>
+      <button onclick="cerrarImprimirCostes()" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px 20px;font-size:.85rem;cursor:pointer">✕ Cerrar</button>
+    </div>
+    <div id="costes-print-header"></div>
+    <div id="costes-print-body"></div>
+    <div id="costes-print-charts-area" class="costes-print-charts" style="margin-top:15mm"></div>
   </div>
 
   <!-- Botón flotante notas -->
