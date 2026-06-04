@@ -8507,17 +8507,19 @@ async function cargarInformeDiario() {
   }
 }
 
+// Calcula horas reales desde fentrada/fsalida; si no, usa tiempodia como fallback
+function calcHorasFichaje(f) {
+  if (f.fentrada && f.fsalida) {
+    const ms = new Date(f.fsalida) - new Date(f.fentrada);
+    if (ms > 0) return (ms / 3600000).toFixed(2);
+  }
+  if (f.tiempodia != null) return parseFloat(String(f.tiempodia).replace(',','.')).toFixed(2);
+  return '—';
+}
+
 function _renderInforme(d) {
   const fmt = v => Number(v||0).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
-  // Calcula horas reales desde fentrada/fsalida; si no, usa tiempodia como fallback
-  const calcHoras = f => {
-    if (f.fentrada && f.fsalida) {
-      const ms = new Date(f.fsalida) - new Date(f.fentrada);
-      if (ms > 0) return (ms / 3600000).toFixed(2);
-    }
-    if (f.tiempodia != null) return parseFloat(String(f.tiempodia).replace(',','.')).toFixed(2);
-    return '—';
-  };
+  const calcHoras = calcHorasFichaje;
   const fmtH = v => v!=null ? parseFloat(String(v).replace(',','.')).toFixed(1) : '—';
 
   // Maquinaria (fija) — inputs con value por defecto
@@ -8714,7 +8716,7 @@ async function infExportarExcel() {
   addHdr('PERSONAL', 4);
   addSubHdr(['NOMBRE','ENTRADA','SALIDA','HORAS']);
   d.fichajes.forEach(f => {
-    const horas = calcHoras(f);
+    const horas = calcHorasFichaje(f);
     addRow([f.empleado||'', f.entrada||'', f.salida||'', horas!=='—'?Number(horas):'']);
   });
   addBlank();
