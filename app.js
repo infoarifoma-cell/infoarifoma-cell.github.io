@@ -580,7 +580,7 @@ function fmtDurDec(ms){return(ms/3600000).toFixed(1)+'h'}
 function dateStr(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
 function fmtDate(s){const p=s.split('-');return p[2]+'/'+p[1]+'/'+p[0]}
 function fmtFecha(ts){const d=new Date(ts);return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear();}
-function fmtFechaHora(ts){const d=new Date(ts);return d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate())+'T'+pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+':00Z';}
+function fmtFechaHora(ts){const d=new Date(ts);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes())+':00';}
 
 function renderInicioDocs(){
   const el=document.getElementById('inicio-docs-alert');
@@ -8511,7 +8511,6 @@ async function cargarInformeDiario() {
 function calcHorasFichaje(f) {
   if (f.fentrada && f.fsalida) {
     const ms = new Date(f.fsalida) - new Date(f.fentrada);
-    console.log(`[calcHoras] ${f.empleado} fentrada=${f.fentrada} fsalida=${f.fsalida} ms=${ms} h=${(ms/3600000).toFixed(4)} tiempodia=${f.tiempodia}`);
     if (ms > 0) return (ms / 3600000).toFixed(2);
   }
   if (f.tiempodia != null) return parseFloat(String(f.tiempodia).replace(',','.')).toFixed(2);
