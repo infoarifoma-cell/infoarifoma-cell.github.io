@@ -9309,6 +9309,18 @@ function cerrarStockDetalle() {
 let tareasData = [];
 let _tareasPanelInit = false;
 let _tareaEditId = null;
+let _tareasVista = 'lista'; // 'lista' | 'kanban'
+let _draggingTareaId = null;
+
+function setTareasVista(v){
+  _tareasVista = v;
+  document.getElementById('btn-vista-lista').classList.toggle('active', v==='lista');
+  document.getElementById('btn-vista-kanban').classList.toggle('active', v==='kanban');
+  // ocultar filtro estado en kanban (las 3 columnas ya muestran todos)
+  const filtEstado = document.getElementById('tarea-filt-estado');
+  if(filtEstado) filtEstado.style.display = v==='kanban' ? 'none' : '';
+  renderTareas();
+}
 
 function initTareasPanel(){
   // Poblar select personas
@@ -9336,64 +9348,135 @@ async function cargarTareas(){
   renderTareas();
 }
 
-function renderTareas(){
+function _filtrarTareas(){
   const filtPersona = document.getElementById('tarea-filt-persona').value;
   const filtEstado  = document.getElementById('tarea-filt-estado').value;
-  const hoy = new Date().toISOString().slice(0,10);
-
-  let lista = tareasData.filter(t => {
+  return tareasData.filter(t => {
     if(filtPersona === '__mias__' && loginUser && t.asignado !== loginUser.nombre) return false;
     if(filtPersona && filtPersona !== '__mias__' && t.asignado !== filtPersona) return false;
-    if(filtEstado && t.estado !== filtEstado) return false;
+    if(filtEstado && _tareasVista === 'lista' && t.estado !== filtEstado) return false;
     return true;
   });
+}
+
+function _renderTareaCard(t, hoy){
+  const done = t.estado === 'hecha';
+  const vencida = !done && t.fecha_limite && t.fecha_limite < hoy;
+  const priLabel = {alta:'Alta',media:'Media',baja:'Baja'}[t.prioridad] || t.prioridad;
+  const fechaStr = t.fecha_limite ? t.fecha_limite.split('-').reverse().join('/') : '';
+  return `<div class="tarea-card${done?' done':''}" onclick="abrirModalTarea(${JSON.stringify(t).replace(/"/g,'&quot;')})">
+    <div class="tarea-header">
+      <div class="tarea-check${done?' done':''}" onclick="event.stopPropagation();toggleEstadoTarea(${t.id},'${t.estado}')" title="Cambiar estado">
+        ${done ? '<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="2" fill="none"/></svg>' : ''}
+      </div>
+      <div class="tarea-titulo">${escapeHTML(t.titulo)}</div>
+    </div>
+    <div class="tarea-meta">
+      <span class="tarea-badge ${t.prioridad||'media'}">${priLabel}</span>
+      <span class="tarea-badge persona">${escapeHTML(t.asignado||'—')}</span>
+      ${fechaStr ? `<span class="tarea-badge ${vencida?'vencida':'vence'}">📅 ${fechaStr}</span>` : ''}
+    </div>
+    ${t.descripcion ? `<div class="tarea-desc">${escapeHTML(t.descripcion)}</div>` : ''}
+  </div>`;
+}
+
+function renderTareas(){
+  if(_tareasVista === 'kanban'){ renderTareasKanban(); return; }
+
+  const lista = _filtrarTareas();
+  const hoy = new Date().toISOString().slice(0,10);
+  const wrap = document.getElementById('tareas-list');
 
   if(!lista.length){
-    document.getElementById('tareas-list').innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Sin tareas para los filtros seleccionados</div>';
+    wrap.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Sin tareas para los filtros seleccionados</div>';
     return;
   }
 
-  // Agrupar: pendiente + en_curso primero, luego hechas
-  const activas = lista.filter(t => t.estado !== 'hecha');
-  const hechas  = lista.filter(t => t.estado === 'hecha');
-  // Ordenar activas: alta > media > baja, luego por fecha
   const priOrd = {alta:0,media:1,baja:2};
-  activas.sort((a,b) => (priOrd[a.prioridad]||1) - (priOrd[b.prioridad]||1) || (a.fecha_limite||'9').localeCompare(b.fecha_limite||'9'));
+  const activas = lista.filter(t => t.estado !== 'hecha').sort((a,b)=>(priOrd[a.prioridad]||1)-(priOrd[b.prioridad]||1)||(a.fecha_limite||'9').localeCompare(b.fecha_limite||'9'));
+  const hechas  = lista.filter(t => t.estado === 'hecha');
 
-  const canEdit = t => loginUser && (loginUser.rol === 'admin' || t.asignado === loginUser.nombre || t.creado_por === loginUser.nombre);
+  let html = activas.map(t=>_renderTareaCard(t,hoy)).join('');
+  if(hechas.length){
+    html += `<div class="tarea-group-title">Completadas (${hechas.length})</div>`;
+    html += hechas.map(t=>_renderTareaCard(t,hoy)).join('');
+  }
+  wrap.innerHTML = html;
+}
 
-  const renderCard = t => {
-    const done = t.estado === 'hecha';
-    const vencida = !done && t.fecha_limite && t.fecha_limite < hoy;
+function renderTareasKanban(){
+  const lista = _filtrarTareas();
+  const hoy = new Date().toISOString().slice(0,10);
+  const priOrd = {alta:0,media:1,baja:2};
+  const cols = {pendiente:[], en_curso:[], hecha:[]};
+  lista.forEach(t => { if(cols[t.estado]) cols[t.estado].push(t); });
+  Object.values(cols).forEach(arr => arr.sort((a,b)=>(priOrd[a.prioridad]||1)-(priOrd[b.prioridad]||1)||(a.fecha_limite||'9').localeCompare(b.fecha_limite||'9')));
+
+  const colInfo = [
+    {key:'pendiente', label:'Pendiente', icon:'○'},
+    {key:'en_curso',  label:'En curso',  icon:'◑'},
+    {key:'hecha',     label:'Hecha',     icon:'●'}
+  ];
+
+  const renderKanbanCard = t => {
+    const vencida = t.estado!=='hecha' && t.fecha_limite && t.fecha_limite < hoy;
     const priLabel = {alta:'Alta',media:'Media',baja:'Baja'}[t.prioridad] || t.prioridad;
-    const estadoLabel = {pendiente:'Pendiente',en_curso:'En curso',hecha:'✓ Hecha'}[t.estado] || t.estado;
     const fechaStr = t.fecha_limite ? t.fecha_limite.split('-').reverse().join('/') : '';
-    return `<div class="tarea-card${done?' done':''}" onclick="abrirModalTarea(${JSON.stringify(t).replace(/"/g,'&quot;')})">
-      <div class="tarea-header">
-        <div class="tarea-check${done?' done':''}" onclick="event.stopPropagation();toggleEstadoTarea(${t.id},'${t.estado}')" title="Cambiar estado">
-          ${done ? '<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="2" fill="none"/></svg>' : ''}
-        </div>
-        <div class="tarea-titulo">${escapeHTML(t.titulo)}</div>
-      </div>
-      <div class="tarea-meta">
+    return `<div class="kanban-card${t.estado==='hecha'?' done':''}"
+      draggable="true"
+      data-id="${t.id}"
+      ondragstart="kanbanDragStart(event,${t.id})"
+      ondragend="kanbanDragEnd(event)"
+      onclick="abrirModalTarea(${JSON.stringify(t).replace(/"/g,'&quot;')})">
+      <div class="kanban-card-title">${escapeHTML(t.titulo)}</div>
+      <div class="kanban-card-meta">
         <span class="tarea-badge ${t.prioridad||'media'}">${priLabel}</span>
         <span class="tarea-badge persona">${escapeHTML(t.asignado||'—')}</span>
         ${fechaStr ? `<span class="tarea-badge ${vencida?'vencida':'vence'}">📅 ${fechaStr}</span>` : ''}
-        <span class="tarea-badge" style="background:var(--surface2);color:var(--muted)">${estadoLabel}</span>
       </div>
-      ${t.descripcion ? `<div class="tarea-desc">${escapeHTML(t.descripcion)}</div>` : ''}
+      ${t.descripcion ? `<div class="kanban-card-desc">${escapeHTML(t.descripcion)}</div>` : ''}
     </div>`;
   };
 
-  let html = '';
-  if(activas.length){
-    html += activas.map(renderCard).join('');
-  }
-  if(hechas.length){
-    html += `<div class="tarea-group-title">Completadas (${hechas.length})</div>`;
-    html += hechas.map(renderCard).join('');
-  }
-  document.getElementById('tareas-list').innerHTML = html;
+  const board = document.createElement('div');
+  board.className = 'kanban-board';
+  colInfo.forEach(({key, label, icon}) => {
+    const cards = cols[key];
+    const col = document.createElement('div');
+    col.className = `kanban-col ${key}`;
+    col.dataset.estado = key;
+    col.innerHTML = `<div class="kanban-col-header">
+      <span class="kanban-col-title">${icon} ${label}</span>
+      <span class="kanban-col-count">${cards.length}</span>
+    </div>` + (cards.length ? cards.map(renderKanbanCard).join('') : `<div style="color:var(--muted);font-size:.74rem;text-align:center;padding:16px 8px;font-style:italic">Sin tareas</div>`);
+    col.addEventListener('dragover', e=>{ e.preventDefault(); col.classList.add('drag-over'); });
+    col.addEventListener('dragleave', ()=> col.classList.remove('drag-over'));
+    col.addEventListener('drop', e=>{ e.preventDefault(); col.classList.remove('drag-over'); kanbanDrop(key); });
+    board.appendChild(col);
+  });
+
+  const wrap = document.getElementById('tareas-list');
+  wrap.innerHTML = '';
+  wrap.appendChild(board);
+}
+
+function kanbanDragStart(event, id){
+  _draggingTareaId = id;
+  event.dataTransfer.effectAllowed = 'move';
+  setTimeout(()=>{ const el=document.querySelector(`.kanban-card[data-id="${id}"]`); if(el) el.classList.add('dragging'); }, 0);
+}
+function kanbanDragEnd(event){
+  document.querySelectorAll('.kanban-card.dragging').forEach(el=>el.classList.remove('dragging'));
+}
+async function kanbanDrop(nuevoEstado){
+  if(!_draggingTareaId) return;
+  const id = _draggingTareaId;
+  _draggingTareaId = null;
+  const t = tareasData.find(x=>x.id===id);
+  if(!t || t.estado === nuevoEstado) return;
+  t.estado = nuevoEstado; // optimistic update
+  renderTareasKanban();
+  await dbQuery({ action:'update', table:'tblTareas', data:{estado:nuevoEstado}, filters:[{column:'id',op:'eq',value:id}] });
 }
 
 async function toggleEstadoTarea(id, estadoActual){
