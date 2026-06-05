@@ -27,6 +27,19 @@ export default async function handler(req, res) {
     if (!company) throw new Error('Company no encontrada: ' + BC_COMPANY);
     const cid = company.id;
 
+    // Cargar nombres de cuentas del plan contable (chartOfAccounts)
+    const coaMap = {};
+    try {
+      const coaUrl = `${base}(${cid})/accounts?$filter=startswith(number,'6') or startswith(number,'7')&$select=number,displayName&$top=500`;
+      const coaRes = await fetch(coaUrl, { headers });
+      if (coaRes.ok) {
+        const coaJson = await coaRes.json();
+        for (const acc of (coaJson.value || [])) {
+          coaMap[acc.number] = acc.displayName || '';
+        }
+      }
+    } catch(e) { /* ignorar si falla, no es crítico */ }
+
     let allEntries = [];
 
     // Consultar mes a mes para no superar el límite de 1000 de BC
@@ -60,6 +73,7 @@ export default async function handler(req, res) {
           allEntries.push({
             date: entry.postingDate,
             account: entry.accountNumber,
+            accountName: coaMap[entry.accountNumber] || '',
             description: entry.description,
             debit: entry.debitAmount,
             credit: entry.creditAmount,

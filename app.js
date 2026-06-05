@@ -6503,11 +6503,12 @@ function renderConfigCostes(){
     wrap.innerHTML='<div style="color:var(--muted);font-style:italic;font-size:.78rem">Carga datos de BC primero para ver las cuentas disponibles.</div>';
     return;
   }
-  // Collect unique accounts with their total debit-credit and description
+  // Collect unique accounts with their total debit-credit and name
   const accMap = {};
   for(const e of costesRawData){
     const acc = e.account || '?';
-    if(!accMap[acc]) accMap[acc] = { desc: e.description||'', total: 0, count: 0 };
+    if(!accMap[acc]) accMap[acc] = { desc: e.accountName || e.description||'', total: 0, count: 0 };
+    else if(!accMap[acc].desc && e.accountName) accMap[acc].desc = e.accountName;
     accMap[acc].total += (e.debit||0) - (e.credit||0);
     accMap[acc].count++;
   }
@@ -6516,7 +6517,7 @@ function renderConfigCostes(){
   html += '<thead><tr style="border-bottom:2px solid var(--border)">'
     + '<th style="text-align:left;padding:5px 8px;font-size:.72rem;color:var(--muted)">Incluir</th>'
     + '<th style="text-align:left;padding:5px 8px;font-size:.72rem;color:var(--muted)">Cuenta</th>'
-    + '<th style="text-align:left;padding:5px 8px;font-size:.72rem;color:var(--muted)">Descripción (último mov.)</th>'
+    + '<th style="text-align:left;padding:5px 8px;font-size:.72rem;color:var(--muted)">Nombre cuenta</th>'
     + '<th style="text-align:right;padding:5px 8px;font-size:.72rem;color:var(--muted)">Movimientos</th>'
     + '<th style="text-align:right;padding:5px 8px;font-size:.72rem;color:var(--muted)">Importe total</th>'
     + '</tr></thead><tbody>';
