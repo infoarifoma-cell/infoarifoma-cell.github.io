@@ -6471,6 +6471,7 @@ const MESES_NOMBRE = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio
 let costesRawData = [];  // entries from BC
 let costesProduccion = []; // producción from Supabase
 let costesAnyoCargado = null;
+let costesExcludedAccounts = new Set(JSON.parse(localStorage.getItem('costesExcludedAccounts')||'[]'));
 
 function initCostes(){
   const sel = document.getElementById('costes-anyo');
@@ -6486,6 +6487,80 @@ function initCostes(){
   const curMonth = new Date().getMonth()+1;
   document.getElementById('costes-mes-hasta').value = curMonth;
   document.getElementById('costes-mes-desde').value = 1;
+}
+
+function switchCostesTab(tab){
+  document.getElementById('costes-panel-analisis').style.display = tab==='analisis' ? '' : 'none';
+  document.getElementById('costes-panel-config').style.display = tab==='config' ? '' : 'none';
+  document.getElementById('costes-tab-analisis').classList.toggle('active', tab==='analisis');
+  document.getElementById('costes-tab-config').classList.toggle('active', tab==='config');
+  if(tab==='config') renderConfigCostes();
+}
+
+function renderConfigCostes(){
+  const wrap = document.getElementById('costes-config-accounts');
+  if(!costesRawData.length){
+    wrap.innerHTML='<div style="color:var(--muted);font-style:italic;font-size:.78rem">Carga datos de BC primero para ver las cuentas disponibles.</div>';
+    return;
+  }
+  // Collect unique accounts with their total debit-credit and description
+  const accMap = {};
+  for(const e of costesRawData){
+    const acc = e.account || '?';
+    if(!accMap[acc]) accMap[acc] = { desc: e.description||'', total: 0, count: 0 };
+    accMap[acc].total += (e.debit||0) - (e.credit||0);
+    accMap[acc].count++;
+  }
+  const accounts = Object.keys(accMap).sort();
+  let html = '<table style="width:100%;border-collapse:collapse;font-size:.78rem">';
+  html += '<thead><tr style="border-bottom:2px solid var(--border)">'
+    + '<th style="text-align:left;padding:5px 8px;font-size:.72rem;color:var(--muted)">Incluir</th>'
+    + '<th style="text-align:left;padding:5px 8px;font-size:.72rem;color:var(--muted)">Cuenta</th>'
+    + '<th style="text-align:left;padding:5px 8px;font-size:.72rem;color:var(--muted)">Descripción (último mov.)</th>'
+    + '<th style="text-align:right;padding:5px 8px;font-size:.72rem;color:var(--muted)">Movimientos</th>'
+    + '<th style="text-align:right;padding:5px 8px;font-size:.72rem;color:var(--muted)">Importe total</th>'
+    + '</tr></thead><tbody>';
+  const fmtES = v => {
+    if(!v) return '';
+    const neg = v<0;
+    const [ent,dec] = Math.abs(v).toFixed(2).split('.');
+    return (neg?'-':'')+ent.replace(/\B(?=(\d{3})+(?!\d))/g,'.')+','+dec+' €';
+  };
+  for(const acc of accounts){
+    const info = accMap[acc];
+    const excluded = costesExcludedAccounts.has(acc);
+    const rowStyle = excluded ? 'opacity:.45' : '';
+    html += `<tr style="border-bottom:1px solid var(--border);${rowStyle}">
+      <td style="padding:5px 8px;text-align:center">
+        <input type="checkbox" ${excluded?'':'checked'} onchange="costesToggleAccount('${acc}',this.checked)" style="cursor:pointer;width:16px;height:16px">
+      </td>
+      <td style="padding:5px 8px;font-weight:700;font-family:monospace">${acc}</td>
+      <td style="padding:5px 8px;color:var(--muted)">${info.desc}</td>
+      <td style="padding:5px 8px;text-align:right;color:var(--muted)">${info.count}</td>
+      <td style="padding:5px 8px;text-align:right;font-variant-numeric:tabular-nums">${fmtES(info.total)}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function costesToggleAccount(acc, included){
+  if(included) costesExcludedAccounts.delete(acc);
+  else costesExcludedAccounts.add(acc);
+  localStorage.setItem('costesExcludedAccounts', JSON.stringify([...costesExcludedAccounts]));
+  renderCostes();
+  renderConfigCostes();
+}
+
+function costesConfigSelAll(include){
+  if(include){
+    costesExcludedAccounts.clear();
+  } else {
+    for(const e of costesRawData) costesExcludedAccounts.add(e.account||'?');
+  }
+  localStorage.setItem('costesExcludedAccounts', JSON.stringify([...costesExcludedAccounts]));
+  renderCostes();
+  renderConfigCostes();
 }
 
 async function cargarCostes(){
@@ -6532,6 +6607,8 @@ function renderCostes(){
   const vista = document.getElementById('costes-vista').value;
   const mesDesde = parseInt(document.getElementById('costes-mes-desde').value);
   const mesHasta = parseInt(document.getElementById('costes-mes-hasta').value);
+  const isEurTn = vista === 'eurtn' || vista === 'eurtn-acum';
+  const isAcum = vista === 'acumulado' || vista === 'eurtn-acum';
 
   // Calcular producción por mes
   const prodMes = {};
@@ -6549,6 +6626,7 @@ function renderCostes(){
   for(let m=mesDesde;m<=mesHasta;m++) mesesActivos.push(m);
 
   for(const e of costesRawData){
+    if(costesExcludedAccounts.has(e.account||'?')) continue;
     const m = parseInt(e.date.split('-')[1]);
     if(m<mesDesde || m>mesHasta) continue;
     const ca = e.ca || '#N/D';
@@ -6580,26 +6658,38 @@ function renderCostes(){
   const fmt = v => fmtES(v, 2);
   const fmtTn = v => (!v || v===0) ? '' : fmtES(v, 2);
 
-  // Producción acumulada para vista acumulado
+  // Producción acumulada
   const prodAcum = {};
-  if(vista==='acumulado'){
+  if(isAcum){
     let acum = 0;
     for(const m of mesesActivos){ acum += (prodMes[m]||0); prodAcum[m]=acum; }
   }
 
+  // Helper: apply €/tn division
+  const applyTn = (v, m) => {
+    if(!isEurTn) return v;
+    const tn = isAcum ? (prodAcum[m]||0) : (prodMes[m]||0);
+    return tn ? v/tn : 0;
+  };
+  const applyTnTotal = (v) => {
+    if(!isEurTn) return v;
+    const totalTn = Object.values(prodMes).reduce((a,b)=>a+b,0);
+    return totalTn ? v/totalTn : 0;
+  };
+  const colUnit = isEurTn ? '€/Tn' : '€';
+
   let html = '<table class="costes-tbl"><thead><tr><th class="costes-cat-col">Concepto</th>';
   for(const m of mesesActivos){
     const mName = MESES_NOMBRE[m].substring(0,3);
-    html += `<th class="costes-val-col">${mName} €</th>`;
+    html += `<th class="costes-val-col">${mName} ${colUnit}</th>`;
   }
-  // Total interval
-  html += '<th class="costes-val-col costes-total-col">Total €</th>';
+  html += `<th class="costes-val-col costes-total-col">Total ${colUnit}</th>`;
   html += '</tr>';
   // Producción row
   html += '<tr class="costes-prod-row"><td>Producción (Tn)</td>';
   let totalProd = 0;
   for(const m of mesesActivos){
-    const prod = vista==='acumulado' ? (prodAcum[m]||0) : (prodMes[m]||0);
+    const prod = isAcum ? (prodAcum[m]||0) : (prodMes[m]||0);
     totalProd += (prodMes[m]||0);
     html += `<td style="text-align:center;font-weight:600">${fmtTn(prod)}</td>`;
   }
@@ -6613,9 +6703,9 @@ function renderCostes(){
     const cd = catData[cat];
     if(!cd) continue;
 
-    // Acumulado: sumas progresivas
+    // Acumulado: sumas progresivas (siempre en € antes de /tn)
     let catTotals = {};
-    if(vista==='acumulado'){
+    if(isAcum){
       let acum = 0;
       for(const m of mesesActivos){ acum += (cd.totals[m]||0); catTotals[m]=acum; }
     } else {
@@ -6631,17 +6721,17 @@ function renderCostes(){
     const catId = cat.replace(/[^A-Za-z0-9]/g,'_');
     html += `<tr class="${catClass}" data-cat="${catId}" onclick="toggleCostesCat('${catId}')"><td class="costes-cat-name"><span class="costes-cat-toggle open" id="tog-${catId}">▶</span>${cat}</td>`;
     for(const m of mesesActivos){
-      const v = catTotals[m]||0;
+      const v = applyTn(catTotals[m]||0, m);
       html += `<td class="costes-val">${fmt(v)}</td>`;
     }
-    html += `<td class="costes-val costes-total-col">${fmt(catTotal)}</td>`;
+    html += `<td class="costes-val costes-total-col">${fmt(applyTnTotal(catTotal))}</td>`;
     html += '</tr>';
 
     // Subcategory rows
     const subcats = Object.entries(cd.subcats).sort((a,b)=>a[0].localeCompare(b[0]));
     for(const [ca, sub] of subcats){
       let subTotals = {};
-      if(vista==='acumulado'){
+      if(isAcum){
         let acum=0;
         for(const m of mesesActivos){ acum += (sub.meses[m]||0); subTotals[m]=acum; }
       } else {
@@ -6653,10 +6743,10 @@ function renderCostes(){
 
       html += `<tr class="costes-sub-row" data-parent="${catId}"><td class="costes-sub-name">${sub.name}</td>`;
       for(const m of mesesActivos){
-        const v = subTotals[m]||0;
+        const v = applyTn(subTotals[m]||0, m);
         html += `<td class="costes-val">${fmt(v)}</td>`;
       }
-      html += `<td class="costes-val costes-total-col">${fmt(subTotal)}</td>`;
+      html += `<td class="costes-val costes-total-col">${fmt(applyTnTotal(subTotal))}</td>`;
       html += '</tr>';
     }
 
@@ -6671,7 +6761,7 @@ function renderCostes(){
   for(const m of mesesActivos) grandTotal += (grandTotals[m]||0);
 
   let gtAccum = {};
-  if(vista==='acumulado'){
+  if(isAcum){
     let acum=0;
     for(const m of mesesActivos){ acum += (grandTotals[m]||0); gtAccum[m]=acum; }
   } else {
@@ -6680,10 +6770,10 @@ function renderCostes(){
 
   html += '<tr class="costes-grand-row"><td>TOTAL GENERAL</td>';
   for(const m of mesesActivos){
-    const v = gtAccum[m]||0;
+    const v = applyTn(gtAccum[m]||0, m);
     html += `<td class="costes-val">${fmt(v)}</td>`;
   }
-  html += `<td class="costes-val costes-total-col">${fmt(grandTotal)}</td>`;
+  html += `<td class="costes-val costes-total-col">${fmt(applyTnTotal(grandTotal))}</td>`;
   html += '</tr></tbody></table>';
 
   wrap.innerHTML = html;

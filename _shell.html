@@ -1163,48 +1163,73 @@
               <button class="btn-sec" id="costes-btn-print" style="font-size:.72rem;padding:8px 14px" onclick="imprimirCostes()">🖨 Imprimir</button>
             </div>
           </div>
-          <!-- Filtros -->
-          <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:flex-end">
-            <div style="min-width:100px">
-              <div class="label">Año</div>
-              <select class="inp" id="costes-anyo" onchange="renderCostes()">
-              </select>
+          <!-- Ctrl tabs -->
+          <div class="ctrl-tabs" style="margin-bottom:0">
+            <button class="ctrl-tab active" id="costes-tab-analisis" onclick="switchCostesTab('analisis')">Análisis</button>
+            <button class="ctrl-tab" id="costes-tab-config" onclick="switchCostesTab('config')">⚙ Config. Cuentas</button>
+          </div>
+
+          <!-- Panel Análisis -->
+          <div id="costes-panel-analisis">
+            <!-- Filtros -->
+            <div style="display:flex;gap:8px;margin-top:14px;margin-bottom:12px;flex-wrap:wrap;align-items:flex-end">
+              <div style="min-width:100px">
+                <div class="label">Año</div>
+                <select class="inp" id="costes-anyo" onchange="renderCostes()">
+                </select>
+              </div>
+              <div style="min-width:130px">
+                <div class="label">Desde mes</div>
+                <select class="inp" id="costes-mes-desde" onchange="renderCostes();renderRendimiento()">
+                  <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+                  <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+                  <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+                  <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+                </select>
+              </div>
+              <div style="min-width:130px">
+                <div class="label">Hasta mes</div>
+                <select class="inp" id="costes-mes-hasta" onchange="renderCostes();renderRendimiento()">
+                  <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+                  <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+                  <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+                  <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+                </select>
+              </div>
+              <div style="min-width:120px">
+                <div class="label">Vista</div>
+                <select class="inp" id="costes-vista" onchange="renderCostes()">
+                  <option value="mensual">Análisis Mensual €</option>
+                  <option value="acumulado">Mes Acumulado €</option>
+                  <option value="eurtn">€/Tn Mensual</option>
+                  <option value="eurtn-acum">€/Tn Acumulado</option>
+                </select>
+              </div>
             </div>
-            <div style="min-width:130px">
-              <div class="label">Desde mes</div>
-              <select class="inp" id="costes-mes-desde" onchange="renderCostes();renderRendimiento()">
-                <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
-                <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
-                <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
-                <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
-              </select>
+            <!-- Info carga -->
+            <div id="costes-info" style="margin-bottom:10px;font-size:.75rem;color:var(--muted)"></div>
+            <!-- Botón expandir/contraer -->
+            <div id="costes-toggle-wrap" style="display:none;margin-bottom:8px">
+              <button class="btn-sec" id="costes-toggle-all" style="font-size:.7rem;padding:5px 12px" onclick="toggleAllCostesRows()">▶ Expandir todo</button>
             </div>
-            <div style="min-width:130px">
-              <div class="label">Hasta mes</div>
-              <select class="inp" id="costes-mes-hasta" onchange="renderCostes();renderRendimiento()">
-                <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
-                <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
-                <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
-                <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
-              </select>
-            </div>
-            <div style="min-width:120px">
-              <div class="label">Vista</div>
-              <select class="inp" id="costes-vista" onchange="renderCostes()">
-                <option value="mensual">Análisis Mensual</option>
-                <option value="acumulado">Mes Acumulado</option>
-              </select>
+            <!-- Tabla -->
+            <div id="costes-table-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+              <div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Pulsa "Cargar de BC" para traer los movimientos contables del año</div>
             </div>
           </div>
-          <!-- Info carga -->
-          <div id="costes-info" style="margin-bottom:10px;font-size:.75rem;color:var(--muted)"></div>
-          <!-- Botón expandir/contraer -->
-          <div id="costes-toggle-wrap" style="display:none;margin-bottom:8px">
-            <button class="btn-sec" id="costes-toggle-all" style="font-size:.7rem;padding:5px 12px" onclick="toggleAllCostesRows()">▶ Expandir todo</button>
-          </div>
-          <!-- Tabla -->
-          <div id="costes-table-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-            <div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Pulsa "Cargar de BC" para traer los movimientos contables del año</div>
+
+          <!-- Panel Config Cuentas -->
+          <div id="costes-panel-config" style="display:none;margin-top:14px">
+            <div style="font-size:.8rem;color:var(--muted);margin-bottom:12px">
+              Marca las cuentas que <strong>NO</strong> quieres incluir en el análisis de costes. Los cambios se aplican al instante.
+            </div>
+            <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+              <button class="btn-sec" style="font-size:.7rem;padding:5px 12px" onclick="costesConfigSelAll(true)">✓ Incluir todas</button>
+              <button class="btn-sec" style="font-size:.7rem;padding:5px 12px" onclick="costesConfigSelAll(false)">✗ Excluir todas</button>
+            </div>
+            <div id="costes-config-accounts" style="font-size:.78rem;color:var(--muted);font-style:italic">
+              Carga datos de BC primero para ver las cuentas disponibles.
+            </div>
           </div>
           <!-- ── RENDIMIENTO ── -->
           <div id="rendimiento-wrap" style="display:none;margin-top:28px">
