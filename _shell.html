@@ -2338,15 +2338,16 @@
               <h3 id="msubg-title">Nueva Subgama</h3>
               <input type="hidden" id="msubg-id">
               <select class="inp" id="msubg-norma" style="display:none"></select>
-              <label>Gama Principal</label><input class="inp" id="msubg-principal" placeholder="Ej: 966G-500H">
+              <label>Gama Principal</label>
+              <select class="inp inp-mono" id="msubg-principal"><option value="">— Seleccionar gama principal —</option></select>
               <label>Subgamas dependientes</label>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-                <input class="inp inp-mono" id="msubg-gama1" placeholder="Gama 1">
-                <input class="inp inp-mono" id="msubg-gama2" placeholder="Gama 2">
-                <input class="inp inp-mono" id="msubg-gama3" placeholder="Gama 3">
-                <input class="inp inp-mono" id="msubg-gama4" placeholder="Gama 4">
-                <input class="inp inp-mono" id="msubg-gama5" placeholder="Gama 5">
-                <input class="inp inp-mono" id="msubg-gama6" placeholder="Gama 6">
+                <select class="inp inp-mono" id="msubg-gama1"><option value="">— Gama 1 —</option></select>
+                <select class="inp inp-mono" id="msubg-gama2"><option value="">— Gama 2 —</option></select>
+                <select class="inp inp-mono" id="msubg-gama3"><option value="">— Gama 3 —</option></select>
+                <select class="inp inp-mono" id="msubg-gama4"><option value="">— Gama 4 —</option></select>
+                <select class="inp inp-mono" id="msubg-gama5"><option value="">— Gama 5 —</option></select>
+                <select class="inp inp-mono" id="msubg-gama6"><option value="">— Gama 6 —</option></select>
               </div>
               <div class="warn-msg" id="msubg-msg"></div>
               <div class="modal-btns"><button class="btn-cancel" onclick="cerrarModalSubgama()">Cancelar</button><button class="btn-save" onclick="guardarSubgama()">Guardar</button></div>
