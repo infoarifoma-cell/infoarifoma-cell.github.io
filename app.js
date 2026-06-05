@@ -305,7 +305,9 @@ async function getGamasNormas() {
   return dbQuery({ action: 'select', table: 'tblGamasNormas', options: { select: '*', order: 'id.asc' } });
 }
 async function doPostGamaNorma(d) {
-  const row = { Numero: d.Numero||'', Gama: d.Gama||'', Modelo: d.Modelo||'', Intervalo: Number(d.Intervalo)||0 };
+  // Calcular siguiente id manualmente (la tabla no tiene serial)
+  const maxId = normasData.length ? Math.max(...normasData.map(x=>Number(x.id)||0)) : 0;
+  const row = { id: maxId+1, Numero: d.Numero||'', Gama: d.Gama||'', Modelo: d.Modelo||'', Intervalo: Number(d.Intervalo)||0 };
   for(let i=1;i<=60;i++) row['n'+i] = d['n'+i]||null;
   return dbQuery({ action: 'insert', table: 'tblGamasNormas', data: row });
 }
