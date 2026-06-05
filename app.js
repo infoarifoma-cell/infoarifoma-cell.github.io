@@ -326,7 +326,8 @@ async function getGamasDependientes() {
   return dbQuery({ action: 'select', table: 'tblGamasDependientes', options: { select: '*', order: 'id.asc' } });
 }
 async function doPostGamaDependiente(d) {
-  const row = { Gama_Principal: d.Gama_Principal||'' };
+  const maxId = subgamasData.length ? Math.max(...subgamasData.map(x=>Number(x.id)||0)) : 0;
+  const row = { id: maxId+1, Gama_Principal: d.Gama_Principal||'' };
   for(let i=1;i<=6;i++) row['Gama_'+i] = d['Gama_'+i]||null;
   return dbQuery({ action: 'insert', table: 'tblGamasDependientes', data: row });
 }
@@ -345,7 +346,8 @@ async function getGamasActivos() {
   return dbQuery({ action: 'select', table: 'tblGamasActivos', options: { select: '*', order: 'Activo.asc' } });
 }
 async function doPostGamaActivo(d) {
-  const row = { Activo: d.Activo||'' };
+  const maxId = activoGamaData.length ? Math.max(...activoGamaData.map(x=>Number(x.id)||0)) : 0;
+  const row = { id: maxId+1, Activo: d.Activo||'' };
   for(let i=1;i<=9;i++) row['Gama_'+i] = d['Gama_'+i]||null;
   for(let i=1;i<=3;i++) row['Check_'+i] = d['Check_'+i]||null;
   return dbQuery({ action: 'insert', table: 'tblGamasActivos', data: row });
@@ -368,8 +370,9 @@ async function getGamasListado() {
 async function doPostGamaListado(d) {
   const proximo = Number(d.Proximo) || 0;
   const umed    = Number(d.U_Medicion_med) || 0;
+  const maxId = listadoPrevData.length ? Math.max(...listadoPrevData.map(x=>Number(x.id)||0)) : 0;
   return dbQuery({ action: 'insert', table: 'tblGamasListadoPreventivo', data: {
-    Activo: d.Activo||'', Gama: d.Gama||'', Medidor: d.Medidor||'H',
+    id: maxId+1, Activo: d.Activo||'', Gama: d.Gama||'', Medidor: d.Medidor||'H',
     Proximo: proximo, U_Medicion_med: umed, U_Medicion_fecha: d.U_Medicion_fecha||null,
     Falta: proximo - umed, Estado: d.Estado||null, Principal: d.Principal||false, Aviso: d.Aviso||null
   }, options: { select: 'id' }});
