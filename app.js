@@ -7860,15 +7860,27 @@ function comprasAutoArticulo(proveedorNombre){
   }
 }
 
-function getMsalInstance(){
-  if(_msalInstance)return _msalInstance;
-  const cfg={auth:{clientId:COMPRAS_CLIENT_ID,authority:'https://login.microsoftonline.com/'+COMPRAS_TENANT_ID,redirectUri:COMPRAS_REDIRECT},cache:{cacheLocation:'localStorage'}};
-  _msalInstance=new msal.PublicClientApplication(cfg);
-  return _msalInstance;
+let _msalInstancePromise=null;
+async function getMsalInstance(){
+  if(_msalInstancePromise)return _msalInstancePromise;
+  _msalInstancePromise=(async()=>{
+    if(_msalInstance)return _msalInstance;
+    const cfg={auth:{clientId:COMPRAS_CLIENT_ID,authority:'https://login.microsoftonline.com/'+COMPRAS_TENANT_ID,redirectUri:COMPRAS_REDIRECT},cache:{cacheLocation:'sessionStorage'}};
+    _msalInstance=new msal.PublicClientApplication(cfg);
+    await _msalInstance.initialize();
+    return _msalInstance;
+  })();
+  return _msalInstancePromise;
 }
 
+let _comprasTokenPromise=null;
 async function comprasGetToken(){
-  const m=getMsalInstance();
+  if(_comprasTokenPromise)return _comprasTokenPromise;
+  _comprasTokenPromise=_comprasGetTokenInner().finally(()=>{_comprasTokenPromise=null;});
+  return _comprasTokenPromise;
+}
+async function _comprasGetTokenInner(){
+  const m=await getMsalInstance();
   const accounts=m.getAllAccounts();
   if(accounts.length){
     try{const r=await m.acquireTokenSilent({scopes:COMPRAS_SCOPES,account:accounts[0]});return r.accessToken;}catch(e){}
@@ -8551,7 +8563,6 @@ function _renderInforme(d) {
   if (!d.fichajes.length) {
     perBody.innerHTML = '<tr><td colspan="4" style="padding:8px;color:var(--muted)">Sin fichajes</td></tr>';
   } else {
-    d.fichajes.forEach(f => console.log(`[fichaje] ${f.empleado} entrada="${f.entrada}" salida="${f.salida}" tiempodia=${f.tiempodia}`));
     perBody.innerHTML = d.fichajes.map(f =>
       `<tr style="border-bottom:1px solid var(--border)">
         <td style="padding:5px 8px;font-weight:600">${f.empleado||'—'}</td>
