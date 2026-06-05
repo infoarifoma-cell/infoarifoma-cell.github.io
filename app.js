@@ -6285,20 +6285,14 @@ function renderListadoFiltrado(){
   else if(ord==='fecha_asc') filtered.sort((a,b)=>(a.U_Medicion_fecha||'').localeCompare(b.U_Medicion_fecha||''));
   if(!filtered.length){el.innerHTML='<div class="tbl"><div class="empty">Sin coincidencias</div></div>';return;}
   el.innerHTML='<div class="tbl">'+
-    '<div class="tr th"><div class="tc" style="flex:1">Activo</div><div class="tc" style="flex:1.5">Gama</div><div class="tc prev-hide-sm" style="flex:.4;text-align:center">Med.</div><div class="tc" style="flex:.7;text-align:right">Próximo</div><div class="tc prev-hide-sm" style="flex:.7;text-align:right">Ultima</div><div class="tc prev-hide-sm" style="flex:1.1;text-align:center">Ultima fecha</div><div class="tc" style="flex:.6;text-align:right">Falta</div><div class="tc prev-hide-sm" style="flex:.5"></div><div class="tc" style="flex:.6"></div></div>'+
+    '<div class="tr th"><div class="tc" style="flex:1">Activo</div><div class="tc" style="flex:1.5">Gama</div><div class="tc prev-hide-sm" style="flex:.4;text-align:center">Med.</div><div class="tc" style="flex:.7;text-align:right">Horóm.</div><div class="tc" style="flex:.7;text-align:right">Próximo</div><div class="tc prev-hide-sm" style="flex:.5"></div><div class="tc" style="flex:.6"></div></div>'+
     filtered.map(r=>{
-      const falta=Number(r.Falta)||(Number(r.Proximo)-Number(r.U_Medicion_med));
-      const rowBg=falta<0?'background:rgba(255,77,77,.1)':r.Estado==='Aviso'?'background:rgba(255,200,0,.1)':'';
-      const faltaColor=falta<0?'color:#ff4d4d;font-weight:700':falta<50?'color:#e6a800;font-weight:600':'';
-      const fecha=r.U_Medicion_fecha||'—';
-      return `<div class="tr" style="${rowBg}">
+      return `<div class="tr">
         <div class="tc" style="flex:1;font-family:monospace;font-weight:700;color:var(--accent);font-size:.75rem">${r.Activo||'—'}</div>
         <div class="tc" style="flex:1.5;font-size:.75rem">${r.Gama||'—'}</div>
         <div class="tc prev-hide-sm" style="flex:.4;text-align:center;font-size:.72rem;color:var(--muted)">${r.Medidor||'H'}</div>
+        <div class="tc" style="flex:.7;text-align:right;font-family:monospace;font-size:.75rem;color:var(--muted)">${r.U_Medicion_med??'—'}</div>
         <div class="tc" style="flex:.7;text-align:right;font-family:monospace;font-size:.75rem">${r.Proximo??'—'}</div>
-        <div class="tc prev-hide-sm" style="flex:.7;text-align:right;font-family:monospace;font-size:.75rem">${r.U_Medicion_med??'—'}</div>
-        <div class="tc prev-hide-sm" style="flex:.9;text-align:center;font-size:.68rem;color:var(--muted)">${fecha}</div>
-        <div class="tc" style="flex:.6;text-align:right;font-family:monospace;font-size:.75rem;${faltaColor}">${falta??'—'}</div>
         <div class="tc prev-hide-sm" style="flex:.5;font-size:.68rem;color:var(--muted)">${r.Estado||''}</div>
         <div class="tc" style="flex:.6;text-align:right;display:flex;gap:3px;justify-content:flex-end">
           <button class="btn-sm" onclick="abrirModalListado(${r.id})" style="font-size:.62rem;padding:2px 5px">✏</button>
