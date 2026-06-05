@@ -6157,9 +6157,14 @@ async function cargarNormasQuiet(){
 }
 function renderNormasFiltradas(){
   const q=(document.getElementById('filt-normas-q')?.value||'').toLowerCase();
+  const ord=document.getElementById('ord-normas')?.value||'id';
   const el=document.getElementById('normas-list');
   if(!normasData.length)return;
-  const filtered=q?normasData.filter(n=>(n.Gama||'').toLowerCase().includes(q)||(n.Modelo||'').toLowerCase().includes(q)||(n.Numero||'').toLowerCase().includes(q)):normasData;
+  let filtered=q?normasData.filter(n=>(n.Gama||'').toLowerCase().includes(q)||(n.Modelo||'').toLowerCase().includes(q)||(n.Numero||'').toLowerCase().includes(q)):[...normasData];
+  if(ord==='Gama') filtered.sort((a,b)=>(a.Gama||'').localeCompare(b.Gama||''));
+  else if(ord==='Modelo') filtered.sort((a,b)=>(a.Modelo||'').localeCompare(b.Modelo||''));
+  else if(ord==='Intervalo_asc') filtered.sort((a,b)=>(Number(a.Intervalo)||0)-(Number(b.Intervalo)||0));
+  else if(ord==='Intervalo_desc') filtered.sort((a,b)=>(Number(b.Intervalo)||0)-(Number(a.Intervalo)||0));
   if(!filtered.length){el.innerHTML='<div class="tbl"><div class="empty">Sin coincidencias</div></div>';return;}
   el.innerHTML='<div class="tbl">'+
     '<div class="tr th"><div class="tc" style="flex:.4">#</div><div class="tc" style="flex:.5">Nº</div><div class="tc" style="flex:1">Gama</div><div class="tc" style="flex:.8">Modelo</div><div class="tc" style="flex:.5;text-align:center">Intervalo</div><div class="tc" style="flex:.3;text-align:center">Checks</div><div class="tc" style="flex:.6"></div></div>'+
@@ -6180,9 +6185,11 @@ function renderNormasFiltradas(){
 }
 function renderSubgamasFiltradas(){
   const q=(document.getElementById('filt-subgamas-q')?.value||'').toLowerCase();
+  const ord=document.getElementById('ord-subgamas')?.value||'id';
   const el=document.getElementById('subgamas-list');
   if(!subgamasData.length)return;
-  const filtered=q?subgamasData.filter(s=>(s.Gama_Principal||'').toLowerCase().includes(q)):subgamasData;
+  let filtered=q?subgamasData.filter(s=>(s.Gama_Principal||'').toLowerCase().includes(q)):[...subgamasData];
+  if(ord==='Gama_Principal') filtered.sort((a,b)=>(a.Gama_Principal||'').localeCompare(b.Gama_Principal||''));
   if(!filtered.length){el.innerHTML='<div class="tbl"><div class="empty">Sin coincidencias</div></div>';return;}
   el.innerHTML='<div class="tbl">'+
     '<div class="tr th"><div class="tc" style="flex:.4">#</div><div class="tc" style="flex:1">Gama Principal</div><div class="tc" style="flex:1.2">Subgamas</div><div class="tc" style="flex:.6"></div></div>'+
@@ -6201,10 +6208,12 @@ function renderSubgamasFiltradas(){
 }
 function renderActivoGamaFiltrados(){
   const q=(document.getElementById('filt-activogama-q')?.value||'').toLowerCase();
+  const ord=document.getElementById('ord-activogama')?.value||'id';
   const el=document.getElementById('activogama-list');
   if(!activoGamaData.length)return;
   const gamasCols=['Gama_1','Gama_2','Gama_3','Gama_4','Gama_5','Gama_6','Gama_7','Gama_8','Gama_9'];
-  const filtered=q?activoGamaData.filter(a=>(a.Activo||'').toLowerCase().includes(q)):activoGamaData;
+  let filtered=q?activoGamaData.filter(a=>(a.Activo||'').toLowerCase().includes(q)):[...activoGamaData];
+  if(ord==='Activo') filtered.sort((a,b)=>(a.Activo||'').localeCompare(b.Activo||''));
   if(!filtered.length){el.innerHTML='<div class="tbl"><div class="empty">Sin coincidencias</div></div>';return;}
   el.innerHTML='<div class="tbl">'+
     '<div class="tr th"><div class="tc" style="flex:.4">#</div><div class="tc" style="flex:1">Activo</div><div class="tc" style="flex:2">Gamas asignadas</div><div class="tc prev-hide-sm tc-checks" style="flex:.8">Checks</div><div class="tc" style="flex:.6"></div></div>'+
@@ -6224,9 +6233,16 @@ function renderActivoGamaFiltrados(){
 }
 function renderListadoFiltrado(){
   const q=(document.getElementById('filt-listado-q')?.value||'').toLowerCase();
+  const ord=document.getElementById('ord-listado')?.value||'id';
   const el=document.getElementById('listado-prev-list');
   if(!listadoPrevData.length)return;
-  const filtered=q?listadoPrevData.filter(r=>(r.Activo||'').toLowerCase().includes(q)||(r.Gama||'').toLowerCase().includes(q)):listadoPrevData;
+  let filtered=q?listadoPrevData.filter(r=>(r.Activo||'').toLowerCase().includes(q)||(r.Gama||'').toLowerCase().includes(q)):[...listadoPrevData];
+  if(ord==='Activo') filtered.sort((a,b)=>(a.Activo||'').localeCompare(b.Activo||''));
+  else if(ord==='Gama') filtered.sort((a,b)=>(a.Gama||'').localeCompare(b.Gama||''));
+  else if(ord==='falta_asc') filtered.sort((a,b)=>{const fa=Number(a.Falta)||(Number(a.Proximo)-Number(a.U_Medicion_med));const fb=Number(b.Falta)||(Number(b.Proximo)-Number(b.U_Medicion_med));return fa-fb;});
+  else if(ord==='falta_desc') filtered.sort((a,b)=>{const fa=Number(a.Falta)||(Number(a.Proximo)-Number(a.U_Medicion_med));const fb=Number(b.Falta)||(Number(b.Proximo)-Number(b.U_Medicion_med));return fb-fa;});
+  else if(ord==='fecha_desc') filtered.sort((a,b)=>(b.U_Medicion_fecha||'').localeCompare(a.U_Medicion_fecha||''));
+  else if(ord==='fecha_asc') filtered.sort((a,b)=>(a.U_Medicion_fecha||'').localeCompare(b.U_Medicion_fecha||''));
   if(!filtered.length){el.innerHTML='<div class="tbl"><div class="empty">Sin coincidencias</div></div>';return;}
   el.innerHTML='<div class="tbl">'+
     '<div class="tr th"><div class="tc" style="flex:1">Activo</div><div class="tc" style="flex:1.5">Gama</div><div class="tc prev-hide-sm" style="flex:.4;text-align:center">Med.</div><div class="tc" style="flex:.7;text-align:right">Próximo</div><div class="tc prev-hide-sm" style="flex:.7;text-align:right">Ultima</div><div class="tc prev-hide-sm" style="flex:1.1;text-align:center">Ultima fecha</div><div class="tc" style="flex:.6;text-align:right">Falta</div><div class="tc prev-hide-sm" style="flex:.5"></div><div class="tc" style="flex:.6"></div></div>'+

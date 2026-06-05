@@ -2440,7 +2440,16 @@
               <div class="sec-title" style="margin:0">Gamas / Normas</div>
               <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="abrirModalNorma()">+ Nueva</button>
             </div>
-            <div style="display:flex;margin-bottom:8px"><input class="inp" id="filt-normas-q" placeholder="🔍 Buscar gama, modelo..." oninput="renderNormasFiltradas()" style="width:100%;max-width:340px"></div>
+            <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+              <input class="inp" id="filt-normas-q" placeholder="🔍 Buscar gama, modelo..." oninput="renderNormasFiltradas()" style="flex:1;min-width:160px;max-width:340px">
+              <select class="fsel" id="ord-normas" onchange="renderNormasFiltradas()" style="min-width:140px">
+                <option value="id">Orden original</option>
+                <option value="Gama">Gama A→Z</option>
+                <option value="Modelo">Modelo A→Z</option>
+                <option value="Intervalo_asc">Intervalo ↑</option>
+                <option value="Intervalo_desc">Intervalo ↓</option>
+              </select>
+            </div>
             <div id="normas-list"><div class="tbl"><div class="empty">Cargando...</div></div></div>
           </div>
 
@@ -2450,7 +2459,13 @@
               <div class="sec-title" style="margin:0">Subgamas</div>
               <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="abrirModalSubgama()">+ Nueva</button>
             </div>
-            <div style="display:flex;margin-bottom:8px"><input class="inp" id="filt-subgamas-q" placeholder="🔍 Buscar gama principal..." oninput="renderSubgamasFiltradas()" style="width:100%;max-width:340px"></div>
+            <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+              <input class="inp" id="filt-subgamas-q" placeholder="🔍 Buscar gama principal..." oninput="renderSubgamasFiltradas()" style="flex:1;min-width:160px;max-width:340px">
+              <select class="fsel" id="ord-subgamas" onchange="renderSubgamasFiltradas()" style="min-width:140px">
+                <option value="id">Orden original</option>
+                <option value="Gama_Principal">Gama A→Z</option>
+              </select>
+            </div>
             <div id="subgamas-list"><div class="tbl"><div class="empty">Cargando...</div></div></div>
           </div>
 
@@ -2460,7 +2475,13 @@
               <div class="sec-title" style="margin:0">Activo-Gama</div>
               <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="abrirModalActivoGama()">+ Nuevo</button>
             </div>
-            <div style="display:flex;margin-bottom:8px"><input class="inp" id="filt-activogama-q" placeholder="🔍 Buscar activo..." oninput="renderActivoGamaFiltrados()" style="width:100%;max-width:340px"></div>
+            <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+              <input class="inp" id="filt-activogama-q" placeholder="🔍 Buscar activo..." oninput="renderActivoGamaFiltrados()" style="flex:1;min-width:160px;max-width:340px">
+              <select class="fsel" id="ord-activogama" onchange="renderActivoGamaFiltrados()" style="min-width:140px">
+                <option value="id">Orden original</option>
+                <option value="Activo">Activo A→Z</option>
+              </select>
+            </div>
             <div id="activogama-list"><div class="tbl"><div class="empty">Cargando...</div></div></div>
           </div>
 
@@ -2473,8 +2494,17 @@
                 <button class="btn-pri" style="font-size:.72rem;padding:6px 12px" onclick="abrirModalListado()">+ Nuevo</button>
               </div>
             </div>
-            <div class="frow" style="margin-bottom:8px">
-              <input class="inp" id="filt-listado-q" placeholder="🔍 Buscar activo, gama..." oninput="renderListadoFiltrado()" style="width:100%;max-width:340px">
+            <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+              <input class="inp" id="filt-listado-q" placeholder="🔍 Buscar activo, gama..." oninput="renderListadoFiltrado()" style="flex:1;min-width:160px;max-width:340px">
+              <select class="fsel" id="ord-listado" onchange="renderListadoFiltrado()" style="min-width:160px">
+                <option value="id">Orden original</option>
+                <option value="Activo">Activo A→Z</option>
+                <option value="Gama">Gama A→Z</option>
+                <option value="falta_asc">Falta ↑ (urgente primero)</option>
+                <option value="falta_desc">Falta ↓</option>
+                <option value="fecha_desc">Fecha reciente primero</option>
+                <option value="fecha_asc">Fecha antigua primero</option>
+              </select>
             </div>
             <div id="listado-prev-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
           </div>
