@@ -177,8 +177,8 @@
   }
 
   /* ── KANBAN ── */
-  .kanban-board{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;align-items:start}
-  .kanban-col{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px;min-height:200px}
+  .kanban-board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:start;width:100%}
+  .kanban-col{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px;min-height:160px}
   .kanban-col-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 2px}
   .kanban-col-title{font-size:.75rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
   .kanban-col-count{font-size:.7rem;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1px 7px;color:var(--muted);font-weight:600}
@@ -2116,12 +2116,15 @@
             <div class="sec-title" style="margin:0">Tareas</div>
             <button class="btn-main" style="font-size:.78rem;padding:7px 16px" onclick="abrirModalTarea(null)">+ Nueva tarea</button>
           </div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-            <select class="fsel" id="tarea-filt-seccion" onchange="renderTareas()" style="min-width:130px">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+            <select class="fsel" id="tarea-filt-seccion" onchange="tareaSeccionChange()" style="min-width:130px">
               <option value="">Todas las secciones</option>
               <option value="Planta">Planta</option>
               <option value="Maquinaria">Maquinaria</option>
               <option value="Administración">Administración</option>
+            </select>
+            <select class="fsel" id="tarea-filt-activo" onchange="tareaActivoChange()" style="min-width:150px;display:none">
+              <option value="">Todos los activos</option>
             </select>
             <select class="fsel" id="tarea-filt-persona" onchange="renderTareas()" style="min-width:140px">
               <option value="">Todas las personas</option>
@@ -2129,6 +2132,8 @@
             </select>
             <button class="btn-sec" style="font-size:.72rem;padding:6px 12px;margin-left:auto" onclick="cargarTareas()">&#8635;</button>
           </div>
+          <!-- Tarjeta info activo -->
+          <div id="tarea-activo-card" style="display:none;margin-bottom:10px;padding:10px 14px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);display:flex;flex-wrap:wrap;gap:12px;align-items:center"></div>
           <div id="tareas-list"><div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Cargando tareas...</div></div>
 
           <!-- Modal Tarea -->
@@ -2139,11 +2144,15 @@
                 <button onclick="cerrarModalTarea()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--muted);padding:0 4px">✕</button>
               </div>
               <label class="label">Sección *</label>
-              <select class="inp" id="tm-seccion">
+              <select class="inp" id="tm-seccion" onchange="tmSeccionChange()">
                 <option value="Planta">Planta</option>
                 <option value="Maquinaria">Maquinaria</option>
                 <option value="Administración">Administración</option>
               </select>
+              <div id="tm-activo-row" style="display:none">
+                <label class="label">Activo</label>
+                <select class="inp" id="tm-activo"><option value="">— Sin activo específico —</option></select>
+              </div>
               <label class="label">Título *</label>
               <input class="inp" id="tm-titulo" placeholder="Nombre de la tarea" maxlength="120">
               <label class="label">Descripción</label>
@@ -2309,11 +2318,14 @@
               <h3 id="mnorma-title">Nueva Norma/Gama</h3>
               <input type="hidden" id="mnorma-id">
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                <div><label>Número</label><input class="inp" id="mnorma-numero" placeholder="Ej: 001"></div>
-                <div><label>Intervalo (h)</label><input class="inp" type="number" id="mnorma-intervalo" placeholder="500" min="1"></div>
+                <div><label>Número <span style="font-size:.68rem;color:var(--muted)">(auto)</span></label><input class="inp inp-mono" id="mnorma-numero" readonly style="background:var(--surface2);color:var(--muted);cursor:default"></div>
+                <div><label>Intervalo (h)</label><input class="inp inp-mono" type="number" id="mnorma-intervalo" placeholder="500" min="1"></div>
               </div>
               <label>Gama (nombre)</label><input class="inp" id="mnorma-nombre" placeholder="Ej: 500 Horas">
-              <label>Modelo máquina</label><input class="inp" id="mnorma-modelo" placeholder="Ej: 966G">
+              <label>Modelo máquina</label>
+              <select class="inp" id="mnorma-modelo">
+                <option value="">— Seleccionar modelo —</option>
+              </select>
               <label>Puntos de verificación (uno por línea, máx 60)</label>
               <textarea class="inp" id="mnorma-checks" placeholder="Cambio aceite motor&#10;Revisar filtros..." style="resize:vertical;min-height:120px"></textarea>
               <div class="warn-msg" id="mnorma-msg"></div>
@@ -2382,19 +2394,19 @@
               <select class="inp" id="mlist-codigogama">
                 <option value="">— elige activo primero —</option>
               </select>
-              <label>Medidor</label><select class="inp" id="mlist-medidor"><option value="H">H — Horas</option><option value="D">D — Días</option><option value="KM">KM</option></select>
+              <input type="hidden" id="mlist-medidor" value="H">
+              <input type="hidden" id="mlist-ultimafecha" value="">
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                <div><label>Próximo</label><input class="inp inp-mono" type="number" id="mlist-proximo"></div>
-                <div><label>Última medición</label><input class="inp inp-mono" type="number" id="mlist-ultima"></div>
+                <div><label>Horómetro actual</label><input class="inp inp-mono" type="number" id="mlist-ultima" placeholder="0"></div>
+                <div><label>Próximo (h)</label><input class="inp inp-mono" type="number" id="mlist-proximo" placeholder="0"></div>
               </div>
-              <label>Última fecha</label><input class="inp" type="date" id="mlist-ultimafecha">
               <div class="warn-msg" id="mlist-msg"></div>
               <div class="modal-btns"><button class="btn-cancel" onclick="cerrarModalListado()">Cancelar</button><button class="btn-save" onclick="guardarListado()">Guardar</button></div>
             </div>
           </div>
 
           <!-- ── Sub-navegación ── -->
-          <div style="display:flex;gap:2px;margin-bottom:14px;border-bottom:2px solid var(--border);padding-bottom:0;overflow-x:auto">
+          <div style="position:sticky;top:0;z-index:50;background:var(--bg);display:flex;gap:2px;margin-bottom:14px;border-bottom:2px solid var(--border);padding-bottom:0;overflow-x:auto;padding-top:4px">
             <button class="ctrl-tab active" id="ptab-listado" onclick="prevTab('listado')">Listado</button>
             <button class="ctrl-tab" id="ptab-normas" onclick="prevTab('normas')">Gamas-Normas</button>
             <button class="ctrl-tab" id="ptab-subgamas" onclick="prevTab('subgamas')">Subgamas</button>
@@ -2428,7 +2440,7 @@
               <div class="sec-title" style="margin:0">Gamas / Normas</div>
               <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="abrirModalNorma()">+ Nueva</button>
             </div>
-            <div class="frow" style="margin-bottom:8px"><input class="finp" id="filt-normas-q" placeholder="Buscar gama, modelo..." oninput="renderNormasFiltradas()" style="flex:1"></div>
+            <div style="display:flex;margin-bottom:8px"><input class="inp" id="filt-normas-q" placeholder="🔍 Buscar gama, modelo..." oninput="renderNormasFiltradas()" style="width:100%;max-width:340px"></div>
             <div id="normas-list"><div class="tbl"><div class="empty">Cargando...</div></div></div>
           </div>
 
@@ -2438,7 +2450,7 @@
               <div class="sec-title" style="margin:0">Subgamas</div>
               <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="abrirModalSubgama()">+ Nueva</button>
             </div>
-            <div class="frow" style="margin-bottom:8px"><input class="finp" id="filt-subgamas-q" placeholder="Buscar gama principal..." oninput="renderSubgamasFiltradas()" style="flex:1"></div>
+            <div style="display:flex;margin-bottom:8px"><input class="inp" id="filt-subgamas-q" placeholder="🔍 Buscar gama principal..." oninput="renderSubgamasFiltradas()" style="width:100%;max-width:340px"></div>
             <div id="subgamas-list"><div class="tbl"><div class="empty">Cargando...</div></div></div>
           </div>
 
@@ -2448,7 +2460,7 @@
               <div class="sec-title" style="margin:0">Activo-Gama</div>
               <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="abrirModalActivoGama()">+ Nuevo</button>
             </div>
-            <div class="frow" style="margin-bottom:8px"><input class="finp" id="filt-activogama-q" placeholder="Buscar activo..." oninput="renderActivoGamaFiltrados()" style="flex:1"></div>
+            <div style="display:flex;margin-bottom:8px"><input class="inp" id="filt-activogama-q" placeholder="🔍 Buscar activo..." oninput="renderActivoGamaFiltrados()" style="width:100%;max-width:340px"></div>
             <div id="activogama-list"><div class="tbl"><div class="empty">Cargando...</div></div></div>
           </div>
 
@@ -2462,7 +2474,7 @@
               </div>
             </div>
             <div class="frow" style="margin-bottom:8px">
-              <input class="finp" id="filt-listado-q" placeholder="Buscar activo, gama..." oninput="renderListadoFiltrado()" style="flex:1">
+              <input class="inp" id="filt-listado-q" placeholder="🔍 Buscar activo, gama..." oninput="renderListadoFiltrado()" style="width:100%;max-width:340px">
             </div>
             <div id="listado-prev-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
           </div>

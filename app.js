@@ -6088,10 +6088,27 @@ function abrirModalNorma(id){
   const n=id?normasData.find(x=>x.id===id):null;
   document.getElementById('mnorma-title').textContent=n?'Editar Norma':'Nueva Norma/Gama';
   document.getElementById('mnorma-id').value=n?n.id:'';
-  document.getElementById('mnorma-numero').value=n?n.Numero||'':'';
+  // Número: en edición muestra el existente; en nueva calcula el siguiente correlativo
+  if(n){
+    document.getElementById('mnorma-numero').value=n.Numero||'';
+  } else {
+    const nums=normasData.map(x=>parseInt(x.Numero)||0).filter(v=>v>0);
+    const siguiente=nums.length?Math.max(...nums)+1:1;
+    document.getElementById('mnorma-numero').value=String(siguiente).padStart(3,'0');
+  }
   document.getElementById('mnorma-nombre').value=n?n.Gama||'':'';
-  document.getElementById('mnorma-modelo').value=n?n.Modelo||'':'';
   document.getElementById('mnorma-intervalo').value=n?n.Intervalo||'':'';
+  // Poblar select de modelos desde activosData (campo modelo) o MACHINES
+  const selModelo=document.getElementById('mnorma-modelo');
+  const modelosSet=new Set();
+  // Desde activosData (tblactivos)
+  activosData.forEach(a=>{if(a.modelo)modelosSet.add(a.modelo);});
+  // Desde MACHINES como fallback
+  if(!modelosSet.size) MACHINES.forEach(m=>{if(m.modelo&&m.modelo!=='-')modelosSet.add(m.modelo);});
+  const modelosList=[...modelosSet].sort();
+  selModelo.innerHTML='<option value="">— Seleccionar modelo —</option>'+
+    modelosList.map(m=>`<option value="${m}">${m}</option>`).join('');
+  selModelo.value=n?n.Modelo||'':'';
   // checks n1..n60
   const checks=[]; for(let i=1;i<=60;i++) if(n&&n['n'+i]) checks.push(n['n'+i]);
   document.getElementById('mnorma-checks').value=checks.join('\n');
@@ -9370,11 +9387,15 @@ function _tareasAsignados(t){
   return t.asignado.split(',').map(s=>s.trim()).filter(Boolean);
 }
 const TAREAS_SECCIONES = ['Planta','Maquinaria','Administración'];
+const TAREAS_SECCIONES_ACTIVO = ['Planta','Maquinaria']; // secciones con selector de activo
+
 function _filtrarTareas(){
   const filtPersona  = document.getElementById('tarea-filt-persona')?.value||'';
   const filtSeccion  = document.getElementById('tarea-filt-seccion')?.value||'';
+  const filtActivo   = document.getElementById('tarea-filt-activo')?.value||'';
   return tareasData.filter(t => {
     if(filtSeccion && t.seccion !== filtSeccion) return false;
+    if(filtActivo && t.activo !== filtActivo) return false;
     if(filtPersona === '__mias__' && loginUser){
       if(!_tareasAsignados(t).includes(loginUser.nombre)) return false;
     } else if(filtPersona && filtPersona !== '__mias__'){
@@ -9382,6 +9403,77 @@ function _filtrarTareas(){
     }
     return true;
   });
+}
+
+function tareaSeccionChange(){
+  const sec = document.getElementById('tarea-filt-seccion')?.value||'';
+  const selActivo = document.getElementById('tarea-filt-activo');
+  const card = document.getElementById('tarea-activo-card');
+  if(TAREAS_SECCIONES_ACTIVO.includes(sec)){
+    // Poblar select activos
+    if(!activosData.length){
+      dbQuery({action:'select',table:'tblactivos',options:{select:'*',order:'Codigo.asc',limit:500}}).then(j=>{
+        if(j.ok && j.data) activosData=j.data;
+        _poblarSelectActivoTareas();
+      });
+    } else {
+      _poblarSelectActivoTareas();
+    }
+    selActivo.style.display='';
+  } else {
+    selActivo.style.display='none';
+    selActivo.value='';
+    if(card) card.style.display='none';
+  }
+  renderTareas();
+}
+
+function _poblarSelectActivoTareas(){
+  const sel = document.getElementById('tarea-filt-activo');
+  if(!sel) return;
+  sel.innerHTML='<option value="">Todos los activos</option>'+
+    activosData.filter(a=>a.Codigo).map(a=>`<option value="${a.Codigo}">${a.Codigo}${a.Activo&&a.Activo!==a.Codigo?' — '+a.Activo:''}</option>`).join('');
+}
+
+function tareaActivoChange(){
+  const codigo = document.getElementById('tarea-filt-activo')?.value||'';
+  const card = document.getElementById('tarea-activo-card');
+  if(codigo && card){
+    const a = activosData.find(x=>x.Codigo===codigo);
+    if(a){
+      // Horómetro: buscar en prevGasoilHoroMap o machineHoroOT
+      const horo = (typeof prevGasoilHoroMap!=='undefined'&&prevGasoilHoroMap[codigo]) || '';
+      const items = [
+        ['Código', a.Codigo],
+        ['Nombre', a.Activo||'—'],
+        ['Modelo', a.modelo||'—'],
+        ['Fabricante', a.fabricante||'—'],
+        horo ? ['Horómetro', horo+' h'] : null,
+        a.matricula ? ['Matrícula', a.matricula] : null,
+      ].filter(Boolean);
+      card.innerHTML = items.map(([k,v])=>`<div style="font-size:.74rem"><span style="color:var(--muted);font-size:.68rem;display:block">${k}</span><strong>${v}</strong></div>`).join('');
+      card.style.display='flex';
+    }
+  } else if(card){
+    card.style.display='none';
+  }
+  renderTareas();
+}
+
+function tmSeccionChange(){
+  const sec = document.getElementById('tm-seccion')?.value||'';
+  const row = document.getElementById('tm-activo-row');
+  if(!row) return;
+  if(TAREAS_SECCIONES_ACTIVO.includes(sec)){
+    row.style.display='';
+    const sel = document.getElementById('tm-activo');
+    if(sel.options.length<=1){
+      sel.innerHTML='<option value="">— Sin activo específico —</option>'+
+        activosData.filter(a=>a.Codigo).map(a=>`<option value="${a.Codigo}">${a.Codigo}${a.Activo&&a.Activo!==a.Codigo?' — '+a.Activo:''}</option>`).join('');
+    }
+  } else {
+    row.style.display='none';
+  }
 }
 
 function _renderTareaCard(t, hoy){
@@ -9450,6 +9542,7 @@ function renderTareasKanban(){
       ondragstart="kanbanDragStart(event,${t.id})"
       ondragend="kanbanDragEnd(event)"
       onclick="abrirModalTarea(${JSON.stringify(t).replace(/"/g,'&quot;')})">
+      ${t.activo ? `<div style="font-size:.63rem;font-family:monospace;color:var(--accent);font-weight:700;margin-bottom:3px">${escapeHTML(t.activo)}</div>` : ''}
       <div class="kanban-card-title">${escapeHTML(t.titulo)}</div>
       <div class="kanban-card-meta">
         <span class="tarea-badge ${t.prioridad||'media'}">${priLabel}</span>
@@ -9494,7 +9587,7 @@ function renderTareasKanban(){
   secciones.forEach(sec => {
     const tareasSeccion = lista.filter(t => (t.seccion||'Planta') === sec);
     const secDiv = document.createElement('div');
-    secDiv.style.cssText = 'margin-bottom:24px';
+    secDiv.style.cssText = 'margin-bottom:24px;width:100%';
     const header = document.createElement('div');
     header.style.cssText = `display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:6px 10px;border-radius:6px;background:${seccionColors[sec]||'var(--accent)'}18;border-left:3px solid ${seccionColors[sec]||'var(--accent)'}`;
     header.innerHTML = `<span style="font-weight:700;font-size:.82rem;color:${seccionColors[sec]||'var(--accent)'}">${sec}</span><span style="font-size:.72rem;color:var(--muted)">${tareasSeccion.length} tareas</span>`;
@@ -9544,7 +9637,9 @@ function abrirModalTarea(tarea){
   const asignados = tarea ? _tareasAsignados(tarea) : (loginUser ? [loginUser.nombre] : []);
   for(const opt of sel.options) opt.selected = asignados.includes(opt.value);
   // Rellenar campos
-  document.getElementById('tm-seccion').value   = tarea ? (tarea.seccion||'Planta') : 'Planta';
+  document.getElementById('tm-seccion').value   = tarea ? (tarea.seccion||'Planta') : (document.getElementById('tarea-filt-seccion')?.value||'Planta');
+  tmSeccionChange();
+  document.getElementById('tm-activo').value    = tarea ? (tarea.activo||'') : (document.getElementById('tarea-filt-activo')?.value||'');
   document.getElementById('tm-titulo').value    = tarea ? tarea.titulo : '';
   document.getElementById('tm-desc').value      = tarea ? (tarea.descripcion||'') : '';
   document.getElementById('tm-prioridad').value = tarea ? (tarea.prioridad||'media') : 'media';
@@ -9569,6 +9664,7 @@ async function guardarTarea(){
   if(!asignados){ alert('Selecciona al menos una persona'); return; }
   const data = {
     seccion:     document.getElementById('tm-seccion').value,
+    activo:      document.getElementById('tm-activo')?.value||null,
     titulo,
     descripcion: document.getElementById('tm-desc').value.trim() || null,
     asignado:    asignados,
