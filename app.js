@@ -8959,8 +8959,8 @@ function _renderInforme(d) {
 function infEnviarEmail() {
   if (!_infData) { alert('Carga primero el informe'); return; }
   const fechaFmt = _infData.fecha.split('-').reverse().join('/');
-  const asunto = `Datos diarios planta ${fechaFmt}`;
-  const cuerpo = `Buenas tardes,\n\nAdjunto datos diarios del día ${fechaFmt}.\n\nSaludos,\nDavid.`;
+  const asunto = `ARIFOMA DATOS DIARIOS ${fechaFmt}`;
+  const cuerpo = `Buenas tardes,\n\nAdjunto datos diarios del día ${fechaFmt}.\n\nSaludos,`;
   const outlookUrl = 'https://outlook.office365.com/owa/?path=/mail/action/compose'
     + '&subject=' + encodeURIComponent(asunto)
     + '&body=' + encodeURIComponent(cuerpo);
