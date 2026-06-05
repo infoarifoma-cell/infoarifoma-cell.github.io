@@ -6301,7 +6301,7 @@ function abrirModalSubgama(id){
   const s=id?subgamasData.find(x=>x.id===id):null;
   document.getElementById('msubg-title').textContent=s?'Editar Subgama':'Nueva Subgama';
   document.getElementById('msubg-id').value=s?s.id:'';
-  const gamaOpts=normasData.map(n=>`<option value="${n.Gama||''}">${n.Numero||n.Gama||''}</option>`).join('');
+  const gamaOpts=normasData.map(n=>`<option value="${n.Numero||n.Gama||''}">${n.Numero||n.Gama||''}</option>`).join('');
   const principal=document.getElementById('msubg-principal');
   if(principal){principal.innerHTML='<option value="">— Seleccionar gama principal —</option>'+gamaOpts;principal.value=s?s.Gama_Principal||''  :'';}
   for(let i=1;i<=6;i++){const el2=document.getElementById('msubg-gama'+i);if(el2){el2.innerHTML='<option value="">—</option>'+gamaOpts;el2.value=s?s['Gama_'+i]||'':'';}};
