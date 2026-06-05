@@ -5831,12 +5831,22 @@ const GASOIL_DEST_MAP={
 let customGamas=JSON.parse(localStorage.getItem('customGamas')||'[]');
 
 function getEffectiveGamas(){
-  // Merge hardcoded GAMAS with custom ones (custom overrides by id)
+  // Base: hardcoded GAMAS + customGamas (localStorage)
   const base=[...GAMAS];
   customGamas.forEach(cg=>{
     const idx=base.findIndex(g=>g.id===cg.id);
     if(idx>=0)base[idx]=cg;else base.push(cg);
   });
+  // Merge normasData (tblGamasNormas) — override/add by Gama id
+  if(normasData&&normasData.length){
+    normasData.forEach(n=>{
+      if(!n.Gama||!n.Modelo||!n.Intervalo)return;
+      const checks=[];for(let i=1;i<=60;i++)if(n['n'+i])checks.push(n['n'+i]);
+      const ng={id:n.Gama,nombre:n.Gama,modelo:n.Modelo,intervalo:Number(n.Intervalo)||0,checks};
+      const idx=base.findIndex(g=>g.id===ng.id);
+      if(idx>=0)base[idx]=ng;else base.push(ng);
+    });
+  }
   return base;
 }
 
@@ -5844,11 +5854,11 @@ async function cargarMantenimientoPreventivo(){
   const el=document.getElementById('prev-list');
   el.innerHTML='<div class="tbl"><div class="empty">Cargando...</div></div>';
   try{
-    // Asegurar activos cargados para que MACHINES incluya tblactivos
-    if(!activosData.length){
-      const aRes=await dbQuery({action:'select',table:'tblactivos',options:{select:'*',order:'Codigo.asc'}});
-      if(aRes.ok&&aRes.data&&aRes.data.length){activosData=aRes.data;_buildOTFromActivos(activosData);}
-    }
+    // Asegurar activos y normas cargados
+    const preloads=[];
+    if(!activosData.length) preloads.push(dbQuery({action:'select',table:'tblactivos',options:{select:'*',order:'Codigo.asc'}}).then(r=>{if(r.ok&&r.data&&r.data.length){activosData=r.data;_buildOTFromActivos(activosData);}}));
+    if(!normasData.length) preloads.push(apiFetch('?accion=gamasNormas').then(r=>{if(r.ok)normasData=r.data||[];}));
+    if(preloads.length) await Promise.all(preloads);
     // Fetch OT history + gasoil in parallel
     const [jsonOT, jsonGasoil]=await Promise.all([
       apiFetch('?accion=historialOT'),
