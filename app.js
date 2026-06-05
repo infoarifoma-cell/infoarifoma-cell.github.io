@@ -9497,6 +9497,13 @@ function _filtrarTareas(){
   });
 }
 
+function goTareasSeccion(seccion){
+  goPage('tareas');
+  setTimeout(()=>{
+    const sel=document.getElementById('tarea-filt-seccion');
+    if(sel){sel.value=seccion;tareaSeccionChange();}
+  },100);
+}
 function tareaSeccionChange(){
   const sec = document.getElementById('tarea-filt-seccion')?.value||'';
   const selActivo = document.getElementById('tarea-filt-activo');
