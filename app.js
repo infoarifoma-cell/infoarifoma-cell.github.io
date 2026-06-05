@@ -5850,8 +5850,9 @@ async function cargarMantenimientoPreventivo(){
           prevGasoilFechaMap[machineId]=r.fecha;
       });
     }
-    // Populate machine filter
-    const maquinas=[...new Set(MACHINES.map(m=>m.id))].sort();
+    // Populate machine filter (solo tipos preventivo)
+    const _tiposPrev=new Set(['PALA CARGADORA','EXCAVADORA','DUMPER ARTICULADO','DUMPER RIGIDO','MANIPULADOR TELESCOPICO','GRUPO ELECTROGENO','GRUPO GENERADOR','RIGIDO','TRACTOCAMION']);
+    const maquinas=[...new Set(MACHINES.filter(m=>_tiposPrev.has(m.tipo)||m.modelo==='C32'||(m.fabricante||'').toUpperCase().includes('PRAMAC')).map(m=>m.id))].sort();
     const sel=document.getElementById('filt-prev-maquina');
     sel.innerHTML='<option value="">Todas las máquinas</option>';
     maquinas.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;sel.appendChild(o);});
@@ -5871,8 +5872,11 @@ function calcMantenimiento(){
     const m=Number(r.medicion)||0;
     if(!machineHoroOT[r.activo]||m>machineHoroOT[r.activo])machineHoroOT[r.activo]=m;
   });
+  // Solo máquinas móviles, grupos y C32/PRAMAC — excluir planta fija
+  const TIPOS_PREVENTIVO=new Set(['PALA CARGADORA','EXCAVADORA','DUMPER ARTICULADO','DUMPER RIGIDO','MANIPULADOR TELESCOPICO','GRUPO ELECTROGENO','GRUPO GENERADOR','RIGIDO','TRACTOCAMION']);
+  const maquinasFiltradas=MACHINES.filter(m=>TIPOS_PREVENTIVO.has(m.tipo)||m.modelo==='C32'||(m.fabricante||'').toUpperCase().includes('PRAMAC'));
   // For each machine+gama combo
-  MACHINES.forEach(machine=>{
+  maquinasFiltradas.forEach(machine=>{
     const mGamas=gamas.filter(g=>g.modelo===machine.modelo);
     // Horómetro: gasoil (columna C = max) tiene prioridad sobre OT
     const gasoilHoro=prevGasoilHoroMap[machine.id]||null;
