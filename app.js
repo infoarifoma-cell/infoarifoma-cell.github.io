@@ -6484,11 +6484,9 @@ async function abrirModalListado(id){
     const j=await dbQuery({action:'select',table:'tblactivos',options:{select:'*',order:'Codigo.asc',limit:500}});
     if(j.ok && j.data && j.data.length) activosData=j.data;
   }
-  // Cargar normasData si está vacío (para buscar gamas por modelo)
-  if(!normasData.length){
-    const j=await apiFetch('?accion=gamasNormas').catch(()=>({ok:false}));
-    if(j.ok)normasData=j.data||[];
-  }
+  // Cargar normasData siempre (para buscar gamas por modelo)
+  const jNormas=await apiFetch('?accion=gamasNormas').catch(()=>({ok:false}));
+  if(jNormas.ok)normasData=jNormas.data||[];
   // Construir mapa Codigo→Nombre desde tblactivos
   const activoNombreMap={};
   activosData.forEach(a=>{if(a.Codigo)activoNombreMap[a.Codigo]=a.Activo||a.Codigo;});
