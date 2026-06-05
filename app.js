@@ -5968,6 +5968,7 @@ function renderMantenimientoPreventivo(){
       '<div class="tc" style="flex:1">Activo</div>'+
       '<div class="tc" style="flex:1.5">Gama</div>'+
       '<div class="tc" style="flex:.65;text-align:right">Horóm.</div>'+
+      '<div class="tc" style="flex:.85;text-align:right">Fecha Horóm.</div>'+
       '<div class="tc" style="flex:.7;text-align:right">Próximo</div>'+
       '<div class="tc" style="flex:.6;text-align:right">Falta h</div>'+
       '<div class="tc" style="flex:.9;text-align:center">Estado</div>'+
@@ -5977,10 +5978,12 @@ function renderMantenimientoPreventivo(){
       const faltaStyle=r.falta!==null&&r.falta<0?'background:rgba(255,77,77,.15);':'';
       const faltaColor=r.falta!==null&&r.falta<0?'color:#ff4d4d;font-weight:700':'';
       const horomLabel=r.ultima!==null?(r.fromGasoil?`<span title="Gasoil">${r.ultima}</span>`:`${r.ultima}`):'—';
+      const fechaLabel=r.ultimaFecha&&r.ultimaFecha!=='—'?r.ultimaFecha:'—';
       return `<div class="tr" style="${faltaStyle}">
         <div class="tc" style="flex:1;font-family:monospace;font-weight:700;color:var(--accent);font-size:.75rem">${r.activo}</div>
         <div class="tc" style="flex:1.5;font-size:.75rem">${r.gamaNombre}${r.isCustom?' <span style="font-size:.6rem;color:var(--accent2)">[C]</span>':''}</div>
         <div class="tc" style="flex:.65;text-align:right;font-family:monospace;font-size:.75rem${r.fromGasoil?';color:var(--accent2)':''}">${horomLabel}</div>
+        <div class="tc" style="flex:.85;text-align:right;font-size:.7rem;color:var(--muted)">${fechaLabel}</div>
         <div class="tc" style="flex:.7;text-align:right;font-family:monospace;font-size:.75rem">${r.proximo!==null?r.proximo:'—'}</div>
         <div class="tc" style="flex:.6;text-align:right;font-family:monospace;font-size:.75rem;${faltaColor}">${r.falta!==null?r.falta:'—'}</div>
         <div class="tc" style="flex:.9;text-align:center"><span style="font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:4px;background:${estadoColor[r.estado]}22;color:${estadoColor[r.estado]}">${estadoLabel[r.estado]}</span></div>
