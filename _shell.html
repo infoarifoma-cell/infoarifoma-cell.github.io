@@ -2358,7 +2358,11 @@
               <h3 id="mag-title">Nuevo Activo-Gama</h3>
               <input type="hidden" id="mag-id">
               <label>Activo</label>
-              <select class="inp" id="mag-activo"><option value="">Seleccionar...</option></select>
+              <select class="inp" id="mag-activo" onchange="magActivoChange()"><option value="">Seleccionar...</option></select>
+              <div id="mag-gamas-aviso" style="display:none;margin:6px 0;padding:8px 12px;border-radius:8px;background:#f5a62318;border:1px solid #f5a62355;font-size:.78rem;color:#f5a623;display:flex;align-items:center;justify-content:space-between;gap:8px">
+                <span id="mag-gamas-aviso-txt"></span>
+                <button class="btn-sec" style="font-size:.7rem;padding:4px 10px;white-space:nowrap" onclick="cerrarModalActivoGama();prevTab('normas')">+ Crear gama</button>
+              </div>
               <label>Gamas asignadas (Gama_1..9)</label>
               <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
                 <select class="inp inp-mono" id="mag-codigogama"><option value="">— Gama 1 —</option></select>

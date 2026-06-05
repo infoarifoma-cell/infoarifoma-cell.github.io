@@ -6327,23 +6327,57 @@ async function abrirModalActivoGama(id){
   document.getElementById('mag-id').value=a?a.id:'';
   document.getElementById('mag-activo').value=a?a.Activo||'':'';
 
-  // Poblar selects de gamas con normasData
-  const gamaOpts='<option value="">—</option>'+normasData.map(n=>{
-    const label=(n.Numero||n.id)+(n.Gama?' — '+n.Gama:'')+(n.Modelo?' ('+n.Modelo+')':'');
-    return `<option value="${n.Numero||n.id}">${label}</option>`;
-  }).join('');
-  const gamaIds=['mag-codigogama','mag-gama2','mag-gama3','mag-gama4','mag-gama5','mag-gama6','mag-gama7','mag-gama8','mag-gama9'];
-  gamaIds.forEach((sid,i)=>{
-    const sel=document.getElementById(sid);
-    if(!sel)return;
-    sel.innerHTML=gamaOpts;
-    const campo=i===0?'Gama_1':'Gama_'+(i+1);
-    sel.value=a?a[campo]||'':'';
-  });
+  // Poblar selects filtrando por modelo del activo
+  magActivoChange();
+  // Si editando, restaurar valores guardados
+  if(a){
+    const gamaIds=['mag-codigogama','mag-gama2','mag-gama3','mag-gama4','mag-gama5','mag-gama6','mag-gama7','mag-gama8','mag-gama9'];
+    gamaIds.forEach((sid,i)=>{
+      const sel=document.getElementById(sid); if(!sel)return;
+      const campo=i===0?'Gama_1':'Gama_'+(i+1);
+      // Si el valor no está en las opciones, añadirlo
+      const val=a[campo]||'';
+      if(val && ![...sel.options].some(o=>o.value===val)){
+        sel.insertAdjacentHTML('beforeend',`<option value="${val}">${val}</option>`);
+      }
+      sel.value=val;
+    });
+  }
 
   document.getElementById('modal-activogama').classList.add('open');
 }
 function cerrarModalActivoGama(){document.getElementById('modal-activogama').classList.remove('open');}
+function magActivoChange(){
+  const activoCodigo = document.getElementById('mag-activo').value;
+  const aviso = document.getElementById('mag-gamas-aviso');
+  const avisoTxt = document.getElementById('mag-gamas-aviso-txt');
+  if(!activoCodigo){ if(aviso) aviso.style.display='none'; return; }
+  // Buscar el modelo del activo seleccionado
+  const activoRow = activosData.find(a=>a.Codigo===activoCodigo);
+  const modelo = activoRow?.modelo || null;
+  // Filtrar normas por modelo (si hay modelo)
+  const normasFiltradas = modelo
+    ? normasData.filter(n=>(n.Modelo||'').toLowerCase()===modelo.toLowerCase())
+    : normasData;
+  // Construir opciones
+  const gamaOpts = '<option value="">—</option>' + normasFiltradas.map(n=>{
+    const label=(n.Numero||n.id)+(n.Gama?' — '+n.Gama:'');
+    return `<option value="${n.Numero||n.id}">${label}</option>`;
+  }).join('');
+  const gamaIds=['mag-codigogama','mag-gama2','mag-gama3','mag-gama4','mag-gama5','mag-gama6','mag-gama7','mag-gama8','mag-gama9'];
+  gamaIds.forEach(sid=>{ const s=document.getElementById(sid); if(s){ s.innerHTML=gamaOpts; s.value=''; } });
+  // Aviso si no hay gamas para este modelo
+  if(aviso){
+    if(normasFiltradas.length===0){
+      aviso.style.display='flex';
+      avisoTxt.textContent = modelo
+        ? `No hay gamas definidas para el modelo "${modelo}"`
+        : 'No hay gamas — crea una primero';
+    } else {
+      aviso.style.display='none';
+    }
+  }
+}
 async function guardarActivoGama(){
   const Activo=document.getElementById('mag-activo').value;
   if(!Activo){document.getElementById('mag-msg').textContent='Activo requerido.';return;}
