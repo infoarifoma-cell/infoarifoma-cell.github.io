@@ -6352,11 +6352,11 @@ async function cargarActivosGama(){
 }
 async function abrirModalActivoGama(id){
   document.getElementById('mag-msg').textContent='';
-  // Cargar normasData si está vacío
-  if(!normasData.length){
-    const r=await apiFetch('?accion=gamasNormas').catch(()=>({ok:false}));
-    if(r.ok) normasData=r.data||[];
-  }
+  // Cargar normasData y activosData si están vacíos
+  const preloads=[];
+  if(!normasData.length) preloads.push(apiFetch('?accion=gamasNormas').catch(()=>({ok:false})).then(r=>{if(r.ok)normasData=r.data||[];}));
+  if(!activosData.length) preloads.push(dbQuery({action:'select',table:'tblactivos',options:{select:'*',order:'Codigo.asc'}}).then(r=>{if(r.ok&&r.data)activosData=r.data;}));
+  if(preloads.length) await Promise.all(preloads);
   const a=id?activoGamaData.find(x=>x.id===id):null;
   document.getElementById('mag-title').textContent=a?'Editar Activo-Gama':'Nuevo Activo-Gama';
   document.getElementById('mag-id').value=a?a.id:'';
