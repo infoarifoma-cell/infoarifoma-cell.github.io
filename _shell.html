@@ -148,6 +148,25 @@
     #stock-kpi-row{grid-template-columns:repeat(2,1fr)!important}
     #stock-overview > div:last-child{grid-template-columns:1fr!important}
   }
+
+  /* Config cuentas — tabla responsive */
+  .costes-cfg-tbl{width:100%;border-collapse:collapse;font-size:.78rem}
+  .costes-cfg-tbl th{background:var(--surface2);padding:6px 10px;text-align:left;font-size:.72rem;color:var(--muted);font-weight:600;border-bottom:2px solid var(--border);white-space:nowrap}
+  .costes-cfg-tbl th.r,.costes-cfg-tbl td.r{text-align:right}
+  .costes-cfg-tbl th.c,.costes-cfg-tbl td.c{text-align:center}
+  .costes-cfg-tbl td{padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+  .costes-cfg-tbl tr:last-child td{border-bottom:none}
+  .costes-cfg-tbl tr.excluded td{opacity:.4}
+  .costes-cfg-acc{font-weight:700;font-family:monospace;font-size:.8rem;white-space:nowrap}
+  .costes-cfg-name{color:var(--text);font-size:.78rem}
+  /* .costes-cfg-hide-sm — visible desktop, hidden mobile via display:none below */
+  @media(max-width:700px){
+    .costes-cfg-tbl{font-size:.74rem}
+    .costes-cfg-tbl th,.costes-cfg-tbl td{padding:5px 7px}
+    .costes-cfg-hide-sm{display:none}
+    .costes-cfg-acc{font-size:.74rem}
+    .costes-cfg-name{font-size:.72rem;color:var(--muted)}
+  }
 </style>
 
 <!-- SHELL -->
@@ -390,6 +409,9 @@
       </button>
       <button class="bnav-more-btn" onclick="bnavGo('compras')" id="bm-compras">
         <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3h2l1.5 8h7L16 5H6"/><circle cx="8" cy="14" r="1.5"/><circle cx="13" cy="14" r="1.5"/></svg>Compras
+      </button>
+      <button class="bnav-more-btn" onclick="bnavGo('informes')" id="bm-informes">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3h12v12H3z" opacity=".3"/><path d="M6 9h6M6 12h4M6 6h3"/></svg>Informes
       </button>
     </div>
   </div>

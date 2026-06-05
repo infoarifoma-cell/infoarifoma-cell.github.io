@@ -6513,32 +6513,28 @@ function renderConfigCostes(){
     accMap[acc].count++;
   }
   const accounts = Object.keys(accMap).sort();
-  let html = '<table style="width:100%;border-collapse:collapse;font-size:.78rem">';
-  html += '<thead><tr style="border-bottom:2px solid var(--border)">'
-    + '<th style="text-align:left;padding:5px 8px;font-size:.72rem;color:var(--muted)">Incluir</th>'
-    + '<th style="text-align:left;padding:5px 8px;font-size:.72rem;color:var(--muted)">Cuenta</th>'
-    + '<th style="text-align:left;padding:5px 8px;font-size:.72rem;color:var(--muted)">Nombre cuenta</th>'
-    + '<th style="text-align:right;padding:5px 8px;font-size:.72rem;color:var(--muted)">Movimientos</th>'
-    + '<th style="text-align:right;padding:5px 8px;font-size:.72rem;color:var(--muted)">Importe total</th>'
-    + '</tr></thead><tbody>';
   const fmtES = v => {
     if(!v) return '';
     const neg = v<0;
     const [ent,dec] = Math.abs(v).toFixed(2).split('.');
     return (neg?'-':'')+ent.replace(/\B(?=(\d{3})+(?!\d))/g,'.')+','+dec+' €';
   };
+  let html = '<table class="costes-cfg-tbl"><thead><tr>'
+    + '<th class="c">Incluir</th>'
+    + '<th>Cuenta</th>'
+    + '<th>Nombre</th>'
+    + '<th class="r costes-cfg-hide-sm">Movim.</th>'
+    + '<th class="r">Importe</th>'
+    + '</tr></thead><tbody>';
   for(const acc of accounts){
     const info = accMap[acc];
     const excluded = costesExcludedAccounts.has(acc);
-    const rowStyle = excluded ? 'opacity:.45' : '';
-    html += `<tr style="border-bottom:1px solid var(--border);${rowStyle}">
-      <td style="padding:5px 8px;text-align:center">
-        <input type="checkbox" ${excluded?'':'checked'} onchange="costesToggleAccount('${acc}',this.checked)" style="cursor:pointer;width:16px;height:16px">
-      </td>
-      <td style="padding:5px 8px;font-weight:700;font-family:monospace">${acc}</td>
-      <td style="padding:5px 8px;color:var(--muted)">${info.desc}</td>
-      <td style="padding:5px 8px;text-align:right;color:var(--muted)">${info.count}</td>
-      <td style="padding:5px 8px;text-align:right;font-variant-numeric:tabular-nums">${fmtES(info.total)}</td>
+    html += `<tr class="${excluded?'excluded':''}">
+      <td class="c"><input type="checkbox" ${excluded?'':'checked'} onchange="costesToggleAccount('${acc}',this.checked)" style="cursor:pointer;width:16px;height:16px"></td>
+      <td class="costes-cfg-acc">${acc}</td>
+      <td class="costes-cfg-name">${info.desc}</td>
+      <td class="r costes-cfg-hide-sm" style="color:var(--muted)">${info.count}</td>
+      <td class="r" style="font-variant-numeric:tabular-nums;white-space:nowrap">${fmtES(info.total)}</td>
     </tr>`;
   }
   html += '</tbody></table>';
