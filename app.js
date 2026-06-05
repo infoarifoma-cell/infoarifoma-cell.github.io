@@ -9263,3 +9263,169 @@ function cerrarStockDetalle() {
   document.getElementById('stock-detalle').style.display = 'none';
   document.getElementById('stock-overview').style.display = '';
 }
+
+// ── DOCUMENTOS: tab switch ────────────────────────────────────────────────────
+function switchDocTab(tab){
+  document.getElementById('doc-panel-docs').style.display   = tab==='docs'   ? '' : 'none';
+  document.getElementById('doc-panel-tareas').style.display = tab==='tareas' ? '' : 'none';
+  document.getElementById('doc-tab-docs').classList.toggle('active',   tab==='docs');
+  document.getElementById('doc-tab-tareas').classList.toggle('active', tab==='tareas');
+  if(tab==='tareas') initTareasPanel();
+}
+
+// ── TAREAS ────────────────────────────────────────────────────────────────────
+let tareasData = [];
+let _tareasPanelInit = false;
+let _tareaEditId = null;
+
+function initTareasPanel(){
+  // Poblar select personas
+  const sel = document.getElementById('tarea-filt-persona');
+  if(sel.options.length <= 2){
+    for(const w of WORKERS){
+      const o = document.createElement('option');
+      o.value = w; o.textContent = w;
+      sel.appendChild(o);
+    }
+  }
+  // Por defecto mostrar tareas del usuario actual
+  if(!_tareasPanelInit && loginUser){
+    sel.value = '__mias__';
+    _tareasPanelInit = true;
+  }
+  cargarTareas();
+}
+
+async function cargarTareas(){
+  document.getElementById('tareas-list').innerHTML = '<div style="color:var(--muted);text-align:center;padding:30px;font-size:.82rem">Cargando...</div>';
+  const res = await dbQuery({ action:'select', table:'tblTareas', options:{ select:'*', order:'created_at.desc', limit:500 } });
+  if(!res.ok){ document.getElementById('tareas-list').innerHTML = '<div style="color:#e53935;text-align:center;padding:30px;font-size:.82rem">Error: '+escapeHTML(res.error)+'</div>'; return; }
+  tareasData = res.data || [];
+  renderTareas();
+}
+
+function renderTareas(){
+  const filtPersona = document.getElementById('tarea-filt-persona').value;
+  const filtEstado  = document.getElementById('tarea-filt-estado').value;
+  const hoy = new Date().toISOString().slice(0,10);
+
+  let lista = tareasData.filter(t => {
+    if(filtPersona === '__mias__' && loginUser && t.asignado !== loginUser.nombre) return false;
+    if(filtPersona && filtPersona !== '__mias__' && t.asignado !== filtPersona) return false;
+    if(filtEstado && t.estado !== filtEstado) return false;
+    return true;
+  });
+
+  if(!lista.length){
+    document.getElementById('tareas-list').innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Sin tareas para los filtros seleccionados</div>';
+    return;
+  }
+
+  // Agrupar: pendiente + en_curso primero, luego hechas
+  const activas = lista.filter(t => t.estado !== 'hecha');
+  const hechas  = lista.filter(t => t.estado === 'hecha');
+  // Ordenar activas: alta > media > baja, luego por fecha
+  const priOrd = {alta:0,media:1,baja:2};
+  activas.sort((a,b) => (priOrd[a.prioridad]||1) - (priOrd[b.prioridad]||1) || (a.fecha_limite||'9').localeCompare(b.fecha_limite||'9'));
+
+  const canEdit = t => loginUser && (loginUser.rol === 'admin' || t.asignado === loginUser.nombre || t.creado_por === loginUser.nombre);
+
+  const renderCard = t => {
+    const done = t.estado === 'hecha';
+    const vencida = !done && t.fecha_limite && t.fecha_limite < hoy;
+    const priLabel = {alta:'Alta',media:'Media',baja:'Baja'}[t.prioridad] || t.prioridad;
+    const estadoLabel = {pendiente:'Pendiente',en_curso:'En curso',hecha:'✓ Hecha'}[t.estado] || t.estado;
+    const fechaStr = t.fecha_limite ? t.fecha_limite.split('-').reverse().join('/') : '';
+    return `<div class="tarea-card${done?' done':''}" onclick="abrirModalTarea(${JSON.stringify(t).replace(/"/g,'&quot;')})">
+      <div class="tarea-header">
+        <div class="tarea-check${done?' done':''}" onclick="event.stopPropagation();toggleEstadoTarea(${t.id},'${t.estado}')" title="Cambiar estado">
+          ${done ? '<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="2" fill="none"/></svg>' : ''}
+        </div>
+        <div class="tarea-titulo">${escapeHTML(t.titulo)}</div>
+      </div>
+      <div class="tarea-meta">
+        <span class="tarea-badge ${t.prioridad||'media'}">${priLabel}</span>
+        <span class="tarea-badge persona">${escapeHTML(t.asignado||'—')}</span>
+        ${fechaStr ? `<span class="tarea-badge ${vencida?'vencida':'vence'}">📅 ${fechaStr}</span>` : ''}
+        <span class="tarea-badge" style="background:var(--surface2);color:var(--muted)">${estadoLabel}</span>
+      </div>
+      ${t.descripcion ? `<div class="tarea-desc">${escapeHTML(t.descripcion)}</div>` : ''}
+    </div>`;
+  };
+
+  let html = '';
+  if(activas.length){
+    html += activas.map(renderCard).join('');
+  }
+  if(hechas.length){
+    html += `<div class="tarea-group-title">Completadas (${hechas.length})</div>`;
+    html += hechas.map(renderCard).join('');
+  }
+  document.getElementById('tareas-list').innerHTML = html;
+}
+
+async function toggleEstadoTarea(id, estadoActual){
+  const sig = estadoActual === 'hecha' ? 'pendiente' : estadoActual === 'pendiente' ? 'en_curso' : 'hecha';
+  const res = await dbQuery({ action:'update', table:'tblTareas', data:{estado:sig}, filters:[{column:'id',op:'eq',value:id}] });
+  if(res.ok){ const t = tareasData.find(x=>x.id===id); if(t) t.estado=sig; renderTareas(); }
+}
+
+function abrirModalTarea(tarea){
+  _tareaEditId = tarea ? tarea.id : null;
+  // Poblar select personas en modal
+  const sel = document.getElementById('tm-persona');
+  if(sel.options.length === 0){
+    for(const w of WORKERS){
+      const o = document.createElement('option');
+      o.value = w; o.textContent = w;
+      sel.appendChild(o);
+    }
+  }
+  // Rellenar campos
+  document.getElementById('tm-titulo').value    = tarea ? tarea.titulo : '';
+  document.getElementById('tm-desc').value      = tarea ? (tarea.descripcion||'') : '';
+  document.getElementById('tm-persona').value   = tarea ? tarea.asignado : (loginUser ? loginUser.nombre : WORKERS[0]);
+  document.getElementById('tm-prioridad').value = tarea ? (tarea.prioridad||'media') : 'media';
+  document.getElementById('tm-fecha').value     = tarea ? (tarea.fecha_limite||'') : '';
+  document.getElementById('tm-estado').value    = tarea ? tarea.estado : 'pendiente';
+  document.getElementById('tareas-modal-title').textContent = tarea ? 'Editar tarea' : 'Nueva tarea';
+  const btnBorrar = document.getElementById('tm-btn-borrar');
+  btnBorrar.style.display = (tarea && loginUser && loginUser.rol==='admin') ? '' : 'none';
+  document.getElementById('tareas-modal-wrap').style.display = 'flex';
+}
+
+function cerrarModalTarea(){
+  document.getElementById('tareas-modal-wrap').style.display = 'none';
+}
+
+async function guardarTarea(){
+  const titulo = document.getElementById('tm-titulo').value.trim();
+  if(!titulo){ alert('El título es obligatorio'); return; }
+  const data = {
+    titulo,
+    descripcion: document.getElementById('tm-desc').value.trim() || null,
+    asignado:    document.getElementById('tm-persona').value,
+    prioridad:   document.getElementById('tm-prioridad').value,
+    fecha_limite: document.getElementById('tm-fecha').value || null,
+    estado:      document.getElementById('tm-estado').value,
+  };
+  let res;
+  if(_tareaEditId){
+    res = await dbQuery({ action:'update', table:'tblTareas', data, filters:[{column:'id',op:'eq',value:_tareaEditId}] });
+  } else {
+    data.creado_por = loginUser ? loginUser.nombre : '';
+    res = await dbQuery({ action:'insert', table:'tblTareas', data });
+  }
+  if(!res.ok){ alert('Error al guardar: '+res.error); return; }
+  cerrarModalTarea();
+  cargarTareas();
+}
+
+async function borrarTareaModal(){
+  if(!_tareaEditId) return;
+  if(!confirm('¿Eliminar esta tarea?')) return;
+  const res = await dbQuery({ action:'delete', table:'tblTareas', filters:[{column:'id',op:'eq',value:_tareaEditId}] });
+  if(!res.ok){ alert('Error al eliminar: '+res.error); return; }
+  cerrarModalTarea();
+  cargarTareas();
+}

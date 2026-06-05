@@ -149,6 +149,33 @@
     #stock-overview > div:last-child{grid-template-columns:1fr!important}
   }
 
+  /* ── TAREAS ── */
+  .tarea-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:box-shadow .15s}
+  .tarea-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.1)}
+  .tarea-card.done{opacity:.55}
+  .tarea-header{display:flex;align-items:flex-start;gap:10px}
+  .tarea-check{width:20px;height:20px;border-radius:50%;border:2px solid var(--border);background:var(--bg);flex-shrink:0;cursor:pointer;margin-top:1px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+  .tarea-check.done{background:var(--accent);border-color:var(--accent);color:#fff}
+  .tarea-titulo{font-weight:600;font-size:.88rem;flex:1;line-height:1.3}
+  .tarea-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;margin-left:30px}
+  .tarea-badge{font-size:.68rem;padding:2px 7px;border-radius:10px;font-weight:600;white-space:nowrap}
+  .tarea-badge.alta{background:#ff4d4d22;color:#ff4d4d}
+  .tarea-badge.media{background:#f5a62322;color:#f5a623}
+  .tarea-badge.baja{background:#4caf5022;color:#4caf50}
+  .tarea-badge.persona{background:rgba(107,125,46,.12);color:var(--accent)}
+  .tarea-badge.vence{background:var(--surface2);color:var(--muted)}
+  .tarea-badge.vencida{background:#ff4d4d22;color:#ff4d4d}
+  .tarea-desc{font-size:.76rem;color:var(--muted);margin-top:4px;margin-left:30px;line-height:1.4}
+  .tarea-actions{display:flex;gap:6px;margin-top:8px;margin-left:30px}
+  .tarea-group-title{font-size:.72rem;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin:14px 0 6px;padding-bottom:3px;border-bottom:1px solid var(--border)}
+  #tareas-modal-wrap{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px}
+  #tareas-modal-box{background:var(--surface);border-radius:14px;padding:22px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25)}
+  #tareas-modal-box .label{font-size:.75rem;font-weight:600;color:var(--muted);margin-bottom:3px;margin-top:10px;display:block}
+  #tareas-modal-box .label:first-of-type{margin-top:0}
+  @media(max-width:500px){
+    #tareas-modal-box{padding:16px;border-radius:10px}
+  }
+
   /* Config cuentas — tabla responsive */
   .costes-cfg-tbl{width:100%;border-collapse:collapse;font-size:.78rem}
   .costes-cfg-tbl th{background:var(--surface2);padding:6px 10px;text-align:left;font-size:.72rem;color:var(--muted);font-weight:600;border-bottom:2px solid var(--border);white-space:nowrap}
@@ -2024,37 +2051,105 @@
 
         <!-- ══ HISTORIAL OT ══ -->
         <div class="page" id="pg-documentos">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-            <div class="sec-title" style="margin:0">Control Documental</div>
-            <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="cargarDocumentos()">&#8635; Actualizar</button>
+          <!-- ctrl-tabs -->
+          <div class="ctrl-tabs" style="margin-bottom:0">
+            <button class="ctrl-tab active" id="doc-tab-docs" onclick="switchDocTab('docs')">Documentos</button>
+            <button class="ctrl-tab" id="doc-tab-tareas" onclick="switchDocTab('tareas')">Tareas</button>
           </div>
-          <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
-            <div id="doc-badge-rojo" style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:#ff4d4d22;font-size:.75rem;color:#ff4d4d;font-weight:700">
-              <span id="doc-cnt-rojo">0</span> Vencidos
+
+          <!-- Panel Documentos -->
+          <div id="doc-panel-docs">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;margin-bottom:10px">
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <div id="doc-badge-rojo" style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:#ff4d4d22;font-size:.75rem;color:#ff4d4d;font-weight:700"><span id="doc-cnt-rojo">0</span> Vencidos</div>
+                <div id="doc-badge-amarillo" style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:#f5a62322;font-size:.75rem;color:#f5a623;font-weight:700"><span id="doc-cnt-amarillo">0</span> Por vencer</div>
+                <div id="doc-badge-verde" style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:#4caf5022;font-size:.75rem;color:#4caf50;font-weight:700"><span id="doc-cnt-verde">0</span> Vigentes</div>
+              </div>
+              <button class="btn-sec" style="font-size:.72rem;padding:6px 12px;flex-shrink:0" onclick="cargarDocumentos()">&#8635; Actualizar</button>
             </div>
-            <div id="doc-badge-amarillo" style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:#f5a62322;font-size:.75rem;color:#f5a623;font-weight:700">
-              <span id="doc-cnt-amarillo">0</span> Por vencer
+            <div class="frow" style="margin-bottom:10px">
+              <select class="fsel" id="filt-doc-fuente" onchange="renderDocumentos()">
+                <option value="">Todas las hojas</option>
+                <option value="principal">Control Documental</option>
+                <option value="nuevo">Nuevo</option>
+              </select>
+              <select class="fsel" id="filt-doc-estado" onchange="renderDocumentos()">
+                <option value="">Todos los estados</option>
+                <option value="rojo">Vencidos</option>
+                <option value="amarillo">Por vencer</option>
+                <option value="verde">Vigentes</option>
+                <option value="gris">Sin fecha</option>
+              </select>
+              <input class="fsel" type="text" id="filt-doc-texto" placeholder="Buscar..." oninput="renderDocumentos()" style="min-width:120px">
             </div>
-            <div id="doc-badge-verde" style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:#4caf5022;font-size:.75rem;color:#4caf50;font-weight:700">
-              <span id="doc-cnt-verde">0</span> Vigentes
+            <div id="doc-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
+          </div>
+
+          <!-- Panel Tareas -->
+          <div id="doc-panel-tareas" style="display:none;margin-top:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+              <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                <select class="fsel" id="tarea-filt-persona" onchange="renderTareas()" style="min-width:140px">
+                  <option value="">Todas las personas</option>
+                  <option value="__mias__">Mis tareas</option>
+                </select>
+                <select class="fsel" id="tarea-filt-estado" onchange="renderTareas()">
+                  <option value="">Todos los estados</option>
+                  <option value="pendiente">Pendientes</option>
+                  <option value="en_curso">En curso</option>
+                  <option value="hecha">Hechas</option>
+                </select>
+              </div>
+              <div style="display:flex;gap:6px">
+                <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="cargarTareas()">&#8635; Actualizar</button>
+                <button class="btn-main" style="font-size:.72rem;padding:6px 14px" onclick="abrirModalTarea(null)">+ Nueva tarea</button>
+              </div>
+            </div>
+            <div id="tareas-list"><div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Cargando tareas...</div></div>
+          </div>
+
+          <!-- Modal Tarea -->
+          <div id="tareas-modal-wrap" style="display:none" onclick="if(event.target===this)cerrarModalTarea()">
+            <div id="tareas-modal-box">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+                <div style="font-weight:700;font-size:.95rem" id="tareas-modal-title">Nueva tarea</div>
+                <button onclick="cerrarModalTarea()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--muted);padding:0 4px">✕</button>
+              </div>
+              <label class="label">Título *</label>
+              <input class="inp" id="tm-titulo" placeholder="Nombre de la tarea" maxlength="120">
+              <label class="label">Descripción</label>
+              <textarea class="inp" id="tm-desc" rows="3" placeholder="Detalle opcional..." style="resize:vertical;font-family:inherit"></textarea>
+              <label class="label">Asignado a *</label>
+              <select class="inp" id="tm-persona"></select>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div>
+                  <label class="label">Prioridad</label>
+                  <select class="inp" id="tm-prioridad">
+                    <option value="baja">Baja</option>
+                    <option value="media" selected>Media</option>
+                    <option value="alta">Alta</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="label">Fecha límite</label>
+                  <input class="inp" type="date" id="tm-fecha">
+                </div>
+              </div>
+              <label class="label">Estado</label>
+              <select class="inp" id="tm-estado">
+                <option value="pendiente">Pendiente</option>
+                <option value="en_curso">En curso</option>
+                <option value="hecha">Hecha</option>
+              </select>
+              <div style="display:flex;justify-content:space-between;gap:8px;margin-top:16px">
+                <button class="btn-sec" id="tm-btn-borrar" style="font-size:.78rem;padding:8px 14px;color:#e53935;display:none" onclick="borrarTareaModal()">Eliminar</button>
+                <div style="display:flex;gap:8px;margin-left:auto">
+                  <button class="btn-sec" style="font-size:.78rem;padding:8px 16px" onclick="cerrarModalTarea()">Cancelar</button>
+                  <button class="btn-main" style="font-size:.78rem;padding:8px 20px" onclick="guardarTarea()">Guardar</button>
+                </div>
+              </div>
             </div>
           </div>
-          <div class="frow" style="margin-bottom:10px">
-            <select class="fsel" id="filt-doc-fuente" onchange="renderDocumentos()">
-              <option value="">Todas las hojas</option>
-              <option value="principal">Control Documental</option>
-              <option value="nuevo">Nuevo</option>
-            </select>
-            <select class="fsel" id="filt-doc-estado" onchange="renderDocumentos()">
-              <option value="">Todos los estados</option>
-              <option value="rojo">Vencidos</option>
-              <option value="amarillo">Por vencer</option>
-              <option value="verde">Vigentes</option>
-              <option value="gris">Sin fecha</option>
-            </select>
-            <input class="fsel" type="text" id="filt-doc-texto" placeholder="Buscar..." oninput="renderDocumentos()" style="min-width:120px">
-          </div>
-          <div id="doc-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
         </div>
 
         <div class="page" id="pg-historial-ot">
