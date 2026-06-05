@@ -505,7 +505,7 @@ const DIAS_LAB_2026=[18,18,22,20,20,21,23,21,22,21,21,18];
 const HORAS_DIA_STD=8; // Jornada estándar convenio
 const PRODS=['ARIDO AF-T-0/4-I','ARIDO AG-T-4/12-I','ARIDO AG-T-12/20-I','ARIDO AG-T-20/40-I','ARIDO AG-T-40/70-I','REVUELTO 0/20','REVUELTO 0/10','PIEDRA PARA MURO (UD)','MATERIAL DE RELLENO 0/4'];
 const PROD_CAT={'ARIDO AF-T-0/4-I':'0/4','ARIDO AG-T-4/12-I':'4/12','ARIDO AG-T-12/20-I':'12/20','ARIDO AG-T-20/40-I':'20/40'};
-const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas','historico-ventas':'Histórico de Ventas',caja:'Caja',costes:'Análisis de Costes',produccion:'Producción Planta',informes:'Informes Planta',stock:'Stock Áridos',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',preventivo:'Mantenimiento Preventivo',compras:'Escanear Factura',choferes:'Conductores'};
+const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas','historico-ventas':'Histórico de Ventas',caja:'Caja',costes:'Análisis de Costes',produccion:'Producción Planta',informes:'Informes Planta',stock:'Stock Áridos',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',tareas:'Tareas',preventivo:'Mantenimiento Preventivo',compras:'Escanear Factura',choferes:'Conductores'};
 
 // Login via Google OAuth — ver funciones.js: googleLogin() y checkGoogleSession()
 
@@ -571,6 +571,7 @@ function goPage(id){
   if(id==='caja')initCaja();
   if(id==='costes')initCostes();
   if(id==='historico-ventas')initHistoricoVentas();
+  if(id==='tareas')initTareasPanel();
 }
 
 function pad(n){return String(n).padStart(2,'0')}
@@ -9262,15 +9263,6 @@ function abrirStockDetalle(key) {
 function cerrarStockDetalle() {
   document.getElementById('stock-detalle').style.display = 'none';
   document.getElementById('stock-overview').style.display = '';
-}
-
-// ── DOCUMENTOS: tab switch ────────────────────────────────────────────────────
-function switchDocTab(tab){
-  document.getElementById('doc-panel-docs').style.display   = tab==='docs'   ? '' : 'none';
-  document.getElementById('doc-panel-tareas').style.display = tab==='tareas' ? '' : 'none';
-  document.getElementById('doc-tab-docs').classList.toggle('active',   tab==='docs');
-  document.getElementById('doc-tab-tareas').classList.toggle('active', tab==='tareas');
-  if(tab==='tareas') initTareasPanel();
 }
 
 // ── TAREAS ────────────────────────────────────────────────────────────────────
