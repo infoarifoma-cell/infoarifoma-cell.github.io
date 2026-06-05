@@ -217,7 +217,9 @@
     .costes-cfg-hide-sm{display:none}
     .costes-cfg-acc{font-size:.74rem}
     .costes-cfg-name{font-size:.72rem;color:var(--muted)}
+    .prev-hide-sm{display:none!important}
   }
+  #psec-normas .tbl,#psec-subgamas .tbl,#psec-activos .tbl,#psec-editar .tbl,#prev-list .tbl{overflow-x:auto}
 </style>
 
 <!-- SHELL -->
@@ -2119,17 +2121,7 @@
               <option value="">Todas las personas</option>
               <option value="__mias__">Mis tareas</option>
             </select>
-            <select class="fsel" id="tarea-filt-estado" onchange="renderTareas()">
-              <option value="">Todos los estados</option>
-              <option value="pendiente">Pendientes</option>
-              <option value="en_curso">En curso</option>
-              <option value="hecha">Hechas</option>
-            </select>
-            <div style="display:flex;gap:4px;margin-left:auto">
-              <button class="tareas-view-btn active" id="btn-vista-lista" onclick="setTareasVista('lista')" title="Lista">☰ Lista</button>
-              <button class="tareas-view-btn" id="btn-vista-kanban" onclick="setTareasVista('kanban')" title="Kanban">⊞ Kanban</button>
-              <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="cargarTareas()">&#8635;</button>
-            </div>
+            <button class="btn-sec" style="font-size:.72rem;padding:6px 12px;margin-left:auto" onclick="cargarTareas()">&#8635;</button>
           </div>
           <div id="tareas-list"><div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Cargando tareas...</div></div>
 
@@ -2144,8 +2136,8 @@
               <input class="inp" id="tm-titulo" placeholder="Nombre de la tarea" maxlength="120">
               <label class="label">Descripción</label>
               <textarea class="inp" id="tm-desc" rows="3" placeholder="Detalle opcional..." style="resize:vertical;font-family:inherit"></textarea>
-              <label class="label">Asignado a *</label>
-              <select class="inp" id="tm-persona"></select>
+              <label class="label">Asignado a * <span style="font-size:.7rem;color:var(--muted)">(ctrl+clic para varios)</span></label>
+              <select class="inp" id="tm-persona" multiple size="4" style="height:auto"></select>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
                 <div>
                   <label class="label">Prioridad</label>
@@ -2416,39 +2408,45 @@
 
           <!-- Tab: Gamas-Normas -->
           <div class="ctrl-section" id="psec-normas">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
               <div class="sec-title" style="margin:0">Gamas / Normas</div>
               <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="abrirModalNorma()">+ Nueva</button>
             </div>
+            <div class="frow" style="margin-bottom:8px"><input class="finp" id="filt-normas-q" placeholder="Buscar gama, modelo..." oninput="renderNormasFiltradas()" style="flex:1"></div>
             <div id="normas-list"><div class="tbl"><div class="empty">Cargando...</div></div></div>
           </div>
 
           <!-- Tab: Subgamas -->
           <div class="ctrl-section" id="psec-subgamas">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
               <div class="sec-title" style="margin:0">Subgamas</div>
               <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="abrirModalSubgama()">+ Nueva</button>
             </div>
+            <div class="frow" style="margin-bottom:8px"><input class="finp" id="filt-subgamas-q" placeholder="Buscar gama principal..." oninput="renderSubgamasFiltradas()" style="flex:1"></div>
             <div id="subgamas-list"><div class="tbl"><div class="empty">Cargando...</div></div></div>
           </div>
 
           <!-- Tab: Activo-Gama -->
           <div class="ctrl-section" id="psec-activos">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
               <div class="sec-title" style="margin:0">Activo-Gama</div>
               <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="abrirModalActivoGama()">+ Nuevo</button>
             </div>
+            <div class="frow" style="margin-bottom:8px"><input class="finp" id="filt-activogama-q" placeholder="Buscar activo..." oninput="renderActivoGamaFiltrados()" style="flex:1"></div>
             <div id="activogama-list"><div class="tbl"><div class="empty">Cargando...</div></div></div>
           </div>
 
           <!-- Tab: Editar Listado -->
           <div class="ctrl-section" id="psec-editar">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
               <div class="sec-title" style="margin:0">Editar Listado</div>
               <div style="display:flex;gap:6px">
                 <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="cargarListadoPreventivo()">&#8635; Actualizar</button>
                 <button class="btn-pri" style="font-size:.72rem;padding:6px 12px" onclick="abrirModalListado()">+ Nuevo</button>
               </div>
+            </div>
+            <div class="frow" style="margin-bottom:8px">
+              <input class="finp" id="filt-listado-q" placeholder="Buscar activo, gama..." oninput="renderListadoFiltrado()" style="flex:1">
             </div>
             <div id="listado-prev-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
           </div>

@@ -5968,7 +5968,7 @@ function renderMantenimientoPreventivo(){
         <div class="tc" style="flex:.6;text-align:right;font-family:monospace;font-size:.75rem;${diasColor}">${r.diasRestantes!==null?r.diasRestantes+'d':'—'}</div>
         <div class="tc" style="flex:1.1;text-align:center;font-size:.7rem;color:var(--muted)">${r.ultimaFecha!=='—'?r.ultimaFecha:''}</div>
         <div class="tc" style="flex:.9;text-align:center"><span style="font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:4px;background:${estadoColor[r.estado]}22;color:${estadoColor[r.estado]}">${estadoLabel[r.estado]}</span></div>
-        <div class="tc" style="flex:.5;text-align:center"><button class="btn-sm" onclick="abrirModalGama(${JSON.stringify(r.gama).replace(/"/g,'&quot;')})" style="font-size:.62rem;padding:2px 6px">✏</button></div>
+        <div class="tc" style="flex:.5;text-align:center"><button class="btn-sm" onclick="abrirModalListadoByActivoGama('${r.activo}','${r.gama}')" style="font-size:.62rem;padding:2px 6px">✏</button></div>
       </div>`;
     }).join('')+
   '</div>';
@@ -6081,30 +6081,7 @@ async function cargarNormas(){
   const sel=document.getElementById('msubg-norma');
   if(sel){sel.innerHTML=normasData.map(n=>`<option value="${n.id}">${n.Gama||n.Numero||n.id} — ${n.Modelo||''} (${n.Intervalo||0}H)</option>`).join('');}
   if(!normasData.length){el.innerHTML='<div class="tbl"><div class="empty">Sin normas</div></div>';return;}
-  // Resumen por modelo
-  const modelosN={};
-  normasData.forEach(n=>{const m=n.Modelo||'Sin modelo';if(!modelosN[m])modelosN[m]=0;modelosN[m]++;});
-  const normasBanner=`<div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 10px;background:var(--surface2);border-radius:8px;margin-bottom:8px;align-items:center">
-    <span style="font-size:.68rem;font-weight:700;color:var(--muted)">${normasData.length} gamas</span>
-    ${Object.entries(modelosN).map(([m,c])=>`<span style="padding:2px 8px;border-radius:4px;background:var(--surface);border:1px solid var(--border);font-size:.68rem;font-weight:700">${m} <span style="color:var(--accent)">${c}</span></span>`).join('')}
-  </div>`;
-  // contar checks (n1..n60 no nulos)
-  el.innerHTML=normasBanner+'<div class="tbl">'+
-    '<div class="tr th"><div class="tc" style="flex:.4">#</div><div class="tc" style="flex:.5">Nº</div><div class="tc" style="flex:1">Gama</div><div class="tc" style="flex:.8">Modelo</div><div class="tc" style="flex:.5;text-align:center">Intervalo</div><div class="tc" style="flex:.3;text-align:center">Checks</div><div class="tc" style="flex:.6"></div></div>'+
-    normasData.map(n=>{
-      let nc=0; for(let i=1;i<=60;i++) if(n['n'+i]) nc++;
-      return `<div class="tr">
-      <div class="tc" style="flex:.4;font-family:monospace;font-size:.7rem;color:var(--muted)">${n.id}</div>
-      <div class="tc" style="flex:.5;font-size:.72rem;color:var(--muted)">${n.Numero||'—'}</div>
-      <div class="tc" style="flex:1;font-size:.78rem;font-weight:600">${n.Gama||'—'}</div>
-      <div class="tc" style="flex:.8;font-size:.75rem;color:var(--accent)">${n.Modelo||'—'}</div>
-      <div class="tc" style="flex:.5;text-align:center;font-family:monospace;font-size:.75rem">${n.Intervalo||'—'}H</div>
-      <div class="tc" style="flex:.3;text-align:center;font-size:.7rem;color:var(--muted)">${nc}</div>
-      <div class="tc" style="flex:.6;text-align:right;display:flex;gap:4px;justify-content:flex-end">
-        <button class="btn-sm" onclick="abrirModalNorma(${n.id})" style="font-size:.65rem;padding:2px 5px">✏</button>
-        <button class="btn-sm" onclick="eliminarNorma(${n.id})" style="font-size:.65rem;padding:2px 5px;color:#ff4d4d;border-color:#ff4d4d">🗑</button>
-      </div></div>`;}).join('')+
-  '</div>';
+  renderNormasFiltradas();
 }
 function abrirModalNorma(id){
   document.getElementById('mnorma-msg').textContent='';
@@ -6155,14 +6132,44 @@ async function cargarSubgamas(){
   if(!json.ok){el.innerHTML='<div class="tbl"><div class="empty">Error: '+json.error+'</div></div>';return;}
   subgamasData=json.data;
   if(!subgamasData.length){el.innerHTML='<div class="tbl"><div class="empty">Sin subgamas</div></div>';return;}
-  const totalSubg=subgamasData.reduce((a,s)=>{for(let i=1;i<=6;i++)if(s['Gama_'+i])a++;return a;},0);
-  const subgBanner=`<div style="display:flex;gap:8px;flex-wrap:wrap;padding:8px 10px;background:var(--surface2);border-radius:8px;margin-bottom:8px;align-items:center">
-    <span style="padding:2px 8px;border-radius:4px;background:var(--surface);border:1px solid var(--border);font-size:.68rem;font-weight:700">${subgamasData.length} grupos</span>
-    <span style="padding:2px 8px;border-radius:4px;background:var(--surface);border:1px solid var(--border);font-size:.68rem;font-weight:700">${totalSubg} subgamas totales</span>
-  </div>`;
-  el.innerHTML=subgBanner+'<div class="tbl">'+
+  renderSubgamasFiltradas();
+}
+async function cargarNormasQuiet(){
+  const json=await apiFetch('?accion=gamasNormas').catch(()=>({ok:false}));
+  if(json.ok)normasData=json.data;
+}
+function renderNormasFiltradas(){
+  const q=(document.getElementById('filt-normas-q')?.value||'').toLowerCase();
+  const el=document.getElementById('normas-list');
+  if(!normasData.length)return;
+  const filtered=q?normasData.filter(n=>(n.Gama||'').toLowerCase().includes(q)||(n.Modelo||'').toLowerCase().includes(q)||(n.Numero||'').toLowerCase().includes(q)):normasData;
+  if(!filtered.length){el.innerHTML='<div class="tbl"><div class="empty">Sin coincidencias</div></div>';return;}
+  el.innerHTML='<div class="tbl">'+
+    '<div class="tr th"><div class="tc" style="flex:.4">#</div><div class="tc" style="flex:.5">Nº</div><div class="tc" style="flex:1">Gama</div><div class="tc" style="flex:.8">Modelo</div><div class="tc" style="flex:.5;text-align:center">Intervalo</div><div class="tc" style="flex:.3;text-align:center">Checks</div><div class="tc" style="flex:.6"></div></div>'+
+    filtered.map(n=>{
+      let nc=0; for(let i=1;i<=60;i++) if(n['n'+i]) nc++;
+      return `<div class="tr">
+      <div class="tc" style="flex:.4;font-family:monospace;font-size:.7rem;color:var(--muted)">${n.id}</div>
+      <div class="tc" style="flex:.5;font-size:.72rem;color:var(--muted)">${n.Numero||'—'}</div>
+      <div class="tc" style="flex:1;font-size:.78rem;font-weight:600">${n.Gama||'—'}</div>
+      <div class="tc" style="flex:.8;font-size:.75rem;color:var(--accent)">${n.Modelo||'—'}</div>
+      <div class="tc" style="flex:.5;text-align:center;font-family:monospace;font-size:.75rem">${n.Intervalo||'—'}H</div>
+      <div class="tc" style="flex:.3;text-align:center;font-size:.7rem;color:var(--muted)">${nc}</div>
+      <div class="tc" style="flex:.6;text-align:right;display:flex;gap:4px;justify-content:flex-end">
+        <button class="btn-sm" onclick="abrirModalNorma(${n.id})" style="font-size:.65rem;padding:2px 5px">✏</button>
+        <button class="btn-sm" onclick="eliminarNorma(${n.id})" style="font-size:.65rem;padding:2px 5px;color:#ff4d4d;border-color:#ff4d4d">🗑</button>
+      </div></div>`;}).join('')+
+  '</div>';
+}
+function renderSubgamasFiltradas(){
+  const q=(document.getElementById('filt-subgamas-q')?.value||'').toLowerCase();
+  const el=document.getElementById('subgamas-list');
+  if(!subgamasData.length)return;
+  const filtered=q?subgamasData.filter(s=>(s.Gama_Principal||'').toLowerCase().includes(q)):subgamasData;
+  if(!filtered.length){el.innerHTML='<div class="tbl"><div class="empty">Sin coincidencias</div></div>';return;}
+  el.innerHTML='<div class="tbl">'+
     '<div class="tr th"><div class="tc" style="flex:.4">#</div><div class="tc" style="flex:1">Gama Principal</div><div class="tc" style="flex:1.2">Subgamas</div><div class="tc" style="flex:.6"></div></div>'+
-    subgamasData.map(s=>{
+    filtered.map(s=>{
       const sublist=[s.Gama_1,s.Gama_2,s.Gama_3,s.Gama_4,s.Gama_5,s.Gama_6].filter(Boolean).join(', ')||'—';
       return `<div class="tr">
         <div class="tc" style="flex:.4;font-family:monospace;font-size:.7rem;color:var(--muted)">${s.id}</div>
@@ -6175,9 +6182,57 @@ async function cargarSubgamas(){
     }).join('')+
   '</div>';
 }
-async function cargarNormasQuiet(){
-  const json=await apiFetch('?accion=gamasNormas').catch(()=>({ok:false}));
-  if(json.ok)normasData=json.data;
+function renderActivoGamaFiltrados(){
+  const q=(document.getElementById('filt-activogama-q')?.value||'').toLowerCase();
+  const el=document.getElementById('activogama-list');
+  if(!activoGamaData.length)return;
+  const gamasCols=['Gama_1','Gama_2','Gama_3','Gama_4','Gama_5','Gama_6','Gama_7','Gama_8','Gama_9'];
+  const filtered=q?activoGamaData.filter(a=>(a.Activo||'').toLowerCase().includes(q)):activoGamaData;
+  if(!filtered.length){el.innerHTML='<div class="tbl"><div class="empty">Sin coincidencias</div></div>';return;}
+  el.innerHTML='<div class="tbl">'+
+    '<div class="tr th"><div class="tc" style="flex:.4">#</div><div class="tc" style="flex:1">Activo</div><div class="tc" style="flex:2">Gamas asignadas</div><div class="tc prev-hide-sm tc-checks" style="flex:.8">Checks</div><div class="tc" style="flex:.6"></div></div>'+
+    filtered.map(a=>{
+      const gamas=gamasCols.map(c=>a[c]).filter(Boolean).join(', ')||'—';
+      const checks=[a.Check_1,a.Check_2,a.Check_3].filter(Boolean).join(', ')||'—';
+      return `<div class="tr">
+      <div class="tc" style="flex:.4;font-family:monospace;font-size:.7rem;color:var(--muted)">${a.id}</div>
+      <div class="tc" style="flex:1;font-family:monospace;font-weight:700;color:var(--accent);font-size:.75rem">${a.Activo||'—'}</div>
+      <div class="tc" style="flex:2;font-size:.72rem;color:var(--muted)">${gamas}</div>
+      <div class="tc prev-hide-sm" style="flex:.8;font-size:.72rem;color:var(--muted)">${checks}</div>
+      <div class="tc" style="flex:.6;text-align:right;display:flex;gap:4px;justify-content:flex-end">
+        <button class="btn-sm" onclick="abrirModalActivoGama(${a.id})" style="font-size:.65rem;padding:2px 5px">✏</button>
+        <button class="btn-sm" onclick="eliminarActivoGama(${a.id})" style="font-size:.65rem;padding:2px 5px;color:#ff4d4d;border-color:#ff4d4d">🗑</button>
+      </div></div>`;}).join('')+
+  '</div>';
+}
+function renderListadoFiltrado(){
+  const q=(document.getElementById('filt-listado-q')?.value||'').toLowerCase();
+  const el=document.getElementById('listado-prev-list');
+  if(!listadoPrevData.length)return;
+  const filtered=q?listadoPrevData.filter(r=>(r.Activo||'').toLowerCase().includes(q)||(r.Gama||'').toLowerCase().includes(q)):listadoPrevData;
+  if(!filtered.length){el.innerHTML='<div class="tbl"><div class="empty">Sin coincidencias</div></div>';return;}
+  el.innerHTML='<div class="tbl">'+
+    '<div class="tr th"><div class="tc" style="flex:1">Activo</div><div class="tc" style="flex:1.5">Gama</div><div class="tc prev-hide-sm" style="flex:.4;text-align:center">Med.</div><div class="tc" style="flex:.7;text-align:right">Próximo</div><div class="tc prev-hide-sm" style="flex:.7;text-align:right">Ultima</div><div class="tc prev-hide-sm" style="flex:1.1;text-align:center">Ultima fecha</div><div class="tc" style="flex:.6;text-align:right">Falta</div><div class="tc prev-hide-sm" style="flex:.5"></div><div class="tc" style="flex:.6"></div></div>'+
+    filtered.map(r=>{
+      const falta=Number(r.Falta)||(Number(r.Proximo)-Number(r.U_Medicion_med));
+      const rowBg=falta<0?'background:rgba(255,77,77,.1)':r.Estado==='Aviso'?'background:rgba(255,200,0,.1)':'';
+      const faltaColor=falta<0?'color:#ff4d4d;font-weight:700':falta<50?'color:#e6a800;font-weight:600':'';
+      const fecha=r.U_Medicion_fecha||'—';
+      return `<div class="tr" style="${rowBg}">
+        <div class="tc" style="flex:1;font-family:monospace;font-weight:700;color:var(--accent);font-size:.75rem">${r.Activo||'—'}</div>
+        <div class="tc" style="flex:1.5;font-size:.75rem">${r.Gama||'—'}</div>
+        <div class="tc prev-hide-sm" style="flex:.4;text-align:center;font-size:.72rem;color:var(--muted)">${r.Medidor||'H'}</div>
+        <div class="tc" style="flex:.7;text-align:right;font-family:monospace;font-size:.75rem">${r.Proximo??'—'}</div>
+        <div class="tc prev-hide-sm" style="flex:.7;text-align:right;font-family:monospace;font-size:.75rem">${r.U_Medicion_med??'—'}</div>
+        <div class="tc prev-hide-sm" style="flex:.9;text-align:center;font-size:.68rem;color:var(--muted)">${fecha}</div>
+        <div class="tc" style="flex:.6;text-align:right;font-family:monospace;font-size:.75rem;${faltaColor}">${falta??'—'}</div>
+        <div class="tc prev-hide-sm" style="flex:.5;font-size:.68rem;color:var(--muted)">${r.Estado||''}</div>
+        <div class="tc" style="flex:.6;text-align:right;display:flex;gap:3px;justify-content:flex-end">
+          <button class="btn-sm" onclick="abrirModalListado(${r.id})" style="font-size:.62rem;padding:2px 5px">✏</button>
+          <button class="btn-sm" onclick="eliminarListado(${r.id})" style="font-size:.62rem;padding:2px 5px;color:#ff4d4d;border-color:#ff4d4d">🗑</button>
+        </div></div>`;
+    }).join('')+
+  '</div>';
 }
 function abrirModalSubgama(id){
   document.getElementById('msubg-msg').textContent='';
@@ -6220,27 +6275,7 @@ async function cargarActivosGama(){
   if(!json.ok){el.innerHTML='<div class="tbl"><div class="empty">Error: '+json.error+'</div></div>';return;}
   activoGamaData=json.data;
   if(!activoGamaData.length){el.innerHTML='<div class="tbl"><div class="empty">Sin registros</div></div>';return;}
-  const gamasCols=['Gama_1','Gama_2','Gama_3','Gama_4','Gama_5','Gama_6','Gama_7','Gama_8','Gama_9'];
-  const totalGamasAct=activoGamaData.reduce((a,r)=>{gamasCols.forEach(c=>{if(r[c])a++;});return a;},0);
-  const activosBanner=`<div style="display:flex;gap:8px;flex-wrap:wrap;padding:8px 10px;background:var(--surface2);border-radius:8px;margin-bottom:8px;align-items:center">
-    <span style="padding:2px 8px;border-radius:4px;background:var(--surface);border:1px solid var(--border);font-size:.68rem;font-weight:700">${activoGamaData.length} activos</span>
-    <span style="padding:2px 8px;border-radius:4px;background:var(--surface);border:1px solid var(--border);font-size:.68rem;font-weight:700">${totalGamasAct} asignaciones gama</span>
-  </div>`;
-  el.innerHTML=activosBanner+'<div class="tbl">'+
-    '<div class="tr th"><div class="tc" style="flex:.4">#</div><div class="tc" style="flex:1">Activo</div><div class="tc" style="flex:2">Gamas asignadas</div><div class="tc" style="flex:.8">Checks</div><div class="tc" style="flex:.6"></div></div>'+
-    activoGamaData.map(a=>{
-      const gamas=gamasCols.map(c=>a[c]).filter(Boolean).join(', ')||'—';
-      const checks=[a.Check_1,a.Check_2,a.Check_3].filter(Boolean).join(', ')||'—';
-      return `<div class="tr">
-      <div class="tc" style="flex:.4;font-family:monospace;font-size:.7rem;color:var(--muted)">${a.id}</div>
-      <div class="tc" style="flex:1;font-family:monospace;font-weight:700;color:var(--accent);font-size:.75rem">${a.Activo||'—'}</div>
-      <div class="tc" style="flex:2;font-size:.72rem;color:var(--muted)">${gamas}</div>
-      <div class="tc" style="flex:.8;font-size:.72rem;color:var(--muted)">${checks}</div>
-      <div class="tc" style="flex:.6;text-align:right;display:flex;gap:4px;justify-content:flex-end">
-        <button class="btn-sm" onclick="abrirModalActivoGama(${a.id})" style="font-size:.65rem;padding:2px 5px">✏</button>
-        <button class="btn-sm" onclick="eliminarActivoGama(${a.id})" style="font-size:.65rem;padding:2px 5px;color:#ff4d4d;border-color:#ff4d4d">🗑</button>
-      </div></div>`;}).join('')+
-  '</div>';
+  renderActivoGamaFiltrados();
   // Populate activo select in modal
   const sel=document.getElementById('mag-activo');
   if(sel){sel.innerHTML='<option value="">Seleccionar...</option>'+MACHINES.map(m=>`<option value="${m.id}">${m.id} — ${m.name}</option>`).join('');}
@@ -6304,39 +6339,7 @@ async function cargarListadoPreventivo(){
   if(!json.ok){el.innerHTML='<div class="tbl"><div class="empty">Error: '+json.error+'</div></div>';return;}
   listadoPrevData=json.data;
   if(!listadoPrevData.length){el.innerHTML='<div class="tbl"><div class="empty">Sin registros — pulsa + Nuevo para añadir</div></div>';return;}
-  // Resumen por activo
-  const activosL={};
-  listadoPrevData.forEach(r=>{const a=r.Activo||'?';if(!activosL[a])activosL[a]=0;activosL[a]++;});
-  const nPdteL=listadoPrevData.filter(r=>{const f=Number(r.Falta)||(Number(r.Proximo)-Number(r.U_Medicion_med));return f<0;}).length;
-  const listadoBanner=`<div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 10px;background:var(--surface2);border-radius:8px;margin-bottom:8px;align-items:center">
-    <span style="padding:2px 8px;border-radius:4px;background:var(--surface);border:1px solid var(--border);font-size:.68rem;font-weight:700">${listadoPrevData.length} entradas</span>
-    <span style="padding:2px 8px;border-radius:4px;background:var(--surface);border:1px solid var(--border);font-size:.68rem;font-weight:700">${Object.keys(activosL).length} activos</span>
-    ${nPdteL>0?`<span style="padding:2px 8px;border-radius:4px;background:#ff4d4d22;border:1px solid #ff4d4d55;font-size:.68rem;font-weight:700;color:#ff4d4d">${nPdteL} pendientes</span>`:''}
-    ${Object.entries(activosL).map(([a,c])=>`<span style="padding:2px 7px;border-radius:4px;background:var(--surface);border:1px solid var(--border);font-size:.65rem;font-family:monospace">${a} <span style="color:var(--accent)">${c}</span></span>`).join('')}
-  </div>`;
-  el.innerHTML=listadoBanner+'<div class="tbl">'+
-    '<div class="tr th"><div class="tc" style="flex:1">Activo</div><div class="tc" style="flex:1.5">Código Gama</div><div class="tc" style="flex:.4;text-align:center">Med.</div><div class="tc" style="flex:.7;text-align:right">Próximo</div><div class="tc" style="flex:.7;text-align:right">Ultima</div><div class="tc" style="flex:1.1;text-align:center">Ultima fecha</div><div class="tc" style="flex:.6;text-align:right">Falta</div><div class="tc" style="flex:.6"></div></div>'+
-    listadoPrevData.map(r=>{
-      const falta=Number(r.Falta)||(Number(r.Proximo)-Number(r.U_Medicion_med));
-      const rowBg=falta<0?'background:rgba(255,77,77,.1)':r.Estado==='Aviso'?'background:rgba(255,200,0,.1)':'';
-      const faltaColor=falta<0?'color:#ff4d4d;font-weight:700':falta<50?'color:#e6a800;font-weight:600':'';
-      const fecha=r.U_Medicion_fecha||'—';
-      const estado=r.Estado||'';
-      return `<div class="tr" style="${rowBg}">
-        <div class="tc" style="flex:1;font-family:monospace;font-weight:700;color:var(--accent);font-size:.75rem">${r.Activo||'—'}</div>
-        <div class="tc" style="flex:1.2;font-size:.75rem">${r.Gama||'—'}</div>
-        <div class="tc" style="flex:.4;text-align:center;font-size:.72rem;color:var(--muted)">${r.Medidor||'H'}</div>
-        <div class="tc" style="flex:.7;text-align:right;font-family:monospace;font-size:.75rem">${r.Proximo??'—'}</div>
-        <div class="tc" style="flex:.7;text-align:right;font-family:monospace;font-size:.75rem">${r.U_Medicion_med??'—'}</div>
-        <div class="tc" style="flex:.9;text-align:center;font-size:.68rem;color:var(--muted)">${fecha}</div>
-        <div class="tc" style="flex:.6;text-align:right;font-family:monospace;font-size:.75rem;${faltaColor}">${falta??'—'}</div>
-        <div class="tc" style="flex:.5;font-size:.68rem;color:var(--muted)">${estado}</div>
-        <div class="tc" style="flex:.6;text-align:right;display:flex;gap:3px;justify-content:flex-end">
-          <button class="btn-sm" onclick="abrirModalListado(${r.id})" style="font-size:.62rem;padding:2px 5px">✏</button>
-          <button class="btn-sm" onclick="eliminarListado(${r.id})" style="font-size:.62rem;padding:2px 5px;color:#ff4d4d;border-color:#ff4d4d">🗑</button>
-        </div></div>`;
-    }).join('')+
-  '</div>';
+  renderListadoFiltrado();
 }
 function mlistActivoChange(){
   const activo=document.getElementById('mlist-activo').value;
@@ -6383,6 +6386,16 @@ async function abrirModalListado(id){
   document.getElementById('modal-listado').classList.add('open');
 }
 function cerrarModalListado(){document.getElementById('modal-listado').classList.remove('open');}
+async function abrirModalListadoByActivoGama(activo, gama){
+  // Ensure listadoPrevData loaded
+  if(!listadoPrevData.length){
+    const j=await apiFetch('?accion=gamasListado').catch(()=>({ok:false}));
+    if(j.ok)listadoPrevData=j.data||[];
+  }
+  const r=listadoPrevData.find(x=>x.Activo===activo&&x.Gama===gama);
+  if(r) abrirModalListado(r.id);
+  else abrirModalListado(); // new entry pre-filled below if not found
+}
 async function guardarListado(){
   const Activo=document.getElementById('mlist-activo').value.trim();
   const Gama=document.getElementById('mlist-codigogama').value.trim();
@@ -9309,7 +9322,7 @@ function cerrarStockDetalle() {
 let tareasData = [];
 let _tareasPanelInit = false;
 let _tareaEditId = null;
-let _tareasVista = 'lista'; // 'lista' | 'kanban'
+let _tareasVista = 'kanban'; // 'lista' | 'kanban'
 let _draggingTareaId = null;
 
 function setTareasVista(v){
