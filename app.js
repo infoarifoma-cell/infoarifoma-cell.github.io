@@ -3872,16 +3872,18 @@ function renderGasoilHistorial(){
     const bg=COLOR[t]||'rgba(122,132,160,.1)';
     const col=CTEXT[t]||'var(--muted)';
     const tShort=t==='REAJUSTE COMBUSTIBLE'?'REAJUSTE':t==='ENTRADA-SALIDA'?'E-S':t;
+    const horo=r.horometro?Number(r.horometro).toLocaleString()+' h':'—';
     return '<div class="tr" style="cursor:pointer" onclick="openGasoilEditModal('+JSON.stringify(r)+')">'+
       '<div class="tc" style="flex:.7;color:var(--muted);font-size:.8rem">'+(r.fecha||'—')+'</div>'+
       '<div class="tc" style="flex:.8"><span class="badge" style="background:'+bg+';color:'+col+';white-space:nowrap;font-size:.72rem">'+tShort+'</span></div>'+
       '<div class="tc" style="flex:.6;color:var(--muted);font-size:.78rem">'+(r.origen||'—')+'</div>'+
       '<div class="tc" style="flex:.8;font-weight:700;color:var(--text);font-size:.85rem">'+(r.destino||'—')+'</div>'+
       '<div class="tc" style="flex:.45;font-family:monospace;font-weight:700;color:'+col+';text-align:right">'+Number(r.litros||0).toLocaleString()+'</div>'+
+      '<div class="tc prev-hide-sm" style="flex:.55;font-family:monospace;font-size:.78rem;color:var(--accent2);text-align:right">'+horo+'</div>'+
       '<div class="tc" style="flex:.25;text-align:right"><span style="color:var(--muted);font-size:.85rem">✎</span></div>'+
     '</div>';
   }).join('');
-  el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:.7">Fecha</div><div class="tc" style="flex:.8">Tipo</div><div class="tc" style="flex:.6">Origen</div><div class="tc" style="flex:.8">Destino</div><div class="tc" style="flex:.45;text-align:right">L</div><div class="tc" style="flex:.25"></div></div>'+rows+'</div>';
+  el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:.7">Fecha</div><div class="tc" style="flex:.8">Tipo</div><div class="tc" style="flex:.6">Origen</div><div class="tc" style="flex:.8">Destino</div><div class="tc" style="flex:.45;text-align:right">L</div><div class="tc prev-hide-sm" style="flex:.55;text-align:right">Horómetro</div><div class="tc" style="flex:.25"></div></div>'+rows+'</div>';
 }
 
 function renderGasoilConsumos(){
@@ -3923,6 +3925,7 @@ function openGasoilEditModal(r){
   document.getElementById('gedit-destino').value=r.destino||'';
   document.getElementById('gedit-prov').value=r.proveedor||'';
   document.getElementById('gedit-litros').value=r.litros||'';
+  document.getElementById('gedit-horometro').value=r.horometro||'';
   // Convert d/mm/yyyy to yyyy-mm-dd for date input
   let fechaVal='';
   const fp=String(r.fecha||'').split('/');
@@ -3952,7 +3955,8 @@ async function saveGasoilEdit(){
   const fechaFmt=parseInt(d)+'/'+m+'/'+y;
   msg.style.color='var(--muted)';msg.textContent='Guardando...';
   try{
-    await apiPost({tipo:'editarGasoil',id:recordId,fecha:fechaFmt,proveedor,origen,destino,tipoMovimiento:tipo,litros});
+    const horometro=parseInt(document.getElementById('gedit-horometro').value)||null;
+    await apiPost({tipo:'editarGasoil',id:recordId,fecha:fechaFmt,proveedor,origen,destino,tipoMovimiento:tipo,litros,horometro});
     // Update local data
     const idx=gasoilData.findIndex(r=>String(r.id)===String(recordId));
     if(idx>=0)gasoilData[idx]={...gasoilData[idx],fecha:fechaFmt,proveedor,origen,destino,tipo,litros};
@@ -3975,7 +3979,8 @@ async function guardarGasoil(){
   if(!fecha){if(msg){msg.style.color='var(--danger)';msg.textContent='Introduce la fecha.';}return;}
   const [y,m,d]=fecha.split('-');
   const fechaFmt=parseInt(d)+'/'+m+'/'+y;
-  const payload={tipo:'gasoil',fecha:fechaFmt,proveedor,origen,destino,tipoMovimiento:tipo,litros};
+  const horometroNuevo=parseInt(document.getElementById('gasoil-horometro-inp')?.value)||null;
+  const payload={tipo:'gasoil',fecha:fechaFmt,proveedor,origen,destino,tipoMovimiento:tipo,litros,horometro:horometroNuevo};
   try{
     if(msg){msg.style.color='var(--muted)';msg.textContent='Guardando...';}
     await apiPost(payload);
@@ -5869,9 +5874,9 @@ async function cargarMantenimientoPreventivo(){
           prevGasoilFechaMap[machineId]=r.fecha;
       });
     }
-    // Populate machine filter (solo tipos preventivo)
-    const _tiposPrev=new Set(['PALA CARGADORA','EXCAVADORA','DUMPER ARTICULADO','DUMPER RIGIDO','MANIPULADOR TELESCOPICO','GRUPO ELECTROGENO','GRUPO GENERADOR','RIGIDO','TRACTOCAMION']);
-    const maquinas=[...new Set(MACHINES.filter(m=>_tiposPrev.has(m.tipo)||m.modelo==='C32'||(m.fabricante||'').toUpperCase().includes('PRAMAC')).map(m=>m.id))].sort();
+    // Populate machine filter (excluir planta fija)
+    const _tiposExcluir=new Set(['CINTA TRANSPORTADORA','CRIBA VIBRANTE','ALIMENTADOR','PLANTA','VEHICULO']);
+    const maquinas=[...new Set(MACHINES.filter(m=>!_tiposExcluir.has(m.tipo)).map(m=>m.id))].sort();
     const sel=document.getElementById('filt-prev-maquina');
     sel.innerHTML='<option value="">Todas las máquinas</option>';
     maquinas.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;sel.appendChild(o);});
@@ -5891,9 +5896,9 @@ function calcMantenimiento(){
     const m=Number(r.medicion)||0;
     if(!machineHoroOT[r.activo]||m>machineHoroOT[r.activo])machineHoroOT[r.activo]=m;
   });
-  // Solo máquinas móviles, grupos y C32/PRAMAC — excluir planta fija
-  const TIPOS_PREVENTIVO=new Set(['PALA CARGADORA','EXCAVADORA','DUMPER ARTICULADO','DUMPER RIGIDO','MANIPULADOR TELESCOPICO','GRUPO ELECTROGENO','GRUPO GENERADOR','RIGIDO','TRACTOCAMION']);
-  const maquinasFiltradas=MACHINES.filter(m=>TIPOS_PREVENTIVO.has(m.tipo)||m.modelo==='C32'||(m.fabricante||'').toUpperCase().includes('PRAMAC'));
+  // Excluir planta fija (cintas, cribas, alimentadores, planta, vehículos)
+  const TIPOS_EXCLUIR=new Set(['CINTA TRANSPORTADORA','CRIBA VIBRANTE','ALIMENTADOR','PLANTA','VEHICULO']);
+  const maquinasFiltradas=MACHINES.filter(m=>!TIPOS_EXCLUIR.has(m.tipo));
   // For each machine+gama combo
   maquinasFiltradas.forEach(machine=>{
     const mGamas=gamas.filter(g=>g.modelo===machine.modelo);

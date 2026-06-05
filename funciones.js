@@ -662,12 +662,13 @@ async function doPostGasoil(data) {
     action: 'insert',
     table: 'GASOIL',
     data: {
-      fecha:     data.fecha,
-      proveedor: data.proveedor,
-      origen:    data.origen,
-      destino:   data.destino,
-      tipo:      data.tipoMovimiento,
-      litros:    Number(data.litros)
+      fecha:      data.fecha,
+      proveedor:  data.proveedor,
+      origen:     data.origen,
+      destino:    data.destino,
+      tipo:       data.tipoMovimiento,
+      litros:     Number(data.litros),
+      horometro:  data.horometro ? Number(data.horometro) : null
     }
   });
 }
@@ -677,12 +678,13 @@ async function doEditarGasoil(data) {
     action: 'update',
     table: 'GASOIL',
     data: {
-      fecha:     data.fecha,
-      proveedor: data.proveedor,
-      origen:    data.origen,
-      destino:   data.destino,
-      tipo:      data.tipoMovimiento,
-      litros:    Number(data.litros)
+      fecha:      data.fecha,
+      proveedor:  data.proveedor,
+      origen:     data.origen,
+      destino:    data.destino,
+      tipo:       data.tipoMovimiento,
+      litros:     Number(data.litros),
+      horometro:  data.horometro ? Number(data.horometro) : null
     },
     filters: [{ column: 'id', op: 'eq', value: data.id }]
   });
