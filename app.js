@@ -6117,6 +6117,20 @@ function abrirModalNorma(id){
   document.getElementById('modal-norma').classList.add('open');
 }
 function cerrarModalNorma(){document.getElementById('modal-norma').classList.remove('open');}
+function normaAutoNombre(){
+  const modelo=document.getElementById('mnorma-modelo')?.value||'';
+  const intervalo=document.getElementById('mnorma-intervalo')?.value||'';
+  const nombreEl=document.getElementById('mnorma-nombre');
+  if(!nombreEl)return;
+  // Solo auto-suggest si el campo está vacío o tiene el patrón anterior auto-generado
+  if(modelo&&intervalo){
+    const sugerido='MANTENIMIENTO '+intervalo+'H '+modelo;
+    // Sobreescribir si está vacío o si parece auto-generado (empieza por MANTENIMIENTO)
+    if(!nombreEl.value||nombreEl.value.startsWith('MANTENIMIENTO ')){
+      nombreEl.value=sugerido;
+    }
+  }
+}
 async function guardarNorma(){
   const Numero=document.getElementById('mnorma-numero').value.trim();
   const Gama=document.getElementById('mnorma-nombre').value.trim();

@@ -2319,13 +2319,13 @@
               <input type="hidden" id="mnorma-id">
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
                 <div><label>Número <span style="font-size:.68rem;color:var(--muted)">(auto)</span></label><input class="inp inp-mono" id="mnorma-numero" readonly style="background:var(--surface2);color:var(--muted);cursor:default"></div>
-                <div><label>Intervalo (h)</label><input class="inp inp-mono" type="number" id="mnorma-intervalo" placeholder="500" min="1"></div>
+                <div><label>Intervalo (h)</label><input class="inp inp-mono" type="number" id="mnorma-intervalo" placeholder="500" min="1" oninput="normaAutoNombre()"></div>
               </div>
-              <label>Gama (nombre)</label><input class="inp" id="mnorma-nombre" placeholder="Ej: 500 Horas">
               <label>Modelo máquina</label>
-              <select class="inp" id="mnorma-modelo">
+              <select class="inp" id="mnorma-modelo" onchange="normaAutoNombre()">
                 <option value="">— Seleccionar modelo —</option>
               </select>
+              <label>Nombre de la Gama <span style="font-size:.68rem;color:var(--muted)">(se sugiere automáticamente)</span></label><input class="inp" id="mnorma-nombre" placeholder="Ej: MANTENIMIENTO 500H HM400">
               <label>Puntos de verificación (uno por línea, máx 60)</label>
               <textarea class="inp" id="mnorma-checks" placeholder="Cambio aceite motor&#10;Revisar filtros..." style="resize:vertical;min-height:120px"></textarea>
               <div class="warn-msg" id="mnorma-msg"></div>
