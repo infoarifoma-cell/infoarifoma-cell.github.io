@@ -5831,25 +5831,12 @@ const GASOIL_DEST_MAP={
 let customGamas=JSON.parse(localStorage.getItem('customGamas')||'[]');
 
 function getEffectiveGamas(){
-  // Base: hardcoded GAMAS + customGamas (localStorage)
+  // Merge hardcoded GAMAS with custom ones (custom overrides by id)
   const base=[...GAMAS];
   customGamas.forEach(cg=>{
     const idx=base.findIndex(g=>g.id===cg.id);
     if(idx>=0)base[idx]=cg;else base.push(cg);
   });
-  // Merge normasData (tblGamasNormas) — solo modelos presentes en MACHINES filtrados
-  if(normasData&&normasData.length){
-    const TIPOS_EXCLUIR=new Set(['CINTA TRANSPORTADORA','CRIBA VIBRANTE','ALIMENTADOR','PLANTA','VEHICULO','MOLINO DE CONO','MOLINO ARENERO','CUBA DE AGUA','MACHACADORA']);
-    const modelosActivos=new Set(MACHINES.filter(m=>!TIPOS_EXCLUIR.has(m.tipo)).map(m=>m.modelo));
-    normasData.forEach(n=>{
-      if(!n.Gama||!n.Modelo||!n.Intervalo)return;
-      if(!modelosActivos.has(n.Modelo))return;
-      const checks=[];for(let i=1;i<=60;i++)if(n['n'+i])checks.push(n['n'+i]);
-      const ng={id:n.Gama,nombre:n.Gama,modelo:n.Modelo,intervalo:Number(n.Intervalo)||0,checks};
-      const idx=base.findIndex(g=>g.id===ng.id);
-      if(idx>=0)base[idx]=ng;else base.push(ng);
-    });
-  }
   return base;
 }
 
