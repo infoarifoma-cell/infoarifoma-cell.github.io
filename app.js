@@ -6454,6 +6454,18 @@ function mlistActivoChange(){
   const row=activoGamaData.find(x=>x.Activo===activo);
   const gamas=[];
   if(row){for(let i=1;i<=9;i++){if(row['Gama_'+i])gamas.push(row['Gama_'+i]);}}
+  // Si no hay gamas en tblGamasActivos, buscar en normasData por modelo del activo
+  if(!gamas.length && normasData.length){
+    const activoRow=activosData.find(a=>a.Codigo===activo||a.Activo===activo);
+    const modelo=activoRow?activoRow.modelo||activoRow.Activo||activo:activo;
+    normasData.forEach(n=>{
+      const nModelo=n.Modelo||'';
+      if(nModelo&&(nModelo===modelo||nModelo===activo)){
+        const codigo=n.Numero||n.Gama||'';
+        if(codigo&&!gamas.includes(codigo))gamas.push(codigo);
+      }
+    });
+  }
   if(!gamas.length){sel.innerHTML='<option value="">Sin gamas asignadas</option>';return;}
   sel.innerHTML=gamas.map(g=>`<option value="${g}">${g}</option>`).join('');
 }
@@ -6471,6 +6483,11 @@ async function abrirModalListado(id){
   if(!activosData.length){
     const j=await dbQuery({action:'select',table:'tblactivos',options:{select:'*',order:'Codigo.asc',limit:500}});
     if(j.ok && j.data && j.data.length) activosData=j.data;
+  }
+  // Cargar normasData si está vacío (para buscar gamas por modelo)
+  if(!normasData.length){
+    const j=await apiFetch('?accion=gamasNormas').catch(()=>({ok:false}));
+    if(j.ok)normasData=j.data||[];
   }
   // Construir mapa Codigo→Nombre desde tblactivos
   const activoNombreMap={};
