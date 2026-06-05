@@ -3804,12 +3804,13 @@ let gasoilConsumos=[];
 let gasoilStock={dep1:0,dep2:0};
 
 function gasoilTab(tab){
-  ['registro','historial','consumos'].forEach(t=>{
+  ['registro','historial','consumos','horometros'].forEach(t=>{
     document.getElementById('gtab-'+t).style.display=t===tab?'block':'none';
     const btn=document.getElementById('gtab-btn-'+t);
     btn.style.background=t===tab?'var(--accent)':'transparent';
     btn.style.color=t===tab?'#fff':'var(--muted)';
   });
+  if(tab==='horometros')renderGasoilHorometros();
 }
 
 function gasoilTipoChange(){
@@ -3894,7 +3895,25 @@ function renderGasoilConsumos(){
     '<div class="tc" style="flex:.8;font-family:monospace;color:var(--muted);text-align:right">'+Number(c.min||0).toLocaleString()+'</div>'+
     '<div class="tc" style="flex:.6;font-family:monospace;color:var(--accent2);text-align:right">'+(c.lh||0)+'</div>'+
   '</div>').join('');
-  el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:1">Activo</div><div class="tc" style="flex:.9;text-align:right">Total L</div><div class="tc" style="flex:.8;text-align:right">Máx</div><div class="tc" style="flex:.8;text-align:right">Mín</div><div class="tc" style="flex:.6;text-align:right">L/H</div></div>'+rows+'</div>';
+  el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:1">Activo</div><div class="tc" style="flex:.9;text-align:right">Total L</div><div class="tc" style="flex:.8;text-align:right">Horómetro</div><div class="tc" style="flex:.8;text-align:right">Mín</div><div class="tc" style="flex:.6;text-align:right">L/H</div></div>'+rows+'</div>';
+}
+
+function renderGasoilHorometros(){
+  const el=document.getElementById('gasoil-horometros-list');
+  if(!el)return;
+  if(!gasoilConsumos.length){el.innerHTML='<div class="tbl"><div class="empty">Sin datos</div></div>';return;}
+  // Ordenar por horómetro descendente
+  const sorted=[...gasoilConsumos].filter(c=>c.activo).sort((a,b)=>Number(b.max||0)-Number(a.max||0));
+  const rows=sorted.map(c=>{
+    const horo=Number(c.max||0);
+    const color=horo>0?'var(--accent2)':'var(--muted)';
+    return '<div class="tr">'+
+      '<div class="tc" style="flex:1.2;font-weight:700;color:var(--text)">'+(c.activo||'—')+'</div>'+
+      '<div class="tc" style="flex:1;font-family:monospace;font-size:.9rem;font-weight:700;color:'+color+';text-align:right">'+(horo>0?horo.toLocaleString()+' h':'—')+'</div>'+
+      '<div class="tc" style="flex:.8;font-family:monospace;color:var(--muted);text-align:right">'+(Number(c.litros||0).toLocaleString())+' L</div>'+
+    '</div>';
+  }).join('');
+  el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:1.2">Activo</div><div class="tc" style="flex:1;text-align:right">Horómetro actual</div><div class="tc" style="flex:.8;text-align:right">Total L</div></div>'+rows+'</div>';
 }
 
 function openGasoilEditModal(r){
