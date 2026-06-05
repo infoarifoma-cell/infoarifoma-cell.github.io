@@ -8956,29 +8956,57 @@ function _renderInforme(d) {
   }
 }
 
-function infEnviarEmail() {
-  if (!_infData) { alert('Carga primero el informe'); return; }
-  const fechaFmt = _infData.fecha.split('-').reverse().join('/');
-  const asunto = `ARIFOMA DATOS DIARIOS ${fechaFmt}`;
-  const cuerpo = `Buenas tardes,\n\nAdjunto datos diarios del día ${fechaFmt}.\n\nSaludos,`;
-  const outlookUrl = 'https://outlook.office365.com/owa/?path=/mail/action/compose'
-    + '&subject=' + encodeURIComponent(asunto)
-    + '&body=' + encodeURIComponent(cuerpo);
-  window.open(outlookUrl, '_blank');
-}
-
-async function infExportarExcel() {
+async function infEnviarEmail() {
   if (!_infData) { alert('Carga primero el informe'); return; }
   if (typeof ExcelJS === 'undefined') { alert('Librería Excel no cargada'); return; }
+  const btn = document.querySelector('button[onclick="infEnviarEmail()"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
+  try {
+    const buf = await _infGenerarBuffer(_infData);
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+    const fechaFmt = _infData.fecha.split('-').reverse().join('/');
+    const fileName = `Informe_Planta_${_infData.fecha}.xlsx`;
+    const token = await comprasGetToken();
+    const mail = {
+      message: {
+        subject: `ARIFOMA DATOS DIARIOS ${fechaFmt}`,
+        body: { contentType: 'Text', content: `Buenas tardes,\n\nAdjunto datos diarios del día ${fechaFmt}.\n\nSaludos,` },
+        toRecipients: [
+          { emailAddress: { address: 'jpereira@lopesan.com' } },
+          { emailAddress: { address: 'mleon@lopesan.com' } },
+          { emailAddress: { address: 'asarmiento@lopesan.com' } }
+        ],
+        attachments: [{
+          '@odata.type': '#microsoft.graph.fileAttachment',
+          name: fileName,
+          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          contentBytes: base64
+        }]
+      }
+    };
+    const res = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(mail)
+    });
+    if (res.ok || res.status === 202) {
+      alert('Email enviado correctamente a jpereira@lopesan.com');
+    } else {
+      const err = await res.text();
+      alert('Error al enviar: ' + err);
+    }
+  } catch(e) {
+    alert('Error: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Enviar por Email'; }
+  }
+}
 
-  const d = _infData;
-  const fechaFmt = d.fecha.split('-').reverse().join('/');
+async function _infGenerarBuffer(d) {
   const wb = new ExcelJS.Workbook();
+  const fechaFmt = d.fecha.split('-').reverse().join('/');
   const ws = wb.addWorksheet('Informe ' + d.fecha);
-
-  // Columnas
   ws.columns = [{width:22},{width:20},{width:8},{width:8},{width:28},{width:30},{width:12},{width:12},{width:12},{width:12},{width:18},{width:28},{width:10},{width:14}];
-
   const hdrFill = {type:'pattern',pattern:'solid',fgColor:{argb:'FF374151'}};
   const subFill  = {type:'pattern',pattern:'solid',fgColor:{argb:'FFD1D5DB'}};
   const hdrFont  = {bold:true,color:{argb:'FFFFFFFF'},size:10};
@@ -8996,44 +9024,27 @@ async function infExportarExcel() {
     r.eachCell(c=>{c.fill=subFill;c.font=subFont;c.border=border;c.alignment={horizontal:'center'};});
     r.getCell(1).alignment={horizontal:'left'};
   };
-  const addRow = (vals) => {
-    const r = ws.addRow(vals);
-    r.eachCell(c=>{c.border=border;});
-    return r;
-  };
+  const addRow = (vals) => { const r = ws.addRow(vals); r.eachCell(c=>{c.border=border;}); return r; };
   const addBlank = () => ws.addRow([]);
-
-  // ── Título ──
   const titulo = ws.addRow([`INFORME DIARIO PLANTA — ${fechaFmt}`]);
   titulo.getCell(1).font={bold:true,size:13}; titulo.height=20;
   ws.mergeCells(titulo.number,1,titulo.number,14);
   addBlank();
-
-  // ── MAQUINARIA ──
   addHdr('MAQUINARIA', 5);
   addSubHdr(['MAQUINARIA','DESDE','HASTA','HORAS','TRABAJO']);
   const maqRows = document.querySelectorAll('#inf-maquinaria-body tr');
   INF_MAQUINARIA.forEach((m, i) => {
     const row = maqRows[i];
     const inputs = row ? row.querySelectorAll('input') : [];
-    const desde = inputs[0]?.value||'';
-    const hasta = inputs[1]?.value||'';
-    const trabajo = inputs[2]?.value||'';
+    const desde = inputs[0]?.value||''; const hasta = inputs[1]?.value||''; const trabajo = inputs[2]?.value||'';
     const horas = (desde&&hasta&&Number(hasta)>Number(desde)) ? Number(hasta)-Number(desde) : '';
     addRow([m, desde?Number(desde):'', hasta?Number(hasta):'', horas, trabajo]);
   });
   addBlank();
-
-  // ── PERSONAL ──
   addHdr('PERSONAL', 4);
   addSubHdr(['NOMBRE','ENTRADA','SALIDA','HORAS']);
-  d.fichajes.forEach(f => {
-    const horas = calcHorasFichaje(f);
-    addRow([f.empleado||'', f.entrada||'', f.salida||'', horas!=='—'?Number(horas):'']);
-  });
+  d.fichajes.forEach(f => { const horas = calcHorasFichaje(f); addRow([f.empleado||'', f.entrada||'', f.salida||'', horas!=='—'?Number(horas):'']); });
   addBlank();
-
-  // ── PRODUCCIÓN ──
   addHdr('PRODUCCIÓN', 8);
   addSubHdr(['FECHA','DÍA','0/4 Tn','4/12 Tn','12/20 Tn','20/40 Tn','TOTAL Tn','H.PLANTA']);
   if (d.produccion) {
@@ -9043,8 +9054,6 @@ async function infExportarExcel() {
     totProd.font=boldFont; totProd.eachCell(c=>{c.border=border;});
   }
   addBlank();
-
-  // ── VENTAS ──
   addHdr('VENTAS', 8);
   addSubHdr(['FECHA-HORA','MATRÍCULA','BRUTO','NETO','MATERIAL','CLIENTE','PRECIO','TOTAL']);
   let totalNeto=0, totalImp=0;
@@ -9060,31 +9069,28 @@ async function infExportarExcel() {
   const totVent = ws.addRow(['','','',totalNeto,'','','TOTAL DIARIO (sin IGIC)',totalImp]);
   totVent.font=boldFont; totVent.eachCell(c=>{c.border=border;});
   addBlank();
-
-  // ── GASOIL ──
   addHdr('GASOIL', 5);
   addSubHdr(['FECHA','ORIGEN','DESTINO','TIPO','TOTAL (L)']);
   let totalL=0;
-  d.gasoil.forEach(g => {
-    totalL += Number(g.litros||0);
-    addRow([fechaFmt, g.origen||'', g.destino||'', g.tipo||'', Number(g.litros||0)]);
-  });
+  d.gasoil.forEach(g => { totalL += Number(g.litros||0); addRow([fechaFmt, g.origen||'', g.destino||'', g.tipo||'', Number(g.litros||0)]); });
   const totGas = ws.addRow(['','','','TOTAL CONSUMIDO DÍA', totalL]);
   totGas.font=boldFont; totGas.eachCell(c=>{c.border=border;});
   addBlank();
-
-  // ── STOCK DEPÓSITOS ──
   addHdr('STOCK DEPÓSITOS', 3);
   addSubHdr(['DEPÓSITO','STOCK ACTUAL']);
   addRow(['DEPOSITO 1', Number(d.stock.dep1)]);
   addRow(['DEPOSITO 2', Number(d.stock.dep2)]);
+  return wb.xlsx.writeBuffer();
+}
 
-  // Descargar
-  const buf = await wb.xlsx.writeBuffer();
+async function infExportarExcel() {
+  if (!_infData) { alert('Carga primero el informe'); return; }
+  if (typeof ExcelJS === 'undefined') { alert('Librería Excel no cargada'); return; }
+  const buf = await _infGenerarBuffer(_infData);
   const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href=url; a.download=`Informe_Planta_${d.fecha}.xlsx`; a.click();
+  a.href=url; a.download=`Informe_Planta_${_infData.fecha}.xlsx`; a.click();
   URL.revokeObjectURL(url);
 
   // Subir a OneDrive
