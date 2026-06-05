@@ -9327,11 +9327,6 @@ let _draggingTareaId = null;
 
 function setTareasVista(v){
   _tareasVista = v;
-  document.getElementById('btn-vista-lista').classList.toggle('active', v==='lista');
-  document.getElementById('btn-vista-kanban').classList.toggle('active', v==='kanban');
-  // ocultar filtro estado en kanban (las 3 columnas ya muestran todos)
-  const filtEstado = document.getElementById('tarea-filt-estado');
-  if(filtEstado) filtEstado.style.display = v==='kanban' ? 'none' : '';
   renderTareas();
 }
 
