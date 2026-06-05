@@ -579,6 +579,12 @@ function goPage(id){
   if(id==='tareas')initTareasPanel();
 }
 
+function goTareasSeccion(seccion){
+  goPage('tareas');
+  const sel=document.getElementById('tarea-filt-seccion');
+  if(sel){sel.value=seccion;tareaSeccionChange();}
+}
+
 function pad(n){return String(n).padStart(2,'0')}
 function fmtH(ts){const d=new Date(ts);return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds())}
 function fmtDur(ms){const h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000);return h+'h '+m+'m'}
