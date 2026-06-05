@@ -5844,6 +5844,11 @@ async function cargarMantenimientoPreventivo(){
   const el=document.getElementById('prev-list');
   el.innerHTML='<div class="tbl"><div class="empty">Cargando...</div></div>';
   try{
+    // Asegurar activos cargados para que MACHINES incluya tblactivos
+    if(!activosData.length){
+      const aRes=await dbQuery({action:'select',table:'tblactivos',options:{select:'*',order:'Codigo.asc'}});
+      if(aRes.ok&&aRes.data&&aRes.data.length){activosData=aRes.data;_buildOTFromActivos(activosData);}
+    }
     // Fetch OT history + gasoil in parallel
     const [jsonOT, jsonGasoil]=await Promise.all([
       apiFetch('?accion=historialOT'),
