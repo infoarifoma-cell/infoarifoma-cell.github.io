@@ -9340,11 +9340,7 @@ function initTareasPanel(){
       sel.appendChild(o);
     }
   }
-  // Por defecto mostrar tareas del usuario actual
-  if(!_tareasPanelInit && loginUser){
-    sel.value = '__mias__';
-    _tareasPanelInit = true;
-  }
+  _tareasPanelInit = true;
   cargarTareas();
 }
 
@@ -9356,13 +9352,19 @@ async function cargarTareas(){
   renderTareas();
 }
 
+function _tareasAsignados(t){
+  // asignado puede ser "Ana,Luis" o "Ana" — devuelve array
+  if(!t.asignado) return [];
+  return t.asignado.split(',').map(s=>s.trim()).filter(Boolean);
+}
 function _filtrarTareas(){
   const filtPersona = document.getElementById('tarea-filt-persona').value;
-  const filtEstado  = document.getElementById('tarea-filt-estado').value;
   return tareasData.filter(t => {
-    if(filtPersona === '__mias__' && loginUser && t.asignado !== loginUser.nombre) return false;
-    if(filtPersona && filtPersona !== '__mias__' && t.asignado !== filtPersona) return false;
-    if(filtEstado && _tareasVista === 'lista' && t.estado !== filtEstado) return false;
+    if(filtPersona === '__mias__' && loginUser){
+      if(!_tareasAsignados(t).includes(loginUser.nombre)) return false;
+    } else if(filtPersona && filtPersona !== '__mias__'){
+      if(!_tareasAsignados(t).includes(filtPersona)) return false;
+    }
     return true;
   });
 }
@@ -9381,7 +9383,7 @@ function _renderTareaCard(t, hoy){
     </div>
     <div class="tarea-meta">
       <span class="tarea-badge ${t.prioridad||'media'}">${priLabel}</span>
-      <span class="tarea-badge persona">${escapeHTML(t.asignado||'—')}</span>
+      ${_tareasAsignados(t).map(a=>`<span class="tarea-badge persona">${escapeHTML(a)}</span>`).join('')||'<span class="tarea-badge persona">—</span>'}
       ${fechaStr ? `<span class="tarea-badge ${vencida?'vencida':'vence'}">📅 ${fechaStr}</span>` : ''}
     </div>
     ${t.descripcion ? `<div class="tarea-desc">${escapeHTML(t.descripcion)}</div>` : ''}
@@ -9439,7 +9441,7 @@ function renderTareasKanban(){
       <div class="kanban-card-title">${escapeHTML(t.titulo)}</div>
       <div class="kanban-card-meta">
         <span class="tarea-badge ${t.prioridad||'media'}">${priLabel}</span>
-        <span class="tarea-badge persona">${escapeHTML(t.asignado||'—')}</span>
+        ${_tareasAsignados(t).map(a=>`<span class="tarea-badge persona">${escapeHTML(a)}</span>`).join('')||'<span class="tarea-badge persona">—</span>'}
         ${fechaStr ? `<span class="tarea-badge ${vencida?'vencida':'vence'}">📅 ${fechaStr}</span>` : ''}
       </div>
       ${t.descripcion ? `<div class="kanban-card-desc">${escapeHTML(t.descripcion)}</div>` : ''}
@@ -9504,13 +9506,16 @@ function abrirModalTarea(tarea){
       sel.appendChild(o);
     }
   }
+  // Seleccionar asignados (multi)
+  const asignados = tarea ? _tareasAsignados(tarea) : (loginUser ? [loginUser.nombre] : []);
+  for(const opt of sel.options) opt.selected = asignados.includes(opt.value);
   // Rellenar campos
   document.getElementById('tm-titulo').value    = tarea ? tarea.titulo : '';
   document.getElementById('tm-desc').value      = tarea ? (tarea.descripcion||'') : '';
-  document.getElementById('tm-persona').value   = tarea ? tarea.asignado : (loginUser ? loginUser.nombre : WORKERS[0]);
   document.getElementById('tm-prioridad').value = tarea ? (tarea.prioridad||'media') : 'media';
   document.getElementById('tm-fecha').value     = tarea ? (tarea.fecha_limite||'') : '';
   document.getElementById('tm-estado').value    = tarea ? tarea.estado : 'pendiente';
+  document.getElementById('tm-recurrente').checked = false; // solo para nueva
   document.getElementById('tareas-modal-title').textContent = tarea ? 'Editar tarea' : 'Nueva tarea';
   const btnBorrar = document.getElementById('tm-btn-borrar');
   btnBorrar.style.display = (tarea && loginUser && loginUser.rol==='admin') ? '' : 'none';
@@ -9524,23 +9529,49 @@ function cerrarModalTarea(){
 async function guardarTarea(){
   const titulo = document.getElementById('tm-titulo').value.trim();
   if(!titulo){ alert('El título es obligatorio'); return; }
+  const selPer = document.getElementById('tm-persona');
+  const asignados = [...selPer.selectedOptions].map(o=>o.value).filter(Boolean).join(',');
+  if(!asignados){ alert('Selecciona al menos una persona'); return; }
   const data = {
     titulo,
     descripcion: document.getElementById('tm-desc').value.trim() || null,
-    asignado:    document.getElementById('tm-persona').value,
+    asignado:    asignados,
     prioridad:   document.getElementById('tm-prioridad').value,
     fecha_limite: document.getElementById('tm-fecha').value || null,
     estado:      document.getElementById('tm-estado').value,
   };
+  const recurrente = !_tareaEditId && document.getElementById('tm-recurrente').checked;
   let res;
   if(_tareaEditId){
     res = await dbQuery({ action:'update', table:'tblTareas', data, filters:[{column:'id',op:'eq',value:_tareaEditId}] });
+    if(!res.ok){ alert('Error al guardar: '+res.error); return; }
   } else {
     data.creado_por = loginUser ? loginUser.nombre : '';
-    res = await dbQuery({ action:'insert', table:'tblTareas', data });
+    if(recurrente){
+      // Crear una entrada por cada mes del año actual
+      const anyo = new Date().getFullYear();
+      const base = data.fecha_limite ? data.fecha_limite.slice(0,7) : null;
+      const baseMonth = base ? parseInt(base.split('-')[1]) : 1;
+      const rows = [];
+      for(let m=1; m<=12; m++){
+        const mm = String(m).padStart(2,'0');
+        const lastDay = new Date(anyo, m, 0).getDate();
+        rows.push({...data, fecha_limite:`${anyo}-${mm}-${String(lastDay).padStart(2,'0')}`, titulo:`${data.titulo} (${mm}/${anyo})`});
+      }
+      // Insert one by one (proxy doesn't support batch easily)
+      for(const row of rows){
+        const r = await dbQuery({ action:'insert', table:'tblTareas', data:row });
+        if(!r.ok){ alert('Error al guardar: '+r.error); return; }
+      }
+    } else {
+      res = await dbQuery({ action:'insert', table:'tblTareas', data });
+      if(!res.ok){ alert('Error al guardar: '+res.error); return; }
+    }
   }
-  if(!res.ok){ alert('Error al guardar: '+res.error); return; }
   cerrarModalTarea();
+  // Mostrar todas tras guardar para que el resultado sea visible
+  const filtEl = document.getElementById('tarea-filt-persona');
+  if(filtEl && !_tareaEditId) filtEl.value = '';
   cargarTareas();
 }
 
