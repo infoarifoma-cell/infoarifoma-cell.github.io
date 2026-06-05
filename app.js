@@ -5860,10 +5860,13 @@ async function cargarMantenimientoPreventivo(){
     if(jsonGasoil.ok&&jsonGasoil.consumos){
       jsonGasoil.consumos.forEach(c=>{
         if(!c.activo)return;
-        const machineId=GASOIL_DEST_MAP[c.activo]||null;
-        if(!machineId)return;
         const horo=Number(c.max||0);
-        if(horo>0)prevGasoilHoroMap[machineId]=horo;
+        if(horo<=0)return;
+        // Guardar por nombre directo (para tblGamasListadoPreventivo)
+        prevGasoilHoroMap[c.activo]=horo;
+        // También por ID mapeado (para compatibilidad con MACHINES hardcoded)
+        const machineId=GASOIL_DEST_MAP[c.activo]||null;
+        if(machineId)prevGasoilHoroMap[machineId]=horo;
       });
     }
     // Última fecha por máquina desde historial gasoil
