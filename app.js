@@ -810,7 +810,7 @@ let PROD_MAP={
 };
 async function cargarProductosBC(){
   try{
-    const token=await getBCToken();
+    const token=await getBCTokenSilent();
     const resp=await fetch('/api/bc/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});
     const data=await resp.json();
     if(data.ok&&data.items.length){
@@ -881,8 +881,8 @@ async function _cargarClientesYProyectosBC(){
 
   // 2. Cargar clientes desde BC
   try{
-    if(typeof getBCToken!=='function')return;
-    const token=await getBCToken();
+    if(typeof getBCTokenSilent!=='function')return;
+    const token=await getBCTokenSilent();
     const companyId=await _ensureBCCompanyId(token);
     if(!companyId)return;
     const base=`https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/api/v2.0/companies(${companyId})`;
@@ -5303,7 +5303,7 @@ async function getBCToken() {
   _bcTokenPromise = _getBCTokenInner().finally(()=>{ _bcTokenPromise=null; });
   return _bcTokenPromise;
 }
-async function _getBCTokenInner() {
+async function _getBCTokenInner(allowPopup=true) {
   const app = await getMsalApp();
   const req = { scopes: [BC_SCOPE] };
   try {
@@ -5312,7 +5312,17 @@ async function _getBCTokenInner() {
       return (await app.acquireTokenSilent({ ...req, account: accounts[0] })).accessToken;
     }
   } catch(e) {}
+  if (!allowPopup) throw new Error('No hay sesión BC activa');
   return (await app.acquireTokenPopup(req)).accessToken;
+}
+
+// Para llamadas en background (arranque): no abrir popup, solo silent
+async function getBCTokenSilent() {
+  const app = await getMsalApp();
+  const accounts = app.getAllAccounts();
+  if (!accounts.length) throw new Error('No hay sesión BC activa');
+  const req = { scopes: [BC_SCOPE] };
+  return (await app.acquireTokenSilent({ ...req, account: accounts[0] })).accessToken;
 }
 
 async function enviarBCCliente(bcIdx, btn) {
@@ -7638,7 +7648,7 @@ function notificarFacturasVencidas() {
 // Comprobar facturas vencidas en segundo plano al cargar la app
 async function checkFacturasVencidasBackground() {
   try {
-    const token = await getBCToken();
+    const token = await getBCTokenSilent();
     // Solo últimos 6 meses
     const desde = new Date();
     desde.setMonth(desde.getMonth() - 6);
