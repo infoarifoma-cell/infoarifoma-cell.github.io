@@ -6161,7 +6161,9 @@ function renderNormasFiltradas(){
   const el=document.getElementById('normas-list');
   if(!normasData.length)return;
   let filtered=q?normasData.filter(n=>(n.Gama||'').toLowerCase().includes(q)||(n.Modelo||'').toLowerCase().includes(q)||(n.Numero||'').toLowerCase().includes(q)):[...normasData];
-  if(ord==='Gama') filtered.sort((a,b)=>(a.Gama||'').localeCompare(b.Gama||''));
+  if(ord==='id') filtered.sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0));
+  else if(ord==='id_desc') filtered.sort((a,b)=>(Number(b.id)||0)-(Number(a.id)||0));
+  else if(ord==='Gama') filtered.sort((a,b)=>(a.Gama||'').localeCompare(b.Gama||''));
   else if(ord==='Modelo') filtered.sort((a,b)=>(a.Modelo||'').localeCompare(b.Modelo||''));
   else if(ord==='Intervalo_asc') filtered.sort((a,b)=>(Number(a.Intervalo)||0)-(Number(b.Intervalo)||0));
   else if(ord==='Intervalo_desc') filtered.sort((a,b)=>(Number(b.Intervalo)||0)-(Number(a.Intervalo)||0));
