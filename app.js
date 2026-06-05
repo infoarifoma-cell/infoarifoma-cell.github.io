@@ -5297,12 +5297,15 @@ async function getMsalApp() {
   return msalApp;
 }
 
-// Mutex global: solo un popup MSAL a la vez (BC y Compras comparten sessionStorage)
-let _msalPopupLock = null;
-async function _withMsalPopup(fn) {
-  if (_msalPopupLock) return _msalPopupLock;
-  _msalPopupLock = fn().finally(() => { _msalPopupLock = null; });
-  return _msalPopupLock;
+// Limpia flags de interacción MSAL colgados en storage
+function _clearMsalInteractionState() {
+  const scanAndClear = (storage) => {
+    const keys = [];
+    for (let i = 0; i < storage.length; i++) keys.push(storage.key(i));
+    keys.filter(k => k && k.includes('interaction.status')).forEach(k => storage.removeItem(k));
+  };
+  scanAndClear(sessionStorage);
+  scanAndClear(localStorage);
 }
 
 let _bcTokenPromise = null;
@@ -5321,7 +5324,8 @@ async function _getBCTokenInner(allowPopup=true) {
     }
   } catch(e) {}
   if (!allowPopup) throw new Error('No hay sesión BC activa');
-  return _withMsalPopup(() => app.acquireTokenPopup(req).then(r => r.accessToken));
+  _clearMsalInteractionState();
+  return (await app.acquireTokenPopup(req)).accessToken;
 }
 
 // Para llamadas en background (arranque): no abrir popup, solo silent
@@ -7903,7 +7907,9 @@ async function _comprasGetTokenInner(){
   if(accounts.length){
     try{const r=await m.acquireTokenSilent({scopes:COMPRAS_SCOPES,account:accounts[0]});return r.accessToken;}catch(e){}
   }
-  return _withMsalPopup(() => m.loginPopup({scopes:COMPRAS_SCOPES}).then(r => r.accessToken));
+  _clearMsalInteractionState();
+  const r = await m.loginPopup({scopes:COMPRAS_SCOPES});
+  return r.accessToken;
 }
 
 async function comprasInitProveedores(){
