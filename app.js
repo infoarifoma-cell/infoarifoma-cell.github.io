@@ -5868,11 +5868,10 @@ async function cargarMantenimientoPreventivo(){
         if(!c.activo)return;
         const horo=Number(c.max||0);
         if(horo<=0)return;
-        // Guardar por nombre directo (para tblGamasListadoPreventivo)
         prevGasoilHoroMap[c.activo]=horo;
-        // También por ID mapeado (para compatibilidad con MACHINES hardcoded)
+        if(c.actualizado)prevGasoilFechaMap[c.activo]=c.actualizado;
         const machineId=GASOIL_DEST_MAP[c.activo]||null;
-        if(machineId)prevGasoilHoroMap[machineId]=horo;
+        if(machineId){prevGasoilHoroMap[machineId]=horo;if(c.actualizado)prevGasoilFechaMap[machineId]=c.actualizado;}
       });
     }
     // Última fecha por máquina desde historial gasoil

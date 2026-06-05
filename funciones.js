@@ -650,8 +650,9 @@ async function getGasoil() {
   });
 
   const consumos = (horoRes.data || []).map(r => ({
-    activo: r.activo,
-    max:    r.horometro
+    activo:      r.activo,
+    max:         r.horometro,
+    actualizado: r.actualizado ? r.actualizado.slice(0, 10) : null
   }));
 
   return { ok: true, data, dep1, dep2, consumos };
