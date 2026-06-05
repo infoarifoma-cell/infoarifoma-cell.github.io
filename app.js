@@ -6365,9 +6365,12 @@ async function abrirModalListado(id){
   }
   // Cargar activosData (tblactivos) si está vacío
   if(!activosData.length){
-    const j=await dbQuery({action:'select',table:'tblactivos',options:{select:'*',order:'id.asc'}});
-    if(j.ok)activosData=j.data||[];
+    const j=await dbQuery({action:'select',table:'tblactivos',options:{select:'*',order:'Codigo.asc',limit:500}});
+    if(j.ok && j.data && j.data.length) activosData=j.data;
   }
+  // Construir mapa Codigo→Nombre desde tblactivos
+  const activoNombreMap={};
+  activosData.forEach(a=>{if(a.Codigo)activoNombreMap[a.Codigo]=a.Activo||a.Codigo;});
   // Combinar IDs de ambas tablas sin duplicados
   const idsGamaActivos=activoGamaData.map(a=>a.Activo).filter(Boolean);
   const idsActivos=activosData.map(a=>a.Codigo||'').filter(Boolean);
@@ -6375,7 +6378,7 @@ async function abrirModalListado(id){
   // Poblar selector activos
   const selAct=document.getElementById('mlist-activo');
   selAct.innerHTML='<option value="">Seleccionar activo...</option>'+
-    todosActivos.map(a=>`<option value="${a}">${a}</option>`).join('');
+    todosActivos.map(a=>`<option value="${a}">${a}${activoNombreMap[a]&&activoNombreMap[a]!==a?' — '+activoNombreMap[a]:''}</option>`).join('');
   selAct.value=r?r.Activo||'':'';
   // Poblar gamas dependiendo del activo seleccionado
   mlistActivoChange();
@@ -9366,9 +9369,12 @@ function _tareasAsignados(t){
   if(!t.asignado) return [];
   return t.asignado.split(',').map(s=>s.trim()).filter(Boolean);
 }
+const TAREAS_SECCIONES = ['Planta','Maquinaria','Administración'];
 function _filtrarTareas(){
-  const filtPersona = document.getElementById('tarea-filt-persona')?.value||'';
+  const filtPersona  = document.getElementById('tarea-filt-persona')?.value||'';
+  const filtSeccion  = document.getElementById('tarea-filt-seccion')?.value||'';
   return tareasData.filter(t => {
+    if(filtSeccion && t.seccion !== filtSeccion) return false;
     if(filtPersona === '__mias__' && loginUser){
       if(!_tareasAsignados(t).includes(loginUser.nombre)) return false;
     } else if(filtPersona && filtPersona !== '__mias__'){
@@ -9427,15 +9433,12 @@ function renderTareasKanban(){
   const lista = _filtrarTareas();
   const hoy = new Date().toISOString().slice(0,10);
   const priOrd = {alta:0,media:1,baja:2};
-  const cols = {pendiente:[], en_curso:[], hecha:[]};
-  lista.forEach(t => { if(cols[t.estado]) cols[t.estado].push(t); });
-  Object.values(cols).forEach(arr => arr.sort((a,b)=>(priOrd[a.prioridad]||1)-(priOrd[b.prioridad]||1)||(a.fecha_limite||'9').localeCompare(b.fecha_limite||'9')));
-
   const colInfo = [
     {key:'pendiente', label:'Pendiente', icon:'○'},
     {key:'en_curso',  label:'En curso',  icon:'◑'},
     {key:'hecha',     label:'Hecha',     icon:'●'}
   ];
+  const filtSeccion = document.getElementById('tarea-filt-seccion')?.value||'';
 
   const renderKanbanCard = t => {
     const vencida = t.estado!=='hecha' && t.fecha_limite && t.fecha_limite < hoy;
@@ -9457,26 +9460,48 @@ function renderTareasKanban(){
     </div>`;
   };
 
-  const board = document.createElement('div');
-  board.className = 'kanban-board';
-  colInfo.forEach(({key, label, icon}) => {
-    const cards = cols[key];
-    const col = document.createElement('div');
-    col.className = `kanban-col ${key}`;
-    col.dataset.estado = key;
-    col.innerHTML = `<div class="kanban-col-header">
-      <span class="kanban-col-title">${icon} ${label}</span>
-      <span class="kanban-col-count">${cards.length}</span>
-    </div>` + (cards.length ? cards.map(renderKanbanCard).join('') : `<div style="color:var(--muted);font-size:.74rem;text-align:center;padding:16px 8px;font-style:italic">Sin tareas</div>`);
-    col.addEventListener('dragover', e=>{ e.preventDefault(); col.classList.add('drag-over'); });
-    col.addEventListener('dragleave', ()=> col.classList.remove('drag-over'));
-    col.addEventListener('drop', e=>{ e.preventDefault(); col.classList.remove('drag-over'); kanbanDrop(key); });
-    board.appendChild(col);
-  });
+  const buildBoard = (tareas, seccion) => {
+    const cols = {pendiente:[], en_curso:[], hecha:[]};
+    tareas.forEach(t => { if(cols[t.estado]) cols[t.estado].push(t); });
+    Object.values(cols).forEach(arr => arr.sort((a,b)=>(priOrd[a.prioridad]||1)-(priOrd[b.prioridad]||1)||(a.fecha_limite||'9').localeCompare(b.fecha_limite||'9')));
+    const board = document.createElement('div');
+    board.className = 'kanban-board';
+    colInfo.forEach(({key, label, icon}) => {
+      const cards = cols[key];
+      const col = document.createElement('div');
+      col.className = `kanban-col ${key}`;
+      col.dataset.estado = key;
+      col.dataset.seccion = seccion;
+      col.innerHTML = `<div class="kanban-col-header">
+        <span class="kanban-col-title">${icon} ${label}</span>
+        <span class="kanban-col-count">${cards.length}</span>
+      </div>` + (cards.length ? cards.map(renderKanbanCard).join('') : `<div style="color:var(--muted);font-size:.74rem;text-align:center;padding:16px 8px;font-style:italic">Sin tareas</div>`);
+      col.addEventListener('dragover', e=>{ e.preventDefault(); col.classList.add('drag-over'); });
+      col.addEventListener('dragleave', ()=> col.classList.remove('drag-over'));
+      col.addEventListener('drop', e=>{ e.preventDefault(); col.classList.remove('drag-over'); kanbanDrop(key); });
+      board.appendChild(col);
+    });
+    return board;
+  };
 
   const wrap = document.getElementById('tareas-list');
   wrap.innerHTML = '';
-  wrap.appendChild(board);
+
+  // Secciones a mostrar
+  const secciones = filtSeccion ? [filtSeccion] : TAREAS_SECCIONES;
+  const seccionColors = {'Planta':'#4caf50','Maquinaria':'#2196f3','Administración':'#f5a623'};
+
+  secciones.forEach(sec => {
+    const tareasSeccion = lista.filter(t => (t.seccion||'Planta') === sec);
+    const secDiv = document.createElement('div');
+    secDiv.style.cssText = 'margin-bottom:24px';
+    const header = document.createElement('div');
+    header.style.cssText = `display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:6px 10px;border-radius:6px;background:${seccionColors[sec]||'var(--accent)'}18;border-left:3px solid ${seccionColors[sec]||'var(--accent)'}`;
+    header.innerHTML = `<span style="font-weight:700;font-size:.82rem;color:${seccionColors[sec]||'var(--accent)'}">${sec}</span><span style="font-size:.72rem;color:var(--muted)">${tareasSeccion.length} tareas</span>`;
+    secDiv.appendChild(header);
+    secDiv.appendChild(buildBoard(tareasSeccion, sec));
+    wrap.appendChild(secDiv);
+  });
 }
 
 function kanbanDragStart(event, id){
@@ -9519,6 +9544,7 @@ function abrirModalTarea(tarea){
   const asignados = tarea ? _tareasAsignados(tarea) : (loginUser ? [loginUser.nombre] : []);
   for(const opt of sel.options) opt.selected = asignados.includes(opt.value);
   // Rellenar campos
+  document.getElementById('tm-seccion').value   = tarea ? (tarea.seccion||'Planta') : 'Planta';
   document.getElementById('tm-titulo').value    = tarea ? tarea.titulo : '';
   document.getElementById('tm-desc').value      = tarea ? (tarea.descripcion||'') : '';
   document.getElementById('tm-prioridad').value = tarea ? (tarea.prioridad||'media') : 'media';
@@ -9542,6 +9568,7 @@ async function guardarTarea(){
   const asignados = [...selPer.selectedOptions].map(o=>o.value).filter(Boolean).join(',');
   if(!asignados){ alert('Selecciona al menos una persona'); return; }
   const data = {
+    seccion:     document.getElementById('tm-seccion').value,
     titulo,
     descripcion: document.getElementById('tm-desc').value.trim() || null,
     asignado:    asignados,
