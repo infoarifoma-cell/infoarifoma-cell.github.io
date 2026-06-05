@@ -6363,10 +6363,19 @@ async function abrirModalListado(id){
     const j=await apiFetch('?accion=gamasActivos').catch(()=>({ok:false}));
     if(j.ok)activoGamaData=j.data||[];
   }
+  // Cargar activosData (tblactivos) si está vacío
+  if(!activosData.length){
+    const j=await dbQuery({action:'select',table:'tblactivos',options:{select:'*',order:'id.asc'}});
+    if(j.ok)activosData=j.data||[];
+  }
+  // Combinar IDs de ambas tablas sin duplicados
+  const idsGamaActivos=activoGamaData.map(a=>a.Activo).filter(Boolean);
+  const idsActivos=activosData.map(a=>a.Codigo||'').filter(Boolean);
+  const todosActivos=[...new Set([...idsGamaActivos,...idsActivos])].sort();
   // Poblar selector activos
   const selAct=document.getElementById('mlist-activo');
   selAct.innerHTML='<option value="">Seleccionar activo...</option>'+
-    activoGamaData.map(a=>`<option value="${a.Activo}">${a.Activo}</option>`).join('');
+    todosActivos.map(a=>`<option value="${a}">${a}</option>`).join('');
   selAct.value=r?r.Activo||'':'';
   // Poblar gamas dependiendo del activo seleccionado
   mlistActivoChange();
@@ -9358,7 +9367,7 @@ function _tareasAsignados(t){
   return t.asignado.split(',').map(s=>s.trim()).filter(Boolean);
 }
 function _filtrarTareas(){
-  const filtPersona = document.getElementById('tarea-filt-persona').value;
+  const filtPersona = document.getElementById('tarea-filt-persona')?.value||'';
   return tareasData.filter(t => {
     if(filtPersona === '__mias__' && loginUser){
       if(!_tareasAsignados(t).includes(loginUser.nombre)) return false;
