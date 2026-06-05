@@ -6093,14 +6093,7 @@ function abrirModalNorma(id){
   const n=id?normasData.find(x=>x.id===id):null;
   document.getElementById('mnorma-title').textContent=n?'Editar Norma':'Nueva Norma/Gama';
   document.getElementById('mnorma-id').value=n?n.id:'';
-  // Número: en edición muestra el existente; en nueva calcula el siguiente correlativo
-  if(n){
-    document.getElementById('mnorma-numero').value=n.Numero||'';
-  } else {
-    // Correlativo basado en el id máximo existente, no en el campo Numero
-    const maxId=normasData.length?Math.max(...normasData.map(x=>Number(x.id)||0)):0;
-    document.getElementById('mnorma-numero').value=String(maxId+1).padStart(3,'0');
-  }
+  document.getElementById('mnorma-numero').value=n?n.Numero||'':'';
   document.getElementById('mnorma-nombre').value=n?n.Gama||'':'';
   document.getElementById('mnorma-intervalo').value=n?n.Intervalo||'':'';
   // Poblar select de modelos desde activosData (campo modelo) o MACHINES
@@ -6188,7 +6181,7 @@ function renderNormasFiltradas(){
   else if(ord==='Intervalo_desc') filtered.sort((a,b)=>(Number(b.Intervalo)||0)-(Number(a.Intervalo)||0));
   if(!filtered.length){el.innerHTML='<div class="tbl"><div class="empty">Sin coincidencias</div></div>';return;}
   el.innerHTML='<div class="tbl">'+
-    '<div class="tr th"><div class="tc" style="flex:.4">#</div><div class="tc" style="flex:.5">Nº</div><div class="tc" style="flex:1">Gama</div><div class="tc" style="flex:.8">Modelo</div><div class="tc" style="flex:.5;text-align:center">Intervalo</div><div class="tc" style="flex:.3;text-align:center">Checks</div><div class="tc" style="flex:.6"></div></div>'+
+    '<div class="tr th"><div class="tc" style="flex:.4">#</div><div class="tc" style="flex:.5">Código</div><div class="tc" style="flex:1">Gama</div><div class="tc" style="flex:.8">Modelo</div><div class="tc" style="flex:.5;text-align:center">Intervalo</div><div class="tc" style="flex:.3;text-align:center">Checks</div><div class="tc" style="flex:.6"></div></div>'+
     filtered.map(n=>{
       let nc=0; for(let i=1;i<=60;i++) if(n['n'+i]) nc++;
       return `<div class="tr">
