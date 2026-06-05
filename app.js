@@ -2691,6 +2691,7 @@ async function cargarActivos(){
     const result=await dbQuery({ action: 'select', table: 'tblactivos', options: { select: '*', order: 'Codigo.asc' } });
     if(!result.ok)throw new Error(result.error);
     activosData=result.data||[];
+    _buildOTFromActivos(activosData);
     buildActivosFiltros();
     filtrarActivos();
   }catch(e){
@@ -3515,7 +3516,7 @@ async function saveEdit(){
 
 // ── OT ────────────────────────────────────────────────────────
 let selMachine=null,selGama=null,checkStates=[],currentFilter='TODOS';
-const MACHINES=[
+let MACHINES=[
   {id:'M966G.01',name:'Pala Cargadora 966G',tipo:'PALA CARGADORA',modelo:'966G',fabricante:'CATERPILLAR'},
   {id:'M349.1',name:'Excavadora 349',tipo:'EXCAVADORA',modelo:'349',fabricante:'CATERPILLAR'},
   {id:'M725.1',name:'Dumper Articulado 725C',tipo:'DUMPER ARTICULADO',modelo:'725C',fabricante:'CATERPILLAR'},
@@ -3565,7 +3566,27 @@ const GAMAS=[
 ];
 const MODEL_TO_GAMAS={};GAMAS.forEach(g=>{if(!MODEL_TO_GAMAS[g.modelo])MODEL_TO_GAMAS[g.modelo]=[];MODEL_TO_GAMAS[g.modelo].push(g);});
 
-function initOT(){
+function _buildOTFromActivos(data){
+  if(!data||!data.length) return;
+  MACHINES = data.filter(m=>m.Codigo).map(m=>({
+    id: m.Codigo,
+    name: m.Activo || m.Codigo,
+    tipo: (m.tipoactivo||'OTROS').toUpperCase(),
+    modelo: m.modelo||'-',
+    fabricante: (m.fabricante||'-').toUpperCase()
+  }));
+}
+
+async function initOT(){
+  // Cargar activos desde Supabase si no están cargados aún
+  if(!activosData.length){
+    const result = await dbQuery({ action:'select', table:'tblactivos', options:{ select:'*', order:'Codigo.asc' } });
+    if(result.ok && result.data && result.data.length){
+      activosData = result.data;
+    }
+  }
+  if(activosData.length) _buildOTFromActivos(activosData);
+
   const ft=document.getElementById('filterTabs');ft.innerHTML='';
   const labelsMap={'TODOS':'Todos','PALA CARGADORA':'Palas','EXCAVADORA':'Excavadoras','DUMPER ARTICULADO':'Dumpers','DUMPER RIGIDO':'Dumpers','MANIPULADOR TELESCOPICO':'Manipuladores','GRUPO ELECTROGENO':'Electrógenos','GRUPO GENERADOR':'Generadores','TRACTOCAMION':'Tractocamiones','MACHACADORA':'Machacadoras','MOLINO DE CONO':'Molinos','MOLINO ARENERO':'Molinos','CINTA TRANSPORTADORA':'Cintas','CRIBA VIBRANTE':'Cribas','CUBA DE AGUA':'Cubas','ALIMENTADOR':'Alimentadores','RIGIDO':'Rígidos','PLANTA':'Plantas','VEHICULO':'Vehículos'};
   const shown=new Set();
@@ -6224,13 +6245,32 @@ async function cargarActivosGama(){
   const sel=document.getElementById('mag-activo');
   if(sel){sel.innerHTML='<option value="">Seleccionar...</option>'+MACHINES.map(m=>`<option value="${m.id}">${m.id} — ${m.name}</option>`).join('');}
 }
-function abrirModalActivoGama(id){
+async function abrirModalActivoGama(id){
   document.getElementById('mag-msg').textContent='';
+  // Cargar normasData si está vacío
+  if(!normasData.length){
+    const r=await apiFetch('?accion=gamasNormas').catch(()=>({ok:false}));
+    if(r.ok) normasData=r.data||[];
+  }
   const a=id?activoGamaData.find(x=>x.id===id):null;
   document.getElementById('mag-title').textContent=a?'Editar Activo-Gama':'Nuevo Activo-Gama';
   document.getElementById('mag-id').value=a?a.id:'';
   document.getElementById('mag-activo').value=a?a.Activo||'':'';
-  document.getElementById('mag-codigogama').value=a?a.Gama_1||'':'';
+
+  // Poblar selects de gamas con normasData
+  const gamaOpts='<option value="">—</option>'+normasData.map(n=>{
+    const label=(n.Numero||n.id)+(n.Gama?' — '+n.Gama:'')+(n.Modelo?' ('+n.Modelo+')':'');
+    return `<option value="${n.Numero||n.id}">${label}</option>`;
+  }).join('');
+  const gamaIds=['mag-codigogama','mag-gama2','mag-gama3','mag-gama4','mag-gama5','mag-gama6','mag-gama7','mag-gama8','mag-gama9'];
+  gamaIds.forEach((sid,i)=>{
+    const sel=document.getElementById(sid);
+    if(!sel)return;
+    sel.innerHTML=gamaOpts;
+    const campo=i===0?'Gama_1':'Gama_'+(i+1);
+    sel.value=a?a[campo]||'':'';
+  });
+
   document.getElementById('modal-activogama').classList.add('open');
 }
 function cerrarModalActivoGama(){document.getElementById('modal-activogama').classList.remove('open');}
