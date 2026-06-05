@@ -5967,29 +5967,22 @@ function renderMantenimientoPreventivo(){
     '<div class="tr th">'+
       '<div class="tc" style="flex:1">Activo</div>'+
       '<div class="tc" style="flex:1.5">Gama</div>'+
-      '<div class="tc" style="flex:.4;text-align:center">Med.</div>'+
       '<div class="tc" style="flex:.65;text-align:right">Horóm.</div>'+
       '<div class="tc" style="flex:.7;text-align:right">Próximo</div>'+
       '<div class="tc" style="flex:.6;text-align:right">Falta h</div>'+
-      '<div class="tc" style="flex:.6;text-align:right">Días</div>'+
-      '<div class="tc" style="flex:1.1;text-align:center">Última fecha</div>'+
       '<div class="tc" style="flex:.9;text-align:center">Estado</div>'+
       '<div class="tc" style="flex:.5;text-align:center"></div>'+
     '</div>'+
     data.map(r=>{
       const faltaStyle=r.falta!==null&&r.falta<0?'background:rgba(255,77,77,.15);':'';
       const faltaColor=r.falta!==null&&r.falta<0?'color:#ff4d4d;font-weight:700':'';
-      const diasColor=r.diasRestantes!==null?(r.diasRestantes<=0?'color:#ff4d4d;font-weight:700':r.diasRestantes<=7?'color:#f5a623;font-weight:700':''):'';
       const horomLabel=r.ultima!==null?(r.fromGasoil?`<span title="Gasoil">${r.ultima}</span>`:`${r.ultima}`):'—';
       return `<div class="tr" style="${faltaStyle}">
         <div class="tc" style="flex:1;font-family:monospace;font-weight:700;color:var(--accent);font-size:.75rem">${r.activo}</div>
         <div class="tc" style="flex:1.5;font-size:.75rem">${r.gamaNombre}${r.isCustom?' <span style="font-size:.6rem;color:var(--accent2)">[C]</span>':''}</div>
-        <div class="tc" style="flex:.4;text-align:center;font-size:.72rem;color:var(--muted)">H</div>
         <div class="tc" style="flex:.65;text-align:right;font-family:monospace;font-size:.75rem${r.fromGasoil?';color:var(--accent2)':''}">${horomLabel}</div>
         <div class="tc" style="flex:.7;text-align:right;font-family:monospace;font-size:.75rem">${r.proximo!==null?r.proximo:'—'}</div>
         <div class="tc" style="flex:.6;text-align:right;font-family:monospace;font-size:.75rem;${faltaColor}">${r.falta!==null?r.falta:'—'}</div>
-        <div class="tc" style="flex:.6;text-align:right;font-family:monospace;font-size:.75rem;${diasColor}">${r.diasRestantes!==null?r.diasRestantes+'d':'—'}</div>
-        <div class="tc" style="flex:1.1;text-align:center;font-size:.7rem;color:var(--muted)">${r.ultimaFecha!=='—'?r.ultimaFecha:''}</div>
         <div class="tc" style="flex:.9;text-align:center"><span style="font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:4px;background:${estadoColor[r.estado]}22;color:${estadoColor[r.estado]}">${estadoLabel[r.estado]}</span></div>
         <div class="tc" style="flex:.5;text-align:center"><button class="btn-sm" onclick="abrirModalListadoByActivoGama('${r.activo}','${r.gama}')" style="font-size:.62rem;padding:2px 6px">✏</button></div>
       </div>`;
@@ -6288,15 +6281,15 @@ function renderListadoFiltrado(){
   else if(ord==='fecha_asc') filtered.sort((a,b)=>(a.U_Medicion_fecha||'').localeCompare(b.U_Medicion_fecha||''));
   if(!filtered.length){el.innerHTML='<div class="tbl"><div class="empty">Sin coincidencias</div></div>';return;}
   el.innerHTML='<div class="tbl">'+
-    '<div class="tr th"><div class="tc" style="flex:1">Activo</div><div class="tc" style="flex:1.5">Gama</div><div class="tc prev-hide-sm" style="flex:.4;text-align:center">Med.</div><div class="tc" style="flex:.7;text-align:right">Horóm.</div><div class="tc" style="flex:.7;text-align:right">Próximo</div><div class="tc prev-hide-sm" style="flex:.5"></div><div class="tc" style="flex:.6"></div></div>'+
+    '<div class="tr th"><div class="tc" style="flex:1">Activo</div><div class="tc" style="flex:1.5">Gama</div><div class="tc prev-hide-sm" style="flex:.4;text-align:center">Med.</div><div class="tc" style="flex:.7;text-align:right">Horóm.</div><div class="tc" style="flex:.8;text-align:right">Fecha Horóm.</div><div class="tc" style="flex:.7;text-align:right">Próximo</div><div class="tc" style="flex:.6"></div></div>'+
     filtered.map(r=>{
       return `<div class="tr">
         <div class="tc" style="flex:1;font-family:monospace;font-weight:700;color:var(--accent);font-size:.75rem">${r.Activo||'—'}</div>
         <div class="tc" style="flex:1.5;font-size:.75rem">${r.Gama||'—'}</div>
         <div class="tc prev-hide-sm" style="flex:.4;text-align:center;font-size:.72rem;color:var(--muted)">${r.Medidor||'H'}</div>
         <div class="tc" style="flex:.7;text-align:right;font-family:monospace;font-size:.75rem;color:var(--muted)">${r.U_Medicion_med??'—'}</div>
+        <div class="tc" style="flex:.8;text-align:right;font-size:.72rem;color:var(--muted)">${r.U_Medicion_fecha||'—'}</div>
         <div class="tc" style="flex:.7;text-align:right;font-family:monospace;font-size:.75rem">${r.Proximo??'—'}</div>
-        <div class="tc prev-hide-sm" style="flex:.5;font-size:.68rem;color:var(--muted)">${r.Estado||''}</div>
         <div class="tc" style="flex:.6;text-align:right;display:flex;gap:3px;justify-content:flex-end">
           <button class="btn-sm" onclick="abrirModalListado(${r.id})" style="font-size:.62rem;padding:2px 5px">✏</button>
           <button class="btn-sm" onclick="eliminarListado(${r.id})" style="font-size:.62rem;padding:2px 5px;color:#ff4d4d;border-color:#ff4d4d">🗑</button>
