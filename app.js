@@ -6092,9 +6092,9 @@ function abrirModalNorma(id){
   if(n){
     document.getElementById('mnorma-numero').value=n.Numero||'';
   } else {
-    const nums=normasData.map(x=>parseInt(x.Numero)||0).filter(v=>v>0);
-    const siguiente=nums.length?Math.max(...nums)+1:1;
-    document.getElementById('mnorma-numero').value=String(siguiente).padStart(3,'0');
+    // Correlativo basado en el id máximo existente, no en el campo Numero
+    const maxId=normasData.length?Math.max(...normasData.map(x=>Number(x.id)||0)):0;
+    document.getElementById('mnorma-numero').value=String(maxId+1).padStart(3,'0');
   }
   document.getElementById('mnorma-nombre').value=n?n.Gama||'':'';
   document.getElementById('mnorma-intervalo').value=n?n.Intervalo||'':'';
