@@ -6205,18 +6205,28 @@ function renderSubgamasFiltradas(){
   let filtered=q?subgamasData.filter(s=>(s.Gama_Principal||'').toLowerCase().includes(q)):[...subgamasData];
   if(ord==='Gama_Principal') filtered.sort((a,b)=>(a.Gama_Principal||'').localeCompare(b.Gama_Principal||''));
   if(!filtered.length){el.innerHTML='<div class="tbl"><div class="empty">Sin coincidencias</div></div>';return;}
-  el.innerHTML='<div class="tbl">'+
-    '<div class="tr th"><div class="tc" style="flex:.4">#</div><div class="tc" style="flex:1">Gama Principal</div><div class="tc" style="flex:1.2">Subgamas</div><div class="tc" style="flex:.6"></div></div>'+
+  el.innerHTML='<div style="display:flex;flex-direction:column;gap:10px;padding:4px 0">'+
     filtered.map(s=>{
-      const sublist=[s.Gama_1,s.Gama_2,s.Gama_3,s.Gama_4,s.Gama_5,s.Gama_6].filter(Boolean).join(', ')||'—';
-      return `<div class="tr">
-        <div class="tc" style="flex:.4;font-family:monospace;font-size:.7rem;color:var(--muted)">${s.id}</div>
-        <div class="tc" style="flex:1;font-size:.78rem;font-weight:600;color:var(--accent)">${s.Gama_Principal||'—'}</div>
-        <div class="tc" style="flex:1.2;font-size:.72rem;color:var(--muted)">${sublist}</div>
-        <div class="tc" style="flex:.6;text-align:right;display:flex;gap:4px;justify-content:flex-end">
-          <button class="btn-sm" onclick="abrirModalSubgama(${s.id})" style="font-size:.65rem;padding:2px 5px">✏</button>
-          <button class="btn-sm" onclick="eliminarSubgama(${s.id})" style="font-size:.65rem;padding:2px 5px;color:#ff4d4d;border-color:#ff4d4d">🗑</button>
-        </div></div>`;
+      const subs=[s.Gama_1,s.Gama_2,s.Gama_3,s.Gama_4,s.Gama_5,s.Gama_6].filter(Boolean);
+      const subsHtml=subs.map((g,i)=>`
+        <div style="display:flex;align-items:center;gap:6px;margin-left:28px;padding:5px 10px;background:var(--surface);border-radius:6px;border-left:2px solid var(--border)">
+          <span style="font-size:.68rem;color:var(--muted);min-width:14px;font-family:monospace">${i+1}</span>
+          <span style="font-size:.75rem;color:var(--fg)">${g}</span>
+        </div>`).join('');
+      return `<div style="background:var(--surface2);border-radius:8px;padding:10px 12px;border:1px solid var(--border)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${subs.length?'8px':'0'}">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:.65rem;color:var(--muted);font-family:monospace;min-width:20px">${s.id}</span>
+            <span style="font-size:.8rem;font-weight:700;color:var(--accent)">▶ ${s.Gama_Principal||'—'}</span>
+            ${subs.length?`<span style="font-size:.65rem;color:var(--muted);background:var(--surface);border-radius:10px;padding:1px 7px">${subs.length} subgama${subs.length>1?'s':''}</span>`:''}
+          </div>
+          <div style="display:flex;gap:4px">
+            <button class="btn-sm" onclick="abrirModalSubgama(${s.id})" style="font-size:.65rem;padding:2px 5px">✏</button>
+            <button class="btn-sm" onclick="eliminarSubgama(${s.id})" style="font-size:.65rem;padding:2px 5px;color:#ff4d4d;border-color:#ff4d4d">🗑</button>
+          </div>
+        </div>
+        ${subsHtml}
+      </div>`;
     }).join('')+
   '</div>';
 }
