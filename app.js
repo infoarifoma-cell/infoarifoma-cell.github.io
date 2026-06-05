@@ -5844,11 +5844,9 @@ async function cargarMantenimientoPreventivo(){
   const el=document.getElementById('prev-list');
   el.innerHTML='<div class="tbl"><div class="empty">Cargando...</div></div>';
   try{
-    // Asegurar activos y normas cargados (siempre recargar normas)
-    const preloads=[];
-    if(!activosData.length) preloads.push(dbQuery({action:'select',table:'tblactivos',options:{select:'*',order:'Codigo.asc'}}).then(r=>{if(r.ok&&r.data&&r.data.length){activosData=r.data;_buildOTFromActivos(activosData);}}));
-    preloads.push(apiFetch('?accion=gamasNormas').then(r=>{if(r.ok)normasData=r.data||[];}));
-    await Promise.all(preloads);
+    // Cargar listado preventivo (fuente principal del listado)
+    const lRes=await apiFetch('?accion=gamasListado');
+    if(lRes.ok)listadoPrevData=(lRes.data||[]).filter(r=>r.id!=null);
     // Fetch OT history + gasoil in parallel
     const [jsonOT, jsonGasoil]=await Promise.all([
       apiFetch('?accion=historialOT'),
@@ -5879,9 +5877,8 @@ async function cargarMantenimientoPreventivo(){
           prevGasoilFechaMap[machineId]=r.fecha;
       });
     }
-    // Populate machine filter (excluir planta fija)
-    const _tiposExcluir=new Set(['CINTA TRANSPORTADORA','CRIBA VIBRANTE','ALIMENTADOR','PLANTA','VEHICULO','MOLINO DE CONO','MOLINO ARENERO','CUBA DE AGUA','MACHACADORA']);
-    const maquinas=[...new Set(MACHINES.filter(m=>!_tiposExcluir.has(m.tipo)).map(m=>m.id))].sort();
+    // Populate machine filter desde listadoPrevData
+    const maquinas=[...new Set(listadoPrevData.map(r=>r.Activo).filter(Boolean))].sort();
     const sel=document.getElementById('filt-prev-maquina');
     sel.innerHTML='<option value="">Todas las máquinas</option>';
     maquinas.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;sel.appendChild(o);});
@@ -5891,54 +5888,39 @@ async function cargarMantenimientoPreventivo(){
 }
 
 function calcMantenimiento(){
-  const gamas=getEffectiveGamas();
   const result=[];
-  const hoy=new Date(); hoy.setHours(0,0,0,0);
-  const HORAS_DIA=8; // horas de trabajo/día para convertir horas → días
-  // For each machine, get current horometer from OTs
+  const HORAS_DIA=8;
+  // Horómetro actual por activo desde OTs
   const machineHoroOT={};
   prevData.forEach(r=>{
     const m=Number(r.medicion)||0;
     if(!machineHoroOT[r.activo]||m>machineHoroOT[r.activo])machineHoroOT[r.activo]=m;
   });
-  // Excluir planta fija (cintas, cribas, alimentadores, planta, vehículos)
-  const TIPOS_EXCLUIR=new Set(['CINTA TRANSPORTADORA','CRIBA VIBRANTE','ALIMENTADOR','PLANTA','VEHICULO','MOLINO DE CONO','MOLINO ARENERO','CUBA DE AGUA','MACHACADORA']);
-  const maquinasFiltradas=MACHINES.filter(m=>!TIPOS_EXCLUIR.has(m.tipo));
-  // For each machine+gama combo
-  maquinasFiltradas.forEach(machine=>{
-    const mGamas=gamas.filter(g=>g.modelo===machine.modelo);
-    // Horómetro: gasoil (columna C = max) tiene prioridad sobre OT
-    const gasoilHoro=prevGasoilHoroMap[machine.id]||null;
-    mGamas.forEach(g=>{
-      // Last OT for this machine+gama
-      const ots=prevData.filter(r=>r.activo===machine.id&&r.gama===g.id).sort((a,b)=>Number(b.medicion)-Number(a.medicion));
-      const lastOT=ots[0];
-      const lastMedicion=lastOT?Number(lastOT.medicion)||0:null;
-      const lastFecha=lastOT?lastOT.fecha:'—';
-      // Gasoil horómetro overrides OT-based if higher/available
-      const currentHoro=gasoilHoro||machineHoroOT[machine.id]||lastMedicion||0;
-      // Fecha gasoil: la fecha del último registro del historial gasoil para esta máquina
-      const gasoilFecha=prevGasoilFechaMap&&prevGasoilFechaMap[machine.id]||null;
-      const proximo=lastMedicion!==null?lastMedicion+g.intervalo:null;
-      const falta=proximo!==null?proximo-currentHoro:null;
-      // Días restantes: falta(h) / HORAS_DIA. Si falta<0 ya pasó.
-      const diasRestantes=falta!==null?Math.round(falta/HORAS_DIA):null;
-      const isCustom=customGamas.some(cg=>cg.id===g.id);
-      result.push({
-        activo:machine.id,
-        maquina:machine.name,
-        gama:g.id,
-        gamaNombre:g.nombre,
-        intervalo:g.intervalo,
-        proximo,
-        ultima:currentHoro||null,
-        ultimaFecha:gasoilFecha||lastFecha,
-        falta,
-        diasRestantes,
-        estado:falta===null?'sin_datos':falta<=0?'pdte':falta<=g.intervalo*0.1?'prox':'ok',
-        isCustom,
-        fromGasoil:gasoilHoro!=null,
-      });
+  // Usar listadoPrevData (tblGamasListadoPreventivo) como fuente
+  listadoPrevData.forEach(r=>{
+    if(!r.Activo||!r.Gama)return;
+    const gasoilHoro=prevGasoilHoroMap[r.Activo]||null;
+    const gasoilFecha=prevGasoilFechaMap&&prevGasoilFechaMap[r.Activo]||null;
+    const currentHoro=gasoilHoro||machineHoroOT[r.Activo]||Number(r.U_Medicion_med)||0;
+    const proximo=Number(r.Proximo)||null;
+    const falta=proximo&&currentHoro?proximo-currentHoro:null;
+    const diasRestantes=falta!==null?Math.round(falta/HORAS_DIA):null;
+    const estado=falta===null?'sin_datos':falta<=0?'pdte':falta<=(Number(r.Proximo)-Number(r.U_Medicion_med))*0.1?'prox':'ok';
+    result.push({
+      activo:r.Activo,
+      maquina:r.Activo,
+      gama:r.Gama,
+      gamaNombre:r.Gama,
+      intervalo:proximo&&r.U_Medicion_med?proximo-Number(r.U_Medicion_med):0,
+      proximo,
+      ultima:currentHoro||null,
+      ultimaFecha:gasoilFecha||r.U_Medicion_fecha||'—',
+      falta,
+      diasRestantes,
+      estado,
+      isCustom:false,
+      fromGasoil:gasoilHoro!=null,
+      listadoId:r.id,
     });
   });
   return result;
