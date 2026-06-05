@@ -5875,7 +5875,7 @@ async function cargarMantenimientoPreventivo(){
       });
     }
     // Populate machine filter (excluir planta fija)
-    const _tiposExcluir=new Set(['CINTA TRANSPORTADORA','CRIBA VIBRANTE','ALIMENTADOR','PLANTA','VEHICULO']);
+    const _tiposExcluir=new Set(['CINTA TRANSPORTADORA','CRIBA VIBRANTE','ALIMENTADOR','PLANTA','VEHICULO','MOLINO DE CONO','MOLINO ARENERO','CUBA DE AGUA','MACHACADORA']);
     const maquinas=[...new Set(MACHINES.filter(m=>!_tiposExcluir.has(m.tipo)).map(m=>m.id))].sort();
     const sel=document.getElementById('filt-prev-maquina');
     sel.innerHTML='<option value="">Todas las máquinas</option>';
@@ -5897,7 +5897,7 @@ function calcMantenimiento(){
     if(!machineHoroOT[r.activo]||m>machineHoroOT[r.activo])machineHoroOT[r.activo]=m;
   });
   // Excluir planta fija (cintas, cribas, alimentadores, planta, vehículos)
-  const TIPOS_EXCLUIR=new Set(['CINTA TRANSPORTADORA','CRIBA VIBRANTE','ALIMENTADOR','PLANTA','VEHICULO']);
+  const TIPOS_EXCLUIR=new Set(['CINTA TRANSPORTADORA','CRIBA VIBRANTE','ALIMENTADOR','PLANTA','VEHICULO','MOLINO DE CONO','MOLINO ARENERO','CUBA DE AGUA','MACHACADORA']);
   const maquinasFiltradas=MACHINES.filter(m=>!TIPOS_EXCLUIR.has(m.tipo));
   // For each machine+gama combo
   maquinasFiltradas.forEach(machine=>{
