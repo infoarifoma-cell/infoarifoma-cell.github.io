@@ -6238,7 +6238,8 @@ function renderListadoFiltrado(){
   const ord=document.getElementById('ord-listado')?.value||'id';
   const el=document.getElementById('listado-prev-list');
   if(!listadoPrevData.length)return;
-  let filtered=q?listadoPrevData.filter(r=>(r.Activo||'').toLowerCase().includes(q)||(r.Gama||'').toLowerCase().includes(q)):[...listadoPrevData];
+  let filtered=listadoPrevData.filter(r=>r.id!=null); // excluir filas sin ID
+  if(q) filtered=filtered.filter(r=>(r.Activo||'').toLowerCase().includes(q)||(r.Gama||'').toLowerCase().includes(q));
   if(ord==='Activo') filtered.sort((a,b)=>(a.Activo||'').localeCompare(b.Activo||''));
   else if(ord==='Gama') filtered.sort((a,b)=>(a.Gama||'').localeCompare(b.Gama||''));
   else if(ord==='falta_asc') filtered.sort((a,b)=>{const fa=Number(a.Falta)||(Number(a.Proximo)-Number(a.U_Medicion_med));const fb=Number(b.Falta)||(Number(b.Proximo)-Number(b.U_Medicion_med));return fa-fb;});
@@ -6499,8 +6500,10 @@ async function guardarListado(){
   cerrarModalListado();cargarListadoPreventivo();
 }
 async function eliminarListado(id){
+  const idNum=Number(id);
+  if(!idNum){alert('ID inválido');return;}
   if(!confirm('¿Eliminar esta entrada del listado?'))return;
-  const json=await apiPost({tipo:'delGamaListado',id}).catch(e=>({ok:false,error:e.message}));
+  const json=await apiPost({tipo:'delGamaListado',id:idNum}).catch(e=>({ok:false,error:e.message}));
   if(!json.ok){alert('Error: '+json.error);return;}
   cargarListadoPreventivo();
 }
