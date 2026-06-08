@@ -10120,9 +10120,10 @@ function _ensayosRenderRegistros() {
     html += '<td style="padding:6px 10px">' + (cont_finos!=null?cont_finos:'\u2014') + '</td>';
     html += '<td style="padding:6px 10px">' + (ind_lajas!=null?ind_lajas:'\u2014') + '</td>';
     const grupoKey = encodeURIComponent(g.key);
+    const idsJson = encodeURIComponent(JSON.stringify(ids));
     html += '<td style="padding:6px 10px;text-align:center;white-space:nowrap">'
       + '<button onclick="ensayosEditarGrupo(\'' + grupoKey + '\')" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:.85rem;padding:2px 6px" title="Editar">✏️</button>'
-      + ids.map(function(id){ return '<button onclick="ensayosEliminarRegistro(\'' + id + '\')" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:1rem;padding:2px 4px" title="Eliminar">\u2715</button>'; }).join('')
+      + '<button onclick="ensayosEliminarGrupo(\'' + idsJson + '\')" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:1rem;padding:2px 4px" title="Eliminar grupo">\u2715</button>'
       + '</td>';
     html += '</tr>';
   });
@@ -10617,14 +10618,39 @@ async function ensayosAbrirConfirm(filename, d, pdfUrl) {
     // Resultados según tipo
     const wrap = document.getElementById('ecf-resultados-wrap');
     wrap.innerHTML = '';
-    if (d.tipo_ensayo === 'granulometria' && d.resultados) {
-      const todosT = ['14','12.5','10','8','6.3','4','2','1','0.5','0.25','0.125','0.063','0.063'];
-      const conValor = ['32','20','16','14','12.5','10','8','6.3','4','2','1','0.5','0.25','0.125','0.063'].filter(function(t){ return d.resultados['gran_'+t] != null; });
+    const res = d.resultados || {};
+    const inpStyle = 'width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font-size:.85rem';
+
+    if (d.edit_mode) {
+      // Modo edición — todos los campos a la vez
+      const conValor = ['32','20','16','14','12.5','10','8','6.3','4','2','1','0.5','0.25','0.125','0.063'].filter(function(t){ return res['gran_'+t] != null; });
+      const granTamices = conValor.length > 0 ? conValor : ['8','6.3','4','2','1','0.5','0.25','0.125','0.063'];
+      wrap.innerHTML = '<div style="display:flex;flex-direction:column;gap:14px">'
+        + '<div>'
+        + '<div style="font-size:.8rem;color:var(--muted);margin-bottom:6px">Granulometría — % que pasa</div>'
+        + '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">'
+        + granTamices.map(function(t) {
+            const v = res['gran_'+t];
+            return '<label style="font-size:.75rem;text-align:center">'
+              + '<span style="display:block;color:var(--muted);margin-bottom:2px">' + t + '</span>'
+              + '<input type="number" id="ecf-gran-' + t.replace('.','_') + '" value="' + (v!=null?v:'') + '" min="0" max="100"'
+              + ' style="width:100%;padding:5px 4px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:.82rem;text-align:center">'
+              + '</label>';
+          }).join('')
+        + '</div></div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">'
+        + '<label style="font-size:.8rem;color:var(--muted)">Eq. Arena (%)<input type="number" id="ecf-eq-arena" value="' + (res.eq_arena!=null?res.eq_arena:'') + '" step="0.1" min="0" max="100" style="' + inpStyle + ';margin-top:3px;display:block"></label>'
+        + '<label style="font-size:.8rem;color:var(--muted)">Cont. Finos (%)<input type="number" id="ecf-cont-finos" value="' + (res.cont_finos!=null?res.cont_finos:'') + '" step="0.01" min="0" max="100" style="' + inpStyle + ';margin-top:3px;display:block"></label>'
+        + '<label style="font-size:.8rem;color:var(--muted)">Índ. Lajas (IL)<input type="number" id="ecf-ind-lajas" value="' + (res.ind_lajas!=null?res.ind_lajas:'') + '" step="0.1" min="0" max="100" style="' + inpStyle + ';margin-top:3px;display:block"></label>'
+        + '</div>'
+        + '</div>';
+    } else if (d.tipo_ensayo === 'granulometria' && d.resultados) {
+      const conValor = ['32','20','16','14','12.5','10','8','6.3','4','2','1','0.5','0.25','0.125','0.063'].filter(function(t){ return res['gran_'+t] != null; });
       const mostrar = conValor.length > 0 ? conValor : ['8','6.3','4','2','1','0.5','0.25','0.125','0.063'];
       wrap.innerHTML = '<div style="font-size:.8rem;color:var(--muted);margin-bottom:6px">Granulometría — % que pasa</div>'
         + '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">'
         + mostrar.map(function(t) {
-            const v = d.resultados['gran_'+t];
+            const v = res['gran_'+t];
             return '<label style="font-size:.75rem;text-align:center">'
               + '<span style="display:block;color:var(--muted);margin-bottom:2px">' + t + '</span>'
               + '<input type="number" id="ecf-gran-' + t.replace('.','_') + '" value="' + (v!=null?v:'') + '" min="0" max="100"'
@@ -10633,22 +10659,16 @@ async function ensayosAbrirConfirm(filename, d, pdfUrl) {
           }).join('')
         + '</div>';
     } else if (d.tipo_ensayo === 'ind_lajas') {
-      const v = d.resultados ? d.resultados.ind_lajas : '';
       wrap.innerHTML = '<label style="font-size:.8rem;color:var(--muted)">Índice de lajas (IL)'
-        + '<input type="number" id="ecf-ind-lajas" value="' + (v!=null&&v!==''?v:'') + '" step="0.1" min="0" max="100"'
-        + ' style="width:100%;margin-top:3px;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font-size:.85rem">'
+        + '<input type="number" id="ecf-ind-lajas" value="' + (res.ind_lajas!=null?res.ind_lajas:'') + '" step="0.1" min="0" max="100" style="' + inpStyle + ';margin-top:3px;display:block">'
         + '</label>';
     } else if (d.tipo_ensayo === 'cont_finos') {
-      const v = d.resultados ? d.resultados.cont_finos : '';
       wrap.innerHTML = '<label style="font-size:.8rem;color:var(--muted)">Contenido en finos (%)'
-        + '<input type="number" id="ecf-cont-finos" value="' + (v!=null&&v!==''?v:'') + '" step="0.01" min="0" max="100"'
-        + ' style="width:100%;margin-top:3px;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font-size:.85rem">'
+        + '<input type="number" id="ecf-cont-finos" value="' + (res.cont_finos!=null?res.cont_finos:'') + '" step="0.01" min="0" max="100" style="' + inpStyle + ';margin-top:3px;display:block">'
         + '</label>';
     } else if (d.tipo_ensayo === 'eq_arena') {
-      const v = d.resultados ? d.resultados.eq_arena : '';
       wrap.innerHTML = '<label style="font-size:.8rem;color:var(--muted)">Equivalente de arena (%)'
-        + '<input type="number" id="ecf-eq-arena" value="' + (v!=null&&v!==''?v:'') + '" step="0.1" min="0" max="100"'
-        + ' style="width:100%;margin-top:3px;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font-size:.85rem">'
+        + '<input type="number" id="ecf-eq-arena" value="' + (res.eq_arena!=null?res.eq_arena:'') + '" step="0.1" min="0" max="100" style="' + inpStyle + ';margin-top:3px;display:block">'
         + '</label>';
     }
 
@@ -10707,8 +10727,40 @@ async function ensayosConfirmarGuardar() {
 
   let res;
   if (editIds && editIds.length > 0) {
-    // Actualizar cada registro del grupo con los campos comunes
-    const updates = editIds.map(function(id) { return updateEnsayoRegistro(id, payload); });
+    // Modo edición — actualizar cada registro con su resultado específico
+    const camposComunes = {
+      semana_id: semanaId,
+      fraccion: fraccion,
+      fecha_toma: payload.fecha_toma,
+      fecha_acta: payload.fecha_acta,
+      num_acta: payload.num_acta,
+      num_albaran: payload.num_albaran
+    };
+    const updates = editIds.map(function(id) {
+      const reg = _ensayosRegistros.find(function(r){ return r.id === id; });
+      if (!reg) return Promise.resolve({ ok: true });
+      let regResultados = {};
+      if (reg.tipo_ensayo === 'granulometria') {
+        ['32','20','16','14','12.5','10','8','6.3','4','2','1','0.5','0.25','0.125','0.063'].forEach(function(t) {
+          const el = document.getElementById('ecf-gran-' + t.replace('.','_'));
+          if (el && el.value !== '') regResultados['gran_'+t] = parseInt(el.value);
+        });
+      } else if (reg.tipo_ensayo === 'eq_arena') {
+        const el = document.getElementById('ecf-eq-arena');
+        if (el && el.value !== '') regResultados.eq_arena = parseFloat(el.value);
+      } else if (reg.tipo_ensayo === 'cont_finos') {
+        const el = document.getElementById('ecf-cont-finos');
+        if (el && el.value !== '') regResultados.cont_finos = parseFloat(el.value);
+      } else if (reg.tipo_ensayo === 'ind_lajas') {
+        const el = document.getElementById('ecf-ind-lajas');
+        if (el && el.value !== '') regResultados.ind_lajas = parseFloat(el.value);
+      }
+      return updateEnsayoRegistro(id, Object.assign({}, camposComunes, {
+        tipo_ensayo: reg.tipo_ensayo,
+        resultados: regResultados,
+        estado: Object.keys(regResultados).length > 0 ? 'conforme' : 'recogido'
+      }));
+    });
     const results = await Promise.all(updates);
     const failed = results.find(function(r){ return !r.ok; });
     res = failed || { ok: true };
@@ -10778,11 +10830,12 @@ async function ensayosEditarGrupo(grupoKey) {
   const d = {
     num_acta, num_albaran, fecha_toma, fecha_acta,
     fraccion, tipo_ensayo,
-    resultados: tipo_ensayo === 'granulometria' ? gran
-      : tipo_ensayo === 'eq_arena' ? { eq_arena }
-      : tipo_ensayo === 'cont_finos' ? { cont_finos }
-      : tipo_ensayo === 'ind_lajas' ? { ind_lajas }
-      : {}
+    edit_mode: true,
+    resultados: Object.assign({}, gran,
+      eq_arena != null ? { eq_arena } : {},
+      cont_finos != null ? { cont_finos } : {},
+      ind_lajas != null ? { ind_lajas } : {}
+    )
   };
 
   // Cambiar título modal a "Editar"
@@ -10795,6 +10848,15 @@ async function ensayosEliminarRegistro(id) {
   if (!confirm('¿Eliminar este registro?')) return;
   const res = await deleteEnsayoRegistro(id);
   if (!res.ok) { alert('Error: ' + res.error); return; }
+  const rReg = await getEnsayosRegistros(_ensayosAnio);
+  _ensayosRegistros = rReg.ok ? rReg.data : [];
+  _ensayosRenderTab(_ensayosTab);
+}
+
+async function ensayosEliminarGrupo(idsJson) {
+  const ids = JSON.parse(decodeURIComponent(idsJson));
+  if (!confirm('¿Eliminar ' + ids.length + ' registro' + (ids.length > 1 ? 's' : '') + ' de este albarán?')) return;
+  await Promise.all(ids.map(function(id){ return deleteEnsayoRegistro(id); }));
   const rReg = await getEnsayosRegistros(_ensayosAnio);
   _ensayosRegistros = rReg.ok ? rReg.data : [];
   _ensayosRenderTab(_ensayosTab);
