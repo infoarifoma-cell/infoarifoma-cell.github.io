@@ -10457,15 +10457,11 @@ function _ensayosParseActa(text) {
     if (m) r.resultados = { ind_lajas: parseFloat(m[1].replace(',','.')) };
   }
 
-  // Contenido en finos — "Contenido en finos que pasan por el tamiz 0.063   1,95"
-  // Buscar específicamente la línea "Contenido en finos..." y coger el ÚLTIMO número
+  // Contenido en finos — "Contenido en finos que pasan por el tamiz 0.063   1,95  Esocan..."
+  // Buscar "pasan por el tamiz 0.063" + espacios + valor
   if (r.tipo_ensayo === 'cont_finos') {
-    const mLinea = text.match(/Contenido en finos[^\n]{0,120}/i);
-    if (mLinea) {
-      const nums = [...mLinea[0].matchAll(/([\d]+[,.]\d+)/g)].map(function(x){ return x[1]; });
-      const ultimo = nums[nums.length - 1];
-      if (ultimo) r.resultados = { cont_finos: parseFloat(ultimo.replace(',','.')) };
-    }
+    const m = text.match(/pasan por el tamiz 0[.,]063\s+([\d]+[,.]\d+)/i);
+    if (m) r.resultados = { cont_finos: parseFloat(m[1].replace(',','.')) };
   }
 
   r.estado = 'recogido';
