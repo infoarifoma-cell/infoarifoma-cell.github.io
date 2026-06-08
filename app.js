@@ -510,7 +510,7 @@ const DIAS_LAB_2026=[18,18,22,20,20,21,23,21,22,21,21,18];
 const HORAS_DIA_STD=8; // Jornada estándar convenio
 const PRODS=['ARIDO AF-T-0/4-I','ARIDO AG-T-4/12-I','ARIDO AG-T-12/20-I','ARIDO AG-T-20/40-I','ARIDO AG-T-40/70-I','REVUELTO 0/20','REVUELTO 0/10','PIEDRA PARA MURO (UD)','MATERIAL DE RELLENO 0/4'];
 const PROD_CAT={'ARIDO AF-T-0/4-I':'0/4','ARIDO AG-T-4/12-I':'4/12','ARIDO AG-T-12/20-I':'12/20','ARIDO AG-T-20/40-I':'20/40'};
-const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas','historico-ventas':'Histórico de Ventas',caja:'Caja',costes:'Análisis de Costes',produccion:'Producción Planta',informes:'Informes Planta',stock:'Stock Áridos',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',tareas:'Tareas',preventivo:'Mantenimiento Preventivo',compras:'Escanear Factura',choferes:'Conductores'};
+const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas','historico-ventas':'Histórico de Ventas',caja:'Caja',costes:'Análisis de Costes',produccion:'Producción Planta',informes:'Informes Planta',stock:'Stock Áridos',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',tareas:'Tareas',preventivo:'Mantenimiento Preventivo',compras:'Escanear Factura',choferes:'Conductores',ensayos:'Control de Ensayos'};
 
 // Login via Google OAuth — ver funciones.js: googleLogin() y checkGoogleSession()
 
@@ -577,6 +577,7 @@ function goPage(id){
   if(id==='costes')initCostes();
   if(id==='historico-ventas')initHistoricoVentas();
   if(id==='tareas')initTareasPanel();
+  if(id==='ensayos')initEnsayos();
 }
 
 function goTareasSeccion(seccion){
@@ -9832,4 +9833,390 @@ async function borrarTareaModal(){
   if(!res.ok){ alert('Error al eliminar: '+res.error); return; }
   cerrarModalTarea();
   cargarTareas();
+}
+
+// ============================================================
+// CONTROL DE ENSAYOS
+// ============================================================
+
+let _ensayosTab = 'control';
+let _ensayosAnio = new Date().getFullYear();
+let _ensayosSemanas = [];
+let _ensayosRegistros = [];
+let _ensayosPrestaciones = [];
+let _ensayosLimites = [];
+let _ensayosFraccion = '0/4';
+
+// API
+async function getEnsayosSemanas(anio) {
+  const desde = anio + '-01-01';
+  const hasta = anio + '-12-31';
+  return dbQuery({ action:'select', table:'ensayos_semanas', options:{ select:'*', order:'fecha_lunes.desc' }, filters:[{column:'fecha_lunes',op:'gte',value:desde},{column:'fecha_lunes',op:'lte',value:hasta}] });
+}
+async function insertEnsayoSemana(data) {
+  return dbQuery({ action:'insert', table:'ensayos_semanas', data });
+}
+async function updateEnsayoSemana(id, data) {
+  return dbQuery({ action:'update', table:'ensayos_semanas', data, filters:[{column:'id',op:'eq',value:id}] });
+}
+async function getEnsayosRegistros(anio) {
+  const desde = anio + '-01-01';
+  const hasta = anio + '-12-31';
+  return dbQuery({ action:'select', table:'ensayos_registros', options:{ select:'*', order:'fecha_toma.desc' }, filters:[{column:'fecha_toma',op:'gte',value:desde},{column:'fecha_toma',op:'lte',value:hasta}] });
+}
+async function insertEnsayoRegistro(data) {
+  return dbQuery({ action:'insert', table:'ensayos_registros', data });
+}
+async function updateEnsayoRegistro(id, data) {
+  return dbQuery({ action:'update', table:'ensayos_registros', data, filters:[{column:'id',op:'eq',value:id}] });
+}
+async function deleteEnsayoRegistro(id) {
+  return dbQuery({ action:'delete', table:'ensayos_registros', filters:[{column:'id',op:'eq',value:id}] });
+}
+async function getEnsayosPrestaciones() {
+  return dbQuery({ action:'select', table:'ensayos_prestaciones', options:{ select:'*', order:'fraccion.asc' } });
+}
+async function updateEnsayoPrestacion(id, data) {
+  return dbQuery({ action:'update', table:'ensayos_prestaciones', data, filters:[{column:'id',op:'eq',value:id}] });
+}
+async function getEnsayosLimites() {
+  return dbQuery({ action:'select', table:'ensayos_limites', options:{ select:'*' } });
+}
+
+// INIT
+async function initEnsayos() {
+  _ensayosAnio = new Date().getFullYear();
+  const anioSel = document.getElementById('ensayos-anio');
+  if (anioSel) anioSel.value = _ensayosAnio;
+  await _ensayosCargarTodo();
+  _ensayosRenderTab('control');
+}
+
+async function _ensayosCargarTodo() {
+  const [rSem, rReg, rPrest, rLim] = await Promise.all([
+    getEnsayosSemanas(_ensayosAnio),
+    getEnsayosRegistros(_ensayosAnio),
+    getEnsayosPrestaciones(),
+    getEnsayosLimites()
+  ]);
+  _ensayosSemanas = rSem.ok ? rSem.data : [];
+  _ensayosRegistros = rReg.ok ? rReg.data : [];
+  _ensayosPrestaciones = rPrest.ok ? rPrest.data : [];
+  _ensayosLimites = rLim.ok ? rLim.data : [];
+}
+
+function _ensayosRenderTab(tab) {
+  _ensayosTab = tab;
+  ['control','registros','anuales','prestaciones'].forEach(function(t) {
+    const btn = document.getElementById('ensayos-tab-' + t);
+    if (btn) btn.classList.toggle('active', t === tab);
+  });
+  const body = document.getElementById('ensayos-body');
+  if (!body) return;
+  if (tab === 'control') body.innerHTML = _ensayosRenderControl();
+  else if (tab === 'registros') body.innerHTML = _ensayosRenderRegistros();
+  else if (tab === 'anuales') body.innerHTML = _ensayosRenderAnuales();
+  else if (tab === 'prestaciones') body.innerHTML = _ensayosRenderPrestaciones();
+}
+
+// TAB CONTROL
+function _ensayosRenderControl() {
+  const semanas = _ensayosSemanas;
+  let html = '<div style="font-size:.8rem;color:var(--muted);margin-bottom:8px">' + semanas.length + ' semanas</div>';
+  html += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:.78rem;min-width:900px">';
+  html += '<thead><tr style="background:#1e2a1e;color:#fff">';
+  ['EST.','REC.','Nº','FECHA','MAT.','TN TOTAL','0/4','4/12','12/20','20/40',
+   'Gran 0/4','Gran 4/12','Gran 12/20','Gran 20/40',
+   'Finos 0/4','Finos 4/12','Finos 12/20','Finos 20/40',
+   'Eq.Ar 0/4','Eq.Ar ZA25',
+   'Lajas 4/12','Lajas 12/20','Lajas 20/40','Lajas ZA25',
+   'Caras 4/12','Caras 12/20','Caras 20/40'
+  ].forEach(function(h) {
+    html += '<th style="padding:6px 8px;white-space:nowrap">' + h + '</th>';
+  });
+  html += '</tr></thead><tbody>';
+
+  semanas.forEach(function(sem, i) {
+    const num = semanas.length - i;
+    const fecha = sem.fecha_lunes ? sem.fecha_lunes.slice(0,10) : '\u2014';
+    const tnTotal = (sem.tn_04||0) + (sem.tn_412||0) + (sem.tn_1220||0) + (sem.tn_2040||0);
+    const regs = _ensayosRegistros.filter(function(r){ return r.semana_id === sem.id; });
+
+    function estadoReg(tipo, frac) {
+      const r = regs.find(function(r){ return r.tipo_ensayo === tipo && r.fraccion === frac; });
+      if (!r) return '<span style="color:var(--muted)">+</span>';
+      if (r.estado === 'conforme') return '<span style="color:#4caf50;font-weight:700">X</span>';
+      if (r.estado === 'no_conforme') return '<span style="color:#f44336;font-weight:700">\u2717</span>';
+      return '<span style="color:#ff9800">\u25cb</span>';
+    }
+
+    let estadoGlobal = 'NP', estadoColor = 'var(--muted)';
+    if (regs.length > 0) {
+      if (regs.every(function(r){ return r.estado === 'conforme'; })) { estadoGlobal = 'C'; estadoColor = '#4caf50'; }
+      else if (regs.some(function(r){ return r.estado === 'no_conforme'; })) { estadoGlobal = 'NC'; estadoColor = '#f44336'; }
+      else { estadoGlobal = 'P'; estadoColor = '#ff9800'; }
+    }
+    const mat = sem.tipo_material || 'NP';
+    const matColor = mat === 'AC' ? 'var(--accent)' : 'var(--muted)';
+
+    html += '<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="ensayosAbrirSemana(\'' + sem.id + '\')">';
+    html += '<td style="padding:5px 8px;text-align:center;color:' + estadoColor + ';font-weight:700;font-size:.7rem">' + estadoGlobal + '</td>';
+    html += '<td style="padding:5px 8px;text-align:center;color:var(--muted)">\u2014</td>';
+    html += '<td style="padding:5px 8px;text-align:center;font-weight:600">' + num + '</td>';
+    html += '<td style="padding:5px 8px;white-space:nowrap">' + fecha + '</td>';
+    html += '<td style="padding:5px 8px;text-align:center;color:' + matColor + ';font-weight:600">' + mat + '</td>';
+    html += '<td style="padding:5px 8px;text-align:right">' + (tnTotal ? Number(tnTotal).toLocaleString('es') : '\u2014') + '</td>';
+    html += '<td style="padding:5px 8px;text-align:right">' + (sem.tn_04 ? Number(sem.tn_04).toLocaleString('es') : '\u2014') + '</td>';
+    html += '<td style="padding:5px 8px;text-align:right">' + (sem.tn_412 ? Number(sem.tn_412).toLocaleString('es') : '\u2014') + '</td>';
+    html += '<td style="padding:5px 8px;text-align:right">' + (sem.tn_1220 ? Number(sem.tn_1220).toLocaleString('es') : '\u2014') + '</td>';
+    html += '<td style="padding:5px 8px;text-align:right">' + (sem.tn_2040 ? Number(sem.tn_2040).toLocaleString('es') : '\u2014') + '</td>';
+    html += '<td style="padding:5px 8px;text-align:center;background:#0d1a0d">' + estadoReg('granulometria','0/4') + '</td>';
+    html += '<td style="padding:5px 8px;text-align:center;background:#0d1a0d">' + estadoReg('granulometria','4/12') + '</td>';
+    html += '<td style="padding:5px 8px;text-align:center;background:#0d1a0d">' + estadoReg('granulometria','12/20') + '</td>';
+    html += '<td style="padding:5px 8px;text-align:center;background:#0d1a0d">' + estadoReg('granulometria','20/40') + '</td>';
+    html += '<td style="padding:5px 8px;text-align:center;background:#0d1500">' + estadoReg('cont_finos','0/4') + '</td>';
+    html += '<td style="padding:5px 8px;text-align:center;background:#0d1500">' + estadoReg('cont_finos','4/12') + '</td>';
+    html += '<td style="padding:5px 8px;text-align:center;background:#0d1500">' + estadoReg('cont_finos','12/20') + '</td>';
+    html += '<td style="padding:5px 8px;text-align:center;background:#0d1500">' + estadoReg('cont_finos','20/40') + '</td>';
+    html += '<td style="padding:5px 8px;text-align:center;background:#05101a">' + estadoReg('eq_arena','0/4') + '</td>';
+    html += '<td style="padding:5px 8px;text-align:center;background:#05101a">' + estadoReg('eq_arena','ZA25') + '</td>';
+    html += '<td style="padding:5px 8px;text-align:center;background:#1a1000">' + estadoReg('ind_lajas','4/12') + '</td>';
+    html += '<td style="padding:5px 8px;text-align:center;background:#1a1000">' + estadoReg('ind_lajas','12/20') + '</td>';
+    html += '<td style="padding:5px 8px;text-align:center;background:#1a1000">' + estadoReg('ind_lajas','20/40') + '</td>';
+    html += '<td style="padding:5px 8px;text-align:center;background:#1a1000">' + estadoReg('ind_lajas','ZA25') + '</td>';
+    html += '<td style="padding:5px 8px;text-align:center;background:#150008">' + estadoReg('caras_fractura','4/12') + '</td>';
+    html += '<td style="padding:5px 8px;text-align:center;background:#150008">' + estadoReg('caras_fractura','12/20') + '</td>';
+    html += '<td style="padding:5px 8px;text-align:center;background:#150008">' + estadoReg('caras_fractura','20/40') + '</td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody></table></div>';
+  return html;
+}
+
+// TAB REGISTROS
+function _ensayosRenderRegistros() {
+  const fracciones = ['0/4','4/12','12/20','20/40'];
+  let html = '<div style="display:flex;gap:8px;margin-bottom:16px">';
+  fracciones.forEach(function(f) {
+    const active = _ensayosFraccion === f;
+    html += '<button onclick="ensayosFraccionTab(\'' + f + '\')" style="padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:' + (active?'var(--accent)':'var(--surface)') + ';color:' + (active?'#fff':'var(--text)') + ';cursor:pointer;font-size:.82rem">' + f + '</button>';
+  });
+  html += '</div>';
+
+  const regs = _ensayosRegistros.filter(function(r){ return r.fraccion === _ensayosFraccion; })
+    .sort(function(a,b){ return (b.fecha_toma||'').localeCompare(a.fecha_toma||''); });
+
+  html += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:.78rem;width:100%">';
+  html += '<thead><tr style="background:#1e2a1e;color:#fff">';
+  ['ESTADO','FECHA TOMA','FECHA ENSAYO','N\u00ba MUESTRA','N\u00ba ALBAR\u00c1N','DECL. PREST.','GRANULOMETR\u00cdA \u2014 % QUE PASA (UNE-EN 933-1)','EQ. ARENA','CONT. FINOS','COMENTARIO'].forEach(function(h){
+    html += '<th style="padding:7px 10px;white-space:nowrap">' + h + '</th>';
+  });
+  html += '</tr></thead><tbody>';
+
+  regs.forEach(function(r) {
+    const res = r.resultados || {};
+    const estadoLabel = r.estado === 'conforme' ? 'Conforme' : r.estado === 'no_conforme' ? 'No conforme' : 'Pendiente';
+    const estadoColor = r.estado === 'conforme' ? '#4caf50' : r.estado === 'no_conforme' ? '#f44336' : '#ff9800';
+    const granStr = ['8','6.3','4','2','1','0.5','0.25','0.125','0.063'].map(function(t){ return res['gran_'+t] != null ? res['gran_'+t] : '\u2014'; }).join(' | ');
+    html += '<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="ensayosAbrirRegistro(\'' + r.id + '\')">';
+    html += '<td style="padding:6px 10px"><span style="background:' + estadoColor + ';color:#fff;padding:2px 8px;border-radius:10px;font-size:.72rem">' + estadoLabel + '</span></td>';
+    html += '<td style="padding:6px 10px;white-space:nowrap">' + (r.fecha_toma||'\u2014') + '</td>';
+    html += '<td style="padding:6px 10px;white-space:nowrap">' + (r.fecha_acta||'\u2014') + '</td>';
+    html += '<td style="padding:6px 10px">' + (r.num_muestra||'\u2014') + '</td>';
+    html += '<td style="padding:6px 10px">' + (r.num_albaran||'\u2014') + '</td>';
+    html += '<td style="padding:6px 10px">' + (r.num_acta||'\u2014') + '</td>';
+    html += '<td style="padding:6px 10px;font-size:.72rem">' + granStr + '</td>';
+    html += '<td style="padding:6px 10px">' + (res.eq_arena!=null?res.eq_arena:'\u2014') + '</td>';
+    html += '<td style="padding:6px 10px">' + (res.cont_finos!=null?res.cont_finos:'\u2014') + '</td>';
+    html += '<td style="padding:6px 10px;color:var(--muted)">' + (r.comentario||'') + '</td>';
+    html += '</tr>';
+  });
+
+  if (!regs.length) html += '<tr><td colspan="10" style="padding:20px;text-align:center;color:var(--muted)">Sin registros para ' + _ensayosFraccion + '</td></tr>';
+  html += '</tbody></table></div>';
+  return html;
+}
+
+// TAB ANUALES
+function _ensayosRenderAnuales() {
+  const BIANUALES = ['Contenido de Azufre','Sulfatos Solubles en \u00c1cido','CO. Ligeros','CO. H\u00famicos','CD. \u00c1cido F\u00falvico','CO. Mortero','Cloruros Solubles en Agua'];
+  const ANUALES = [
+    {norma:'UNE-EN 1097-6 \u00b7 ANUAL', label:'Absorci\u00f3n de Agua', fracciones:['0/4','4/12','12/20','20/40']},
+    {norma:'UNE-EN 1097-6 \u00b7 ANUAL', label:'Densidad de Part\u00edculas', fracciones:['0/4','4/12','12/20','20/40']},
+    {norma:'UNE-EN 1097-2 \u00b7 ANUAL', label:'Los \u00c1ngeles', fracciones:['4/12','12/20','20/40']},
+    {norma:'UNE-EN 1097B \u00b7 ANUAL', label:'Resistencia al Pulimento Acel.', fracciones:['4/12']},
+    {norma:'UNE-EN 1367-2 \u00b7 ANUAL', label:'Sulfatos de Magnesio', fracciones:['12/20']},
+    {norma:'UNE 146512 \u00b7 ANUAL', label:'\u00c1lcali-S\u00edlice', fracciones:['0/4']},
+  ];
+
+  let html = '<div style="font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:8px;letter-spacing:.05em">BIANUALES \u2014 UNE-EN 1744-1</div>';
+  html += '<div style="overflow-x:auto;margin-bottom:24px"><table style="border-collapse:collapse;font-size:.78rem"><thead><tr style="background:#1e2a1e;color:#fff"><th style="padding:7px 10px">MAT.</th>';
+  BIANUALES.forEach(function(b){ html += '<th style="padding:7px 10px;white-space:nowrap">' + b + '<br><span style="font-size:.7rem;opacity:.6">0/4<br>FECHA</span></th>'; });
+  html += '</tr></thead><tbody><tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;font-weight:600">AC</td>';
+  BIANUALES.forEach(function(){ html += '<td style="padding:6px 10px;text-align:center;cursor:pointer;color:var(--muted)">+</td>'; });
+  html += '</tr></tbody></table></div>';
+
+  html += '<div style="font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:8px;letter-spacing:.05em">ANUALES</div>';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:12px">';
+  ANUALES.forEach(function(a) {
+    html += '<div style="background:#1e2a1e;border-radius:8px;padding:12px;min-width:200px">';
+    html += '<div style="font-size:.68rem;color:var(--accent);margin-bottom:4px">' + a.norma + '</div>';
+    html += '<div style="font-weight:700;color:#fff;margin-bottom:10px">' + a.label + '</div>';
+    html += '<table style="border-collapse:collapse;font-size:.75rem;width:100%"><thead><tr><th style="padding:4px 8px;color:#aaa">MAT.</th>';
+    a.fracciones.forEach(function(f){ html += '<th style="padding:4px 8px;color:#aaa">' + f + '<br><span style="font-size:.65rem;opacity:.6">FECHA</span></th>'; });
+    html += '</tr></thead><tbody><tr><td style="padding:4px 8px;font-weight:600;color:#fff">AC</td>';
+    a.fracciones.forEach(function(){ html += '<td style="padding:4px 8px;text-align:center;cursor:pointer;color:var(--muted)">+</td>'; });
+    html += '</tr></tbody></table></div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+// TAB PRESTACIONES
+function _ensayosRenderPrestaciones() {
+  const PARAMS = [
+    {key:'referencia',label:'REFERENCIA DoP'},
+    {key:'fecha_emision',label:'FECHA EMISI\u00d3N'},
+    {key:'gran_categoria',label:'GRAN. (CAT.)',norma:'EN 933-1'},
+    {key:'cont_finos',label:'CONT. FINOS',norma:'EN 933-1'},
+    {key:'eq_arena',label:'EQ. ARENA',norma:'EN 933-8'},
+    {key:'ind_lajas',label:'\u00cdND. LAJAS',norma:'EN 933-3'},
+    {key:'caras_fractura',label:'CARAS FRAC.',norma:'EN 933-5'},
+    {key:'los_angeles',label:'LOS \u00c1NGELES',norma:'EN 1097-2'},
+    {key:'azul_metileno',label:'AZUL MET.',norma:'EN 933-9'},
+    {key:'densidad_m',label:'DENS. m [t/m\u00b3]',norma:'EN 1097-6'},
+    {key:'densidad_max',label:'DENS. MAX [t/m\u00b3]',norma:'EN 1097-6'},
+    {key:'densidad_min',label:'DENS. MIN [t/m\u00b3]',norma:'EN 1097-6'},
+    {key:'cpa',label:'CPA',norma:'EN 1097-8'},
+    {key:'sulfato_mg',label:'SULF. Mg',norma:'EN 1367-2'},
+    {key:'absorcion',label:'ABSORCI\u00d3N [%]',norma:'EN 1097-6'},
+    {key:'cloruros',label:'CLORUROS [%]',norma:'EN 1744-1'},
+    {key:'azufre',label:'AZUFRE [%]',norma:'EN 1744-1'},
+    {key:'sulfatos_acido',label:'SULF. \u00c1CIDO [%]',norma:'EN 1744-1'},
+    {key:'cont_ligeros',label:'CONT. LIG.',norma:'EN 1744-1'},
+    {key:'cont_humicos',label:'CONT. H\u00daM.',norma:'EN 1744-1'},
+  ];
+  const fracciones = ['0/4','4/12','12/20','20/40'];
+  const byFrac = {};
+  fracciones.forEach(function(f){ byFrac[f] = _ensayosPrestaciones.find(function(p){ return p.fraccion === f; }) || {}; });
+
+  let html = '<p style="font-size:.78rem;color:var(--muted);margin-bottom:12px">Haz clic en una celda para editar. Los cambios se guardan autom\u00e1ticamente.</p>';
+  html += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:.78rem">';
+  html += '<thead><tr style="background:#1e2a1e;color:#fff"><th style="padding:7px 12px">PAR\u00c1METRO</th><th style="padding:7px 12px">NORMA</th>';
+  fracciones.forEach(function(f){ html += '<th style="padding:7px 30px">' + f + '</th>'; });
+  html += '</tr></thead><tbody>';
+
+  PARAMS.forEach(function(p) {
+    html += '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 12px;font-weight:600;font-size:.75rem">' + p.label + '</td><td style="padding:6px 12px;color:var(--muted);font-size:.72rem">' + (p.norma||'') + '</td>';
+    fracciones.forEach(function(f) {
+      const prest = byFrac[f];
+      const val = prest[p.key] != null ? prest[p.key] : '';
+      const id = prest.id || '';
+      html += '<td style="padding:6px 12px;text-align:center;cursor:pointer" onclick="ensayosEditPrestacion(this,\'' + id + '\',\'' + p.key + '\')" data-val="' + val + '">' + (val||'\u2014') + '</td>';
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  return html;
+}
+
+// ACCIONES
+function ensayosFraccionTab(f) {
+  _ensayosFraccion = f;
+  document.getElementById('ensayos-body').innerHTML = _ensayosRenderRegistros();
+}
+
+function ensayosAbrirSemana(id) {
+  const sem = _ensayosSemanas.find(function(s){ return s.id === id; });
+  if (!sem) return;
+  _ensayosAbrirModalSemana(sem);
+}
+
+function ensayosAbrirRegistro(id) {
+  const reg = _ensayosRegistros.find(function(r){ return r.id === id; });
+  if (!reg) return;
+  alert('Registro: ' + (reg.num_muestra||'') + ' \u2014 ' + (reg.estado||''));
+}
+
+function ensayosNuevaSemana() {
+  _ensayosAbrirModalSemana(null);
+}
+
+function _ensayosAbrirModalSemana(sem) {
+  const modal = document.getElementById('ensayos-modal-semana');
+  if (!modal) return;
+  document.getElementById('ems-id').value = sem ? sem.id : '';
+  document.getElementById('ems-fecha').value = sem ? sem.fecha_lunes : _ensayosLunesActual();
+  document.getElementById('ems-mat').value = sem ? (sem.tipo_material||'NP') : 'NP';
+  document.getElementById('ems-tn04').value = sem ? (sem.tn_04||'') : '';
+  document.getElementById('ems-tn412').value = sem ? (sem.tn_412||'') : '';
+  document.getElementById('ems-tn1220').value = sem ? (sem.tn_1220||'') : '';
+  document.getElementById('ems-tn2040').value = sem ? (sem.tn_2040||'') : '';
+  document.getElementById('ems-comentario').value = sem ? (sem.comentario||'') : '';
+  modal.style.display = 'flex';
+}
+
+function ensayosCerrarModalSemana() {
+  const modal = document.getElementById('ensayos-modal-semana');
+  if (modal) modal.style.display = 'none';
+}
+
+async function ensayosGuardarSemana() {
+  const id = document.getElementById('ems-id').value;
+  const data = {
+    fecha_lunes: document.getElementById('ems-fecha').value,
+    tipo_material: document.getElementById('ems-mat').value,
+    tn_04: parseFloat(document.getElementById('ems-tn04').value)||null,
+    tn_412: parseFloat(document.getElementById('ems-tn412').value)||null,
+    tn_1220: parseFloat(document.getElementById('ems-tn1220').value)||null,
+    tn_2040: parseFloat(document.getElementById('ems-tn2040').value)||null,
+    comentario: document.getElementById('ems-comentario').value||null,
+  };
+  let res;
+  if (id) res = await updateEnsayoSemana(id, data);
+  else res = await insertEnsayoSemana(data);
+  if (!res.ok) { alert('Error: ' + res.error); return; }
+  ensayosCerrarModalSemana();
+  const rSem = await getEnsayosSemanas(_ensayosAnio);
+  _ensayosSemanas = rSem.ok ? rSem.data : [];
+  _ensayosRenderTab('control');
+}
+
+async function ensayosCambiarAnio(v) {
+  _ensayosAnio = parseInt(v);
+  await _ensayosCargarTodo();
+  _ensayosRenderTab(_ensayosTab);
+}
+
+function ensayosEditPrestacion(td, id, key) {
+  if (!id) return;
+  const cur = td.dataset.val || '';
+  const input = document.createElement('input');
+  input.value = cur;
+  input.style.cssText = 'width:80px;border:1px solid var(--accent);border-radius:4px;padding:2px 4px;font-size:.78rem;background:var(--surface);color:var(--text)';
+  td.innerHTML = '';
+  td.appendChild(input);
+  input.focus();
+  input.select();
+  const save = async function() {
+    const val = input.value.trim();
+    td.dataset.val = val;
+    td.textContent = val || '\u2014';
+    const upd = {};
+    upd[key] = val || null;
+    await updateEnsayoPrestacion(id, upd);
+    const prest = _ensayosPrestaciones.find(function(p){ return p.id === id; });
+    if (prest) prest[key] = val || null;
+  };
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', function(e){ if(e.key==='Enter') input.blur(); if(e.key==='Escape'){td.textContent=cur||'\u2014';} });
+}
+
+function _ensayosLunesActual() {
+  const d = new Date();
+  const day = d.getDay();
+  const diff = (day === 0 ? -6 : 1 - day);
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().slice(0,10);
 }

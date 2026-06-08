@@ -19,6 +19,16 @@ yarn.lock
 # Archivos temporales
 *.tmp
 *.log
+
+# Documentos Office y PDF
+*.xlsx
+*.xls
+*.pdf
+*.doc
+*.docx
+*.csv
+*.ppt
+*.pptx
 VERCEL_SECURITY_CHECK.md
 funciones_original.js
 

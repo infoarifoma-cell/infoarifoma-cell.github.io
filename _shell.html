@@ -588,6 +588,9 @@
         <button class="snav-btn" onclick="goTareasSeccion('Administración')" id="snav-tareas-admin" style="padding-left:28px;font-size:.78rem">
           <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" style="width:13px;height:13px"><circle cx="9" cy="9" r="6"/></svg>Administración
         </button>
+        <button class="snav-btn" onclick="goPage('ensayos')" id="snav-ensayos">
+          <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2h6v3l2 2v9H4V7l2-2V2z"/><path d="M6 2v3h6V2M7 11h4M7 13h2"/></svg>Control Ensayos
+        </button>
         <div class="snav-divider"></div>
         <div class="sidebar-section">Mantenimiento</div>
         <button class="snav-btn" onclick="goPage('ot')" id="snav-ot">
@@ -2318,6 +2321,69 @@
             <!-- Error -->
             <div id="compras-error" style="display:none;padding:12px;background:#ff4d4d18;border:1px solid #ff4d4d55;border-radius:8px;color:#ff4d4d;font-size:.8rem"></div>
           </div>
+        </div>
+
+        <!-- ══ CONTROL DE ENSAYOS ══ -->
+        <div class="page" id="pg-ensayos">
+          <!-- Modal nueva semana -->
+          <div id="ensayos-modal-semana" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center">
+            <div style="background:var(--surface);border-radius:12px;padding:24px;width:360px;max-width:95vw">
+              <div style="font-weight:700;font-size:1rem;margin-bottom:16px">Semana de ensayos</div>
+              <input type="hidden" id="ems-id">
+              <div style="display:grid;gap:10px">
+                <label style="font-size:.8rem;color:var(--muted)">Fecha lunes
+                  <input type="date" id="ems-fecha" style="width:100%;margin-top:4px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:.85rem">
+                </label>
+                <label style="font-size:.8rem;color:var(--muted)">Tipo material
+                  <select id="ems-mat" style="width:100%;margin-top:4px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:.85rem">
+                    <option value="NP">NP — No producido</option>
+                    <option value="AC">AC — Árido de Cantera</option>
+                    <option value="AR">AR — Árido Reciclado</option>
+                  </select>
+                </label>
+                <div style="font-size:.8rem;color:var(--muted);margin-top:4px">Producción (TN)</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <label style="font-size:.78rem">0/4 <input type="number" id="ems-tn04" placeholder="—" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:.82rem"></label>
+                  <label style="font-size:.78rem">4/12 <input type="number" id="ems-tn412" placeholder="—" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:.82rem"></label>
+                  <label style="font-size:.78rem">12/20 <input type="number" id="ems-tn1220" placeholder="—" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:.82rem"></label>
+                  <label style="font-size:.78rem">20/40 <input type="number" id="ems-tn2040" placeholder="—" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:.82rem"></label>
+                </div>
+                <label style="font-size:.8rem;color:var(--muted)">Comentario
+                  <input type="text" id="ems-comentario" placeholder="Opcional" style="width:100%;margin-top:4px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:.85rem">
+                </label>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:18px;justify-content:flex-end">
+                <button onclick="ensayosCerrarModalSemana()" style="padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer">Cancelar</button>
+                <button onclick="ensayosGuardarSemana()" style="padding:8px 16px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-weight:600">Guardar</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cabecera -->
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+            <div style="font-size:.85rem;color:var(--muted)">AÑO
+              <select id="ensayos-anio" onchange="ensayosCambiarAnio(this.value)" style="margin-left:6px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:.85rem">
+                <option value="2025">2025</option>
+                <option value="2026" selected>2026</option>
+                <option value="2027">2027</option>
+              </select>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button onclick="" style="padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:.82rem">&#8593; Subir PDFs</button>
+              <button onclick="ensayosNuevaSemana()" style="padding:7px 16px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:.82rem;font-weight:600">+ Nueva semana</button>
+            </div>
+          </div>
+
+          <!-- Pestañas -->
+          <div style="display:flex;gap:4px;margin-bottom:20px;flex-wrap:wrap">
+            <button id="ensayos-tab-control" onclick="_ensayosRenderTab('control')" style="padding:7px 16px;border-radius:20px;border:1px solid var(--border);background:var(--accent);color:#fff;cursor:pointer;font-size:.83rem;font-weight:600">Control de ensayos</button>
+            <button id="ensayos-tab-registros" onclick="_ensayosRenderTab('registros')" style="padding:7px 16px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:.83rem">Registro de resultados</button>
+            <button id="ensayos-tab-anuales" onclick="_ensayosRenderTab('anuales')" style="padding:7px 16px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:.83rem">Anuales / Bianuales</button>
+            <button id="ensayos-tab-prestaciones" onclick="_ensayosRenderTab('prestaciones')" style="padding:7px 16px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:.83rem">Valores Declarados</button>
+          </div>
+
+          <!-- Contenido dinámico -->
+          <div id="ensayos-body"></div>
         </div>
 
         <!-- ══ MANTENIMIENTO PREVENTIVO ══ -->
