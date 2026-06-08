@@ -10325,12 +10325,11 @@ function _ensayosParseActa(text) {
   const mActa = text.match(/N[ºo°]\s*ACTA[\s\S]{0,80}?(20\d{2}\/\d+)/i);
   if (mActa) r.num_acta = mActa[1];
 
-  // Nº ALBARÁN / MUESTRA — el que sigue a MUESTRA (distinto del acta)
-  const mAlb = text.match(/MUESTRA[\s\S]{0,40}?(20\d{2}\/\d+)/i);
+  // Nº ALBARÁN / MUESTRA — puede venir como ".2026/101" (con punto delante)
+  const mAlb = text.match(/MUESTRA[\s\S]{0,60}?\.?(20\d{2}\/\d+)/i);
   if (mAlb && mAlb[1] !== r.num_acta) r.num_albaran = mAlb[1];
-  // Si no encontró o es igual al acta, buscar el segundo número 20xx/xxx
   if (!r.num_albaran || r.num_albaran === r.num_acta) {
-    const todos = [...text.matchAll(/\b(20\d{2}\/\d+)\b/g)].map(m=>m[1]);
+    const todos = [...text.matchAll(/\.?(20\d{2}\/\d+)/g)].map(m=>m[1]);
     const distinto = todos.find(function(n){ return n !== r.num_acta; });
     if (distinto) r.num_albaran = distinto;
   }
@@ -10370,7 +10369,8 @@ function _ensayosParseActa(text) {
     // Mapa tamiz normalizado -> clave gran_
     var tamMap = {'8':'8','6.3':'6.3','6,3':'6.3','4':'4','2':'2','1':'1',
                   '0.5':'0.5','0,5':'0.5','0.25':'0.25','0,25':'0.25',
-                  '0.125':'0.125','0,125':'0.125','0.063':'0.063','0,063':'0.063'};
+                  '0.125':'0.125','0,125':'0.125','0.063':'0.063','0,063':'0.063',
+                  }; // 14, 12.5, 10 se ignoran — no están en nuestros campos
     pares.forEach(function(p) {
       var tamiz = p[1].trim();
       var pasa = parseInt(p[2]);
@@ -10414,16 +10414,36 @@ async function ensayosAbrirConfirm(filename, d, pdfUrl) {
   return new Promise(function(resolve) {
     _ensayosConfirmResolve = resolve;
 
-    // Visor PDF
-    const visor = document.getElementById('ecf-pdf-visor');
-    if (visor) {
+    // Visor PDF — renderizar con PDF.js en canvas (evita CSP frame-src)
+    const col = document.getElementById('ecf-pdf-col');
+    const wrap = document.getElementById('ecf-pdf-canvas-wrap');
+    if (col && wrap) {
       if (pdfUrl) {
-        visor.src = pdfUrl;
-        visor.style.display = 'block';
-        visor.parentElement.style.display = 'flex';
+        col.style.display = 'flex';
+        wrap.innerHTML = '<div style="color:#aaa;font-size:.8rem;padding:12px">Cargando PDF...</div>';
+        pdfjsLib.getDocument(pdfUrl).promise.then(function(pdf) {
+          wrap.innerHTML = '';
+          var renders = [];
+          for (var i = 1; i <= pdf.numPages; i++) {
+            renders.push((function(pageNum) {
+              return pdf.getPage(pageNum).then(function(page) {
+                var vp = page.getViewport({ scale: 1.2 });
+                var canvas = document.createElement('canvas');
+                canvas.width = vp.width;
+                canvas.height = vp.height;
+                canvas.style.cssText = 'display:block;width:100%;margin-bottom:4px;border-radius:4px';
+                wrap.appendChild(canvas);
+                return page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+              });
+            })(i));
+          }
+          renders.reduce(function(p, fn) { return p.then(fn); }, Promise.resolve());
+        }).catch(function() {
+          wrap.innerHTML = '<div style="color:#f88;font-size:.8rem;padding:12px">No se pudo cargar el PDF</div>';
+        });
       } else {
-        visor.style.display = 'none';
-        visor.parentElement.style.display = 'none';
+        col.style.display = 'none';
+        wrap.innerHTML = '';
       }
     }
 
