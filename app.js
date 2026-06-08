@@ -10457,10 +10457,11 @@ function _ensayosParseActa(text) {
     if (m) r.resultados = { ind_lajas: parseFloat(m[1].replace(',','.')) };
   }
 
-  // Contenido en finos — "Contenido en finos que pasan por el tamiz 0.063   11,29"
+  // Contenido en finos — "Contenido en finos que pasan por el tamiz 0.063   1,95"
+  // El valor viene AL FINAL, después de "0.063" con espacios
   if (r.tipo_ensayo === 'cont_finos') {
-    const m = text.match(/Contenido en finos[\s\S]{0,60}?([\d]+[,.]\d+)\s*(?:\n|$| {2})/i)
-      || text.match(/tamiz 0[.,]063[\s\S]{0,20}?([\d]+[,.]\d+)/i);
+    const m = text.match(/tamiz 0[.,]063\s{2,}([\d]+[,.]\d+)/i)
+      || text.match(/Contenido en finos[^0-9]{0,80}?([\d]{1,3}[,.]\d+)\s*$/im);
     if (m) r.resultados = { cont_finos: parseFloat(m[1].replace(',','.')) };
   }
 
