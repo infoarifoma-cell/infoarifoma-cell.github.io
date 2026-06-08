@@ -10105,9 +10105,9 @@ function _ensayosRenderRegistros() {
     });
     const estadoLabel = estado === 'conforme' ? 'Conforme' : estado === 'no_conforme' ? 'No conforme' : 'Pendiente';
     const estadoColor = estado === 'conforme' ? '#4caf50' : estado === 'no_conforme' ? '#f44336' : '#ff9800';
-    const _granTodos = ['14','12.5','10','8','6.3','4','2','1','0.5','0.25','0.125','0.063'];
+    const _granTodos = ['32','20','16','14','12.5','10','8','6.3','4','2','1','0.5','0.25','0.125','0.063'];
     const _granConVal = _granTodos.filter(function(t){ return gran['gran_'+t] != null; });
-    const _granMostrar = _granConVal.length > 0 ? _granConVal : _granTodos.slice(3);
+    const _granMostrar = _granConVal.length > 0 ? _granConVal : _granTodos.slice(6);
     const granStr = _granMostrar.map(function(t){ return gran['gran_'+t] != null ? '<span style="color:' + (_granTodos.indexOf(t)<3?'#888':'inherit') + '">' + gran['gran_'+t] + '</span>' : '\u2014'; }).join(' | ');
     html += '<tr style="border-bottom:1px solid var(--border)">';
     html += '<td style="padding:6px 10px"><span style="background:' + estadoColor + ';color:#fff;padding:2px 8px;border-radius:10px;font-size:.72rem">' + estadoLabel + '</span></td>';
@@ -10431,7 +10431,7 @@ function _ensayosParseActa(text) {
     // Extraer pares: número_tamiz  número_pasa separados por espacios
     var pares = [...bloque.matchAll(/\b(\d+[,.]?\d*)\s{1,10}(\d{1,3})\b/g)];
     // Mapa tamiz normalizado -> clave gran_
-    var tamMap = {'14':'14','12.5':'12.5','12,5':'12.5','10':'10',
+    var tamMap = {'32':'32','20':'20','16':'16','14':'14','12.5':'12.5','12,5':'12.5','10':'10',
                   '8':'8','6.3':'6.3','6,3':'6.3','4':'4','2':'2','1':'1',
                   '0.5':'0.5','0,5':'0.5','0.25':'0.25','0,25':'0.25',
                   '0.125':'0.125','0,125':'0.125','0.063':'0.063','0,063':'0.063'};
@@ -10617,7 +10617,7 @@ async function ensayosAbrirConfirm(filename, d, pdfUrl) {
     wrap.innerHTML = '';
     if (d.tipo_ensayo === 'granulometria' && d.resultados) {
       const todosT = ['14','12.5','10','8','6.3','4','2','1','0.5','0.25','0.125','0.063','0.063'];
-      const conValor = ['14','12.5','10','8','6.3','4','2','1','0.5','0.25','0.125','0.063'].filter(function(t){ return d.resultados['gran_'+t] != null; });
+      const conValor = ['32','20','16','14','12.5','10','8','6.3','4','2','1','0.5','0.25','0.125','0.063'].filter(function(t){ return d.resultados['gran_'+t] != null; });
       const mostrar = conValor.length > 0 ? conValor : ['8','6.3','4','2','1','0.5','0.25','0.125','0.063'];
       wrap.innerHTML = '<div style="font-size:.8rem;color:var(--muted);margin-bottom:6px">Granulometría — % que pasa</div>'
         + '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">'
@@ -10670,7 +10670,7 @@ async function ensayosConfirmarGuardar() {
   // Recoger resultados
   let resultados = {};
   if (tipo === 'granulometria') {
-    ['14','12.5','10','8','6.3','4','2','1','0.5','0.25','0.125','0.063'].forEach(function(t) {
+    ['32','20','16','14','12.5','10','8','6.3','4','2','1','0.5','0.25','0.125','0.063'].forEach(function(t) {
       const el = document.getElementById('ecf-gran-' + t.replace('.','_'));
       if (el && el.value !== '') resultados['gran_'+t] = parseInt(el.value);
     });
