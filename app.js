@@ -6569,14 +6569,25 @@ function printOTHistorial(id){
   if(!r)return;
   const machine=MACHINES.find(m=>m.id===r.activo)||{name:r.activo,fabricante:'—'};
   let gama=getEffectiveGamas().find(g=>g.id===r.gama);
-  // Fallback: si no encuentra por id, buscar por modelo de la máquina (OTs antiguos guardaban nombre en lugar de id)
+  // Fallback: OTs antiguos guardaban el nombre de la máquina como gama — buscar por activo
   if(!gama||!gama.checks||!gama.checks.length){
-    const gamasPorModelo=getEffectiveGamas().filter(g=>g.modelo===machine.modelo&&g.checks&&g.checks.length);
-    if(gamasPorModelo.length===1) gama=gamasPorModelo[0];
-    else if(gamasPorModelo.length>1){
-      // Elegir la que tenga más checks coincidentes con los del OT
-      const checks0=Array.isArray(r.checks)?r.checks:[];
-      gama=gamasPorModelo.reduce(function(best,g){ return g.checks.length>=checks0.filter(Boolean).length?g:best; },gamasPorModelo[0]);
+    const todasGamas=getEffectiveGamas().filter(g=>g.checks&&g.checks.length);
+    // Buscar gama cuyo modelo coincida con alguna variante del id del activo
+    const activo=r.activo||'';
+    const checks0=Array.isArray(r.checks)?r.checks:[];
+    const nChecksTrue=checks0.filter(Boolean).length;
+    // Elegir la gama cuyo número de checks se acerque más al número de true en el OT
+    const candidatas=todasGamas.filter(g=>{
+      // Mismo activo hardcodeado o modelo coincide parcialmente
+      const maq=MACHINES.find(m=>m.id===activo);
+      return maq && (g.modelo===maq.modelo || maq.modelo.includes(g.modelo) || g.modelo.includes(maq.modelo));
+    });
+    if(candidatas.length===1) gama=candidatas[0];
+    else if(candidatas.length>1) gama=candidatas.reduce(function(best,g){ return Math.abs(g.checks.length-nChecksTrue)<Math.abs(best.checks.length-nChecksTrue)?g:best; },candidatas[0]);
+    // Último recurso: gama cuyo nº de checks coincide exactamente con el array del OT
+    if(!gama||!gama.checks||!gama.checks.length){
+      const exacta=todasGamas.find(g=>g.checks.length===checks0.length);
+      if(exacta) gama=exacta;
     }
   }
   if(!gama)gama={nombre:r.gama,intervalo:'—',checks:[]};
@@ -9956,39 +9967,67 @@ function _ensayosRenderControl() {
   const BG_CAR  = 'background:#4a2a3a;color:#fff;';
 
   let html = '<div style="font-size:.8rem;color:var(--muted);margin-bottom:8px">' + semanas.length + ' semanas</div>';
-  html += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:.78rem;min-width:1100px;background:var(--surface)">';
+  html += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:.7rem;min-width:1300px;background:#fff">';
 
-  // Fila 1: grupos con colspan
+  const TH_Y = 'padding:3px 5px;border:1px solid #7eb87e;text-align:center;font-weight:700;font-size:.65rem;background:#c6efce;color:#1a3a1a;line-height:1.2;';
+  const TH_W = 'padding:3px 5px;border:1px solid #7eb87e;text-align:center;font-weight:700;font-size:.65rem;background:#fff;color:#1a3a1a;line-height:1.2;';
+
   html += '<thead>';
+
+  // Fila 1
   html += '<tr>';
-  html += '<th colspan="2" style="' + TH + BG_HDR + '"></th>';
-  html += '<th style="' + TH + BG_HDR + '">N\u00ba</th>';
-  html += '<th style="' + TH + BG_HDR + '">FECHA</th>';
-  html += '<th style="' + TH + BG_HDR + '">MAT.</th>';
-  html += '<th style="' + TH + BG_HDR + '">TN TOTAL</th>';
-  html += '<th colspan="4" style="' + TH_GRP + BG_HDR + '">PRODUCCI\u00d3N (TN)</th>';
-  html += '<th colspan="4" style="' + TH_GRP + BG_GRAN + '">GRANULOMETR\u00cdA<br><span style="font-weight:400;font-size:.68rem">UNE-EN 933-1 \u00b7 SEMANAL</span></th>';
-  html += '<th colspan="4" style="' + TH_GRP + BG_FINO + '">CONT. DE FINOS<br><span style="font-weight:400;font-size:.68rem">UNE-EN 933-1 \u00b7 SEMANAL</span></th>';
-  html += '<th colspan="2" style="' + TH_GRP + BG_EQ + '">EQ. ARENA<br><span style="font-weight:400;font-size:.68rem">UNE-EN 933-8 \u00b7 SEMANAL</span></th>';
-  html += '<th colspan="4" style="' + TH_GRP + BG_LAJ + '">\u00cdNDICE LAJAS<br><span style="font-weight:400;font-size:.68rem">UNE-EN 933-3 \u00b7 MENSUAL</span></th>';
-  html += '<th colspan="3" style="' + TH_GRP + BG_CAR + '">% CAPAS FRAG.<br><span style="font-weight:400;font-size:.68rem">UNE-EN 933-5 \u00b7 MENSUAL</span></th>';
+  html += '<th rowspan="4" colspan="2" style="' + TH_Y + 'font-size:.68rem;line-height:1.4;vertical-align:middle">CONTROL DE<br>ENSAYOS DE<br>ÁRIDO ' + _ensayosAnio + '<br><span style="font-weight:400;font-size:.6rem">(MENSUALES Y<br>SEMANALES)</span></th>';
+  html += '<th rowspan="4" style="' + TH_W + 'vertical-align:middle">TIPO<br>MAT.</th>';
+  html += '<th colspan="5" rowspan="2" style="' + TH_W + 'vertical-align:middle">PRODUCCI\u00d3N</th>';
+  html += '<th rowspan="4" style="' + TH_W + 'vertical-align:middle">FECHA<br>ALBAR\u00c1N</th>';
+  html += '<th colspan="4" style="' + TH_W + '">RECUENTO</th>';
+  html += '<th colspan="4" style="' + TH_W + '">RECUENTO</th>';
+  html += '<th style="' + TH_W + '">RECUENTO</th>';
+  html += '<th colspan="4" style="' + TH_W + '">RECUENTO</th>';
+  html += '<th colspan="3" style="' + TH_W + '">RECUENTO</th>';
+  html += '<th rowspan="4" style="' + TH_W + 'vertical-align:middle">OBSERVACIONES</th>';
   html += '</tr>';
 
-  // Fila 2: subcolumnas
+  // Fila 2: NORMA
   html += '<tr>';
-  html += '<th style="' + TH + BG_HDR + '">EST.</th>';
-  html += '<th style="' + TH + BG_HDR + '">REC.</th>';
-  html += '<th style="' + TH + BG_HDR + '"></th>';
-  html += '<th style="' + TH + BG_HDR + '"></th>';
-  html += '<th style="' + TH + BG_HDR + '"></th>';
-  html += '<th style="' + TH + BG_HDR + '"></th>';
-  ['0/4','4/12','12/20','20/40'].forEach(function(f){ html += '<th style="' + TH + BG_HDR + '">' + f + '</th>'; });
-  ['0/4','4/12','12/20','20/40'].forEach(function(f){ html += '<th style="' + TH + BG_GRAN + '">' + f + '</th>'; });
-  ['0/4','4/12','12/20','20/40'].forEach(function(f){ html += '<th style="' + TH + BG_FINO + '">' + f + '</th>'; });
-  ['0/4','ZA25'].forEach(function(f){ html += '<th style="' + TH + BG_EQ + '">' + f + '</th>'; });
-  ['4/12','12/20','20/40','ZA25'].forEach(function(f){ html += '<th style="' + TH + BG_LAJ + '">' + f + '</th>'; });
-  ['4/12','12/20','20/40'].forEach(function(f){ html += '<th style="' + TH + BG_CAR + '">' + f + '</th>'; });
+  html += '<th colspan="4" style="' + TH_W + '">UNE-EN 933-1</th>';
+  html += '<th colspan="4" style="' + TH_W + '">UNE-EN 933-1</th>';
+  html += '<th style="' + TH_W + '">UNE-EN 933-8</th>';
+  html += '<th colspan="4" style="' + TH_W + '">UNE-EN 933-3</th>';
+  html += '<th colspan="3" style="' + TH_W + '">UNE-EN 933-5</th>';
   html += '</tr>';
+
+  // Fila 3: PERIODICIDAD + ensayo label
+  html += '<tr>';
+  html += '<th style="' + TH_W + '">TN</th>';
+  html += '<th style="' + TH_W + '">0/4</th>';
+  html += '<th style="' + TH_W + '">4/12</th>';
+  html += '<th style="' + TH_W + '">12/20</th>';
+  html += '<th style="' + TH_W + '">20/40</th>';
+  html += '<th colspan="4" style="' + TH_Y + '">GRANULOMETRIA<br><span style="font-weight:400;font-size:.6rem">SEMANAL</span></th>';
+  html += '<th colspan="4" style="' + TH_Y + '">CONTENIDO DE FINOS<br><span style="font-weight:400;font-size:.6rem">SEMANAL</span></th>';
+  html += '<th style="' + TH_Y + '">EQUI. EN<br>ARENA<br><span style="font-weight:400;font-size:.6rem">SEMANAL</span></th>';
+  html += '<th colspan="4" style="' + TH_Y + '">INDICE LAJAS<br><span style="font-weight:400;font-size:.6rem">MENSUAL</span></th>';
+  html += '<th colspan="3" style="' + TH_Y + '">PORCENTAJE CAPAS<br>FRAGTURADAS<br><span style="font-weight:400;font-size:.6rem">MENSUAL</span></th>';
+  html += '</tr>';
+
+  // Fila 4: D/S/LUNES + fracciones
+  html += '<tr>';
+  html += '<th style="' + TH_Y + '">D</th>';
+  html += '<th style="' + TH_Y + '">S</th>';
+  html += '<th style="' + TH_Y + '">LUNES</th>';
+  html += '<th style="' + TH_W + '">TN</th>';
+  html += '<th style="' + TH_W + '">0/4</th>';
+  html += '<th style="' + TH_W + '">4/12</th>';
+  html += '<th style="' + TH_W + '">12/20</th>';
+  html += '<th style="' + TH_W + '">20/40</th>';
+  ['0/4','4/12','12/20','20/40'].forEach(function(f){ html += '<th style="' + TH_Y + '">' + f + '</th>'; });
+  ['0/4','4/12','12/20','20/40'].forEach(function(f){ html += '<th style="' + TH_Y + '">' + f + '</th>'; });
+  html += '<th style="' + TH_Y + '">0/4</th>';
+  ['4/12','12/20','20/40','ZA25'].forEach(function(f){ html += '<th style="' + TH_Y + '">' + f + '</th>'; });
+  ['4/12','12/20','20/40'].forEach(function(f){ html += '<th style="' + TH_Y + '">' + f + '</th>'; });
+  html += '</tr>';
+
   html += '</thead><tbody>';
 
   semanas.forEach(function(sem, i) {
@@ -10024,17 +10063,21 @@ function _ensayosRenderControl() {
     const BG_Ca= 'background:#f4e8ee;';
     const rowBg = i % 2 === 0 ? '' : 'background:#f9faf8;';
 
+    // Fecha albarán: num_albaran del primer registro de la semana
+    const primerReg = regs.find(function(r){ return r.num_albaran; });
+    const fechaAlbaran = primerReg ? (primerReg.num_albaran || '\u2014') : '\u2014';
+
     html += '<tr style="' + rowBg + 'cursor:pointer" onclick="ensayosAbrirSemana(\'' + sem.id + '\')">';
     html += '<td style="' + TD_C + 'color:' + estadoColor + ';font-weight:700;font-size:.7rem">' + estadoGlobal + '</td>';
-    html += '<td style="' + TD_C + 'color:var(--muted)">\u2014</td>';
-    html += '<td style="' + TD_C + 'font-weight:600">' + num + '</td>';
-    html += '<td style="' + TD + 'white-space:nowrap">' + fecha + '</td>';
+    html += '<td style="' + TD_C + 'font-weight:600;font-size:.7rem">' + num + '</td>';
+    html += '<td style="' + TD + 'white-space:nowrap;font-size:.7rem">' + fecha + '</td>';
     html += '<td style="' + TD_C + 'color:' + matColor + ';font-weight:600">' + mat + '</td>';
     html += '<td style="' + TD_R + '">' + (tnTotal ? Number(tnTotal).toLocaleString('es') : '\u2014') + '</td>';
     html += '<td style="' + TD_R + '">' + (sem.tn_04 ? Number(sem.tn_04).toLocaleString('es') : '\u2014') + '</td>';
     html += '<td style="' + TD_R + '">' + (sem.tn_412 ? Number(sem.tn_412).toLocaleString('es') : '\u2014') + '</td>';
     html += '<td style="' + TD_R + '">' + (sem.tn_1220 ? Number(sem.tn_1220).toLocaleString('es') : '\u2014') + '</td>';
     html += '<td style="' + TD_R + '">' + (sem.tn_2040 ? Number(sem.tn_2040).toLocaleString('es') : '\u2014') + '</td>';
+    html += '<td style="' + TD_C + 'font-size:.68rem">' + fechaAlbaran + '</td>';
     html += '<td style="' + TD_C + BG_G + '">' + estadoReg('granulometria','0/4') + '</td>';
     html += '<td style="' + TD_C + BG_G + '">' + estadoReg('granulometria','4/12') + '</td>';
     html += '<td style="' + TD_C + BG_G + '">' + estadoReg('granulometria','12/20') + '</td>';
@@ -10052,10 +10095,11 @@ function _ensayosRenderControl() {
     html += '<td style="' + TD_C + BG_Ca + '">' + estadoReg('caras_fractura','4/12') + '</td>';
     html += '<td style="' + TD_C + BG_Ca + '">' + estadoReg('caras_fractura','12/20') + '</td>';
     html += '<td style="' + TD_C + BG_Ca + '">' + estadoReg('caras_fractura','20/40') + '</td>';
+    html += '<td style="' + TD + '"></td>'; // observaciones
     html += '</tr>';
   });
 
-  if (!semanas.length) html += '<tr><td colspan="27" style="padding:24px;text-align:center;color:var(--muted)">Sin semanas para ' + _ensayosAnio + '</td></tr>';
+  if (!semanas.length) html += '<tr><td colspan="28" style="padding:24px;text-align:center;color:var(--muted)">Sin semanas para ' + _ensayosAnio + '</td></tr>';
   html += '</tbody></table></div>';
   html += '<div style="display:flex;gap:16px;margin-top:10px;font-size:.72rem;color:var(--muted);flex-wrap:wrap">';
   html += '<span><span style="color:#2e7d32;font-weight:700">\u2713\u2713</span> Conforme</span>';
