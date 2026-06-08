@@ -10061,7 +10061,7 @@ function _ensayosRenderRegistros() {
 
   html += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:.78rem;width:100%">';
   html += '<thead><tr style="background:#1e2a1e;color:#fff">';
-  ['ESTADO','FECHA TOMA','FECHA ENSAYO','N\u00ba MUESTRA','N\u00ba ALBAR\u00c1N','DECL. PREST.','GRANULOMETR\u00cdA \u2014 % QUE PASA (UNE-EN 933-1)','EQ. ARENA','CONT. FINOS','COMENTARIO'].forEach(function(h){
+  ['ESTADO','FECHA TOMA','FECHA ENSAYO','N\u00ba MUESTRA','N\u00ba ALBAR\u00c1N','DECL. PREST.','GRANULOMETR\u00cdA \u2014 % QUE PASA (UNE-EN 933-1)','EQ. ARENA','CONT. FINOS','COMENTARIO',''].forEach(function(h){
     html += '<th style="padding:7px 10px;white-space:nowrap">' + h + '</th>';
   });
   html += '</tr></thead><tbody>';
@@ -10071,7 +10071,7 @@ function _ensayosRenderRegistros() {
     const estadoLabel = r.estado === 'conforme' ? 'Conforme' : r.estado === 'no_conforme' ? 'No conforme' : 'Pendiente';
     const estadoColor = r.estado === 'conforme' ? '#4caf50' : r.estado === 'no_conforme' ? '#f44336' : '#ff9800';
     const granStr = ['8','6.3','4','2','1','0.5','0.25','0.125','0.063'].map(function(t){ return res['gran_'+t] != null ? res['gran_'+t] : '\u2014'; }).join(' | ');
-    html += '<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="ensayosAbrirRegistro(\'' + r.id + '\')">';
+    html += '<tr style="border-bottom:1px solid var(--border)">';
     html += '<td style="padding:6px 10px"><span style="background:' + estadoColor + ';color:#fff;padding:2px 8px;border-radius:10px;font-size:.72rem">' + estadoLabel + '</span></td>';
     html += '<td style="padding:6px 10px;white-space:nowrap">' + (r.fecha_toma||'\u2014') + '</td>';
     html += '<td style="padding:6px 10px;white-space:nowrap">' + (r.fecha_acta||'\u2014') + '</td>';
@@ -10082,6 +10082,7 @@ function _ensayosRenderRegistros() {
     html += '<td style="padding:6px 10px">' + (res.eq_arena!=null?res.eq_arena:'\u2014') + '</td>';
     html += '<td style="padding:6px 10px">' + (res.cont_finos!=null?res.cont_finos:'\u2014') + '</td>';
     html += '<td style="padding:6px 10px;color:var(--muted)">' + (r.comentario||'') + '</td>';
+    html += '<td style="padding:6px 10px;text-align:center"><button onclick="ensayosEliminarRegistro(\'' + r.id + '\')" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:1rem;padding:2px 6px" title="Eliminar">\u2715</button></td>';
     html += '</tr>';
   });
 
@@ -10294,51 +10295,11 @@ async function ensayosSubirPDFs(files) {
         texto += content.items.map(function(it){ return it.str; }).join(' ') + '\n';
       }
 
-      // Parsear directamente en cliente
+      // Parsear y abrir modal de confirmación
       const d = _ensayosParseActa(texto);
-      if (!d.tipo_ensayo || !d.fraccion) { alert('No se pudo detectar tipo/fracción en ' + file.name); continue; }
-
-      // Buscar semana por fecha_toma
-      const semana = _ensayosSemanas.find(function(s) {
-        if (!d.fecha_toma) return false;
-        const lunes = new Date(s.fecha_lunes);
-        const toma = new Date(d.fecha_toma);
-        const domingo = new Date(lunes); domingo.setDate(domingo.getDate() + 6);
-        return toma >= lunes && toma <= domingo;
-      });
-
-      if (!semana) {
-        alert('No se encontró semana para fecha ' + d.fecha_toma + ' en ' + file.name);
-        continue;
-      }
-
-      // Insertar o actualizar registro
-      const existing = _ensayosRegistros.find(function(r) {
-        return r.semana_id === semana.id && r.tipo_ensayo === d.tipo_ensayo && r.fraccion === d.fraccion;
-      });
-
-      const payload = {
-        semana_id: semana.id,
-        tipo_ensayo: d.tipo_ensayo,
-        fraccion: d.fraccion,
-        norma: d.norma || null,
-        fecha_toma: d.fecha_toma || null,
-        fecha_acta: d.fecha_acta || null,
-        num_acta: d.num_acta || null,
-        num_albaran: d.num_albaran || null,
-        resultados: d.resultados || {},
-        estado: 'recogido'
-      };
-
-      let res;
-      if (existing) {
-        res = await updateEnsayoRegistro(existing.id, payload);
-      } else {
-        res = await insertEnsayoRegistro(payload);
-      }
-
-      if (!res.ok) { alert('Error guardando ' + file.name + ': ' + res.error); continue; }
-      resultados.push(file.name + ' → semana ' + semana.fecha_lunes + ' (' + d.tipo_ensayo + ' ' + d.fraccion + ')');
+      if (toast) toast.style.display = 'none';
+      ensayosCerrarDrop();
+      await ensayosAbrirConfirm(file.name, d);
 
     } catch(e) {
       alert('Error procesando ' + file.name + ': ' + e.message);
@@ -10346,21 +10307,6 @@ async function ensayosSubirPDFs(files) {
   }
 
   document.getElementById('ensayos-pdf-input').value = '';
-  ensayosCerrarDrop();
-
-  if (resultados.length) {
-    const rReg = await getEnsayosRegistros(_ensayosAnio);
-    _ensayosRegistros = rReg.ok ? rReg.data : [];
-    _ensayosRenderTab(_ensayosTab);
-    if (toast) {
-      toast.style.background = '#2e7d32';
-      toast.textContent = '\u2713 ' + resultados.length + ' acta' + (resultados.length>1?'s':'') + ' procesada' + (resultados.length>1?'s':'') + ' correctamente';
-      toast.style.display = 'block';
-      setTimeout(function(){ toast.style.display='none'; toast.style.background='#333'; }, 4000);
-    }
-  } else {
-    if (toast) toast.style.display = 'none';
-  }
 }
 
 function _ensayosParseActa(text) {
@@ -10430,4 +10376,130 @@ function ensayosCerrarDrop() {
 }
 function ensayosDropPDFs(files) {
   ensayosSubirPDFs(files);
+}
+
+// ── Modal confirmación acta ───────────────────────────────────
+let _ensayosConfirmResolve = null;
+
+async function ensayosAbrirConfirm(filename, d) {
+  return new Promise(function(resolve) {
+    _ensayosConfirmResolve = resolve;
+
+    // Rellenar campos
+    document.getElementById('ensayos-confirm-filename').textContent = filename;
+    document.getElementById('ecf-num-acta').value = d.num_acta || '';
+    document.getElementById('ecf-num-albaran').value = d.num_albaran || '';
+    document.getElementById('ecf-fecha-toma').value = d.fecha_toma || '';
+    document.getElementById('ecf-fecha-acta').value = d.fecha_acta || '';
+    const fracSel = document.getElementById('ecf-fraccion');
+    if (d.fraccion) fracSel.value = d.fraccion;
+    const tipoSel = document.getElementById('ecf-tipo');
+    if (d.tipo_ensayo) tipoSel.value = d.tipo_ensayo;
+
+    // Semanas
+    const semSel = document.getElementById('ecf-semana');
+    semSel.innerHTML = '<option value="">— Sin vincular —</option>';
+    _ensayosSemanas.forEach(function(s) {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.fecha_lunes + ' (' + (s.tipo_material||'NP') + ')';
+      // Auto-seleccionar semana por fecha_toma
+      if (d.fecha_toma) {
+        const lunes = new Date(s.fecha_lunes);
+        const toma = new Date(d.fecha_toma);
+        const domingo = new Date(lunes); domingo.setDate(domingo.getDate() + 6);
+        if (toma >= lunes && toma <= domingo) opt.selected = true;
+      }
+      semSel.appendChild(opt);
+    });
+
+    // Resultados granulometría
+    const wrap = document.getElementById('ecf-resultados-wrap');
+    wrap.innerHTML = '';
+    if (d.tipo_ensayo === 'granulometria' && d.resultados) {
+      wrap.innerHTML = '<div style="font-size:.8rem;color:var(--muted);margin-bottom:6px">Granulometría — % que pasa</div>'
+        + '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">'
+        + ['8','6.3','4','2','1','0.5','0.25','0.125','0.063'].map(function(t) {
+            const v = d.resultados['gran_'+t];
+            return '<label style="font-size:.75rem;text-align:center">'
+              + '<span style="display:block;color:var(--muted);margin-bottom:2px">' + t + '</span>'
+              + '<input type="number" id="ecf-gran-' + t.replace('.','_') + '" value="' + (v!=null?v:'') + '" min="0" max="100"'
+              + ' style="width:100%;padding:5px 4px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:.82rem;text-align:center">'
+              + '</label>';
+          }).join('')
+        + '</div>';
+    }
+
+    document.getElementById('ensayos-confirm-modal').style.display = 'flex';
+  });
+}
+
+function ensayosCerrarConfirm() {
+  document.getElementById('ensayos-confirm-modal').style.display = 'none';
+  if (_ensayosConfirmResolve) { _ensayosConfirmResolve(null); _ensayosConfirmResolve = null; }
+}
+
+async function ensayosConfirmarGuardar() {
+  const semanaId = document.getElementById('ecf-semana').value;
+  if (!semanaId) { alert('Selecciona una semana'); return; }
+
+  const tipo = document.getElementById('ecf-tipo').value;
+  const fraccion = document.getElementById('ecf-fraccion').value;
+
+  // Recoger resultados
+  let resultados = {};
+  if (tipo === 'granulometria') {
+    ['8','6.3','4','2','1','0.5','0.25','0.125','0.063'].forEach(function(t) {
+      const el = document.getElementById('ecf-gran-' + t.replace('.','_'));
+      if (el && el.value !== '') resultados['gran_'+t] = parseInt(el.value);
+    });
+  }
+
+  const payload = {
+    semana_id: semanaId,
+    tipo_ensayo: tipo,
+    fraccion: fraccion,
+    fecha_toma: document.getElementById('ecf-fecha-toma').value || null,
+    fecha_acta: document.getElementById('ecf-fecha-acta').value || null,
+    num_acta: document.getElementById('ecf-num-acta').value || null,
+    num_albaran: document.getElementById('ecf-num-albaran').value || null,
+    resultados: resultados,
+    estado: 'recogido'
+  };
+
+  const existing = _ensayosRegistros.find(function(r) {
+    return r.semana_id === semanaId && r.tipo_ensayo === tipo && r.fraccion === fraccion;
+  });
+
+  let res;
+  if (existing) res = await updateEnsayoRegistro(existing.id, payload);
+  else res = await insertEnsayoRegistro(payload);
+
+  if (!res.ok) { alert('Error al guardar: ' + res.error); return; }
+
+  document.getElementById('ensayos-confirm-modal').style.display = 'none';
+  if (_ensayosConfirmResolve) { _ensayosConfirmResolve(true); _ensayosConfirmResolve = null; }
+
+  // Recargar y toast
+  const rReg = await getEnsayosRegistros(_ensayosAnio);
+  _ensayosRegistros = rReg.ok ? rReg.data : [];
+  _ensayosRenderTab(_ensayosTab);
+
+  const toast = document.getElementById('ensayos-toast');
+  if (toast) {
+    toast.style.background = '#2e7d32';
+    toast.textContent = '\u2713 Acta guardada correctamente';
+    toast.style.display = 'block';
+    setTimeout(function(){ toast.style.display='none'; toast.style.background='#333'; }, 3000);
+  }
+}
+
+// ── Eliminar registro ─────────────────────────────────────────
+async function ensayosEliminarRegistro(id) {
+  if (!confirm('¿Eliminar este registro?')) return;
+  const res = await deleteEnsayoRegistro(id);
+  if (!res.ok) { alert('Error: ' + res.error); return; }
+  const rReg = await getEnsayosRegistros(_ensayosAnio);
+  _ensayosRegistros = rReg.ok ? rReg.data : [];
+  _ensayosRenderTab(_ensayosTab);
 }

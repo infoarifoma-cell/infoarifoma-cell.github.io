@@ -2384,6 +2384,55 @@
                   <div style="margin-top:16px"><button onclick="ensayosCerrarDrop()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.82rem">Cancelar</button></div>
                 </div>
               </div>
+              <!-- Modal confirmación acta -->
+              <div id="ensayos-confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1100;align-items:center;justify-content:center">
+                <div style="background:var(--surface);border-radius:14px;padding:28px;width:500px;max-width:95vw;max-height:90vh;overflow-y:auto">
+                  <div style="font-weight:700;font-size:1rem;margin-bottom:4px">Revisar acta extraída</div>
+                  <div id="ensayos-confirm-filename" style="font-size:.75rem;color:var(--muted);margin-bottom:18px"></div>
+                  <div style="display:grid;gap:10px">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                      <label style="font-size:.8rem;color:var(--muted)">Nº Acta
+                        <input id="ecf-num-acta" type="text" style="width:100%;margin-top:3px;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font-size:.85rem">
+                      </label>
+                      <label style="font-size:.8rem;color:var(--muted)">Nº Albarán
+                        <input id="ecf-num-albaran" type="text" style="width:100%;margin-top:3px;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font-size:.85rem">
+                      </label>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                      <label style="font-size:.8rem;color:var(--muted)">Fecha toma
+                        <input id="ecf-fecha-toma" type="date" style="width:100%;margin-top:3px;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font-size:.85rem">
+                      </label>
+                      <label style="font-size:.8rem;color:var(--muted)">Fecha acta
+                        <input id="ecf-fecha-acta" type="date" style="width:100%;margin-top:3px;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font-size:.85rem">
+                      </label>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                      <label style="font-size:.8rem;color:var(--muted)">Fracción
+                        <select id="ecf-fraccion" style="width:100%;margin-top:3px;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font-size:.85rem">
+                          <option value="0/4">0/4</option><option value="4/12">4/12</option><option value="12/20">12/20</option><option value="20/40">20/40</option><option value="ZA25">ZA25</option>
+                        </select>
+                      </label>
+                      <label style="font-size:.8rem;color:var(--muted)">Tipo ensayo
+                        <select id="ecf-tipo" style="width:100%;margin-top:3px;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font-size:.85rem">
+                          <option value="granulometria">Granulometría</option>
+                          <option value="cont_finos">Cont. Finos</option>
+                          <option value="eq_arena">Eq. Arena</option>
+                          <option value="ind_lajas">Índice Lajas</option>
+                          <option value="caras_fractura">% Caras Frac.</option>
+                        </select>
+                      </label>
+                    </div>
+                    <label style="font-size:.8rem;color:var(--muted)">Semana vinculada
+                      <select id="ecf-semana" style="width:100%;margin-top:3px;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font-size:.85rem"></select>
+                    </label>
+                    <div id="ecf-resultados-wrap"></div>
+                  </div>
+                  <div style="display:flex;gap:8px;margin-top:20px;justify-content:flex-end">
+                    <button onclick="ensayosCerrarConfirm()" style="padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer">Cancelar</button>
+                    <button onclick="ensayosConfirmarGuardar()" style="padding:8px 20px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-weight:600">Guardar</button>
+                  </div>
+                </div>
+              </div>
               <button onclick="ensayosAbrirDrop()" style="padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:.82rem">&#8593; Subir PDFs</button>
               <button onclick="ensayosNuevaSemana()" style="padding:7px 16px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:.82rem;font-weight:600">+ Nueva semana</button>
             </div>
