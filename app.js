@@ -3302,13 +3302,6 @@ async function imprimirSolicitudVacaciones(worker, vacId, btnEl) {
   try {
     if (btnEl) { btnEl.innerHTML = '⏳'; btnEl.disabled = true; }
     const token = await comprasGetToken();
-    const shareToken = 'u!' + btoa(COMPRAS_SHARE_URL).replace(/=+$/, '').replace(/\//g, '_').replace(/\+/g, '-');
-    const shareRes = await fetch('https://graph.microsoft.com/v1.0/shares/' + shareToken + '/driveItem?$select=id,parentReference', {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
-    if (!shareRes.ok) throw new Error('No se pudo acceder a OneDrive');
-    const shareItem = await shareRes.json();
-    const driveId = shareItem.parentReference.driveId;
     const { driveId, admonId } = await _oneDriveGetArifomaRoot(token);
     async function getChild(parentId, childName) {
       const r = await fetch('https://graph.microsoft.com/v1.0/drives/' + driveId + '/items/' + parentId + '/children?$select=id,name,webUrl,folder&$top=200', {
@@ -3799,6 +3792,7 @@ async function _oneDriveGetArifomaRoot(token) {
   });
   if (!shareRes.ok) throw new Error('No se pudo acceder a OneDrive');
   const shareItem = await shareRes.json();
+  console.log('SHARE ITEM:', JSON.stringify({id:shareItem.id, name:shareItem.name, parentRef:shareItem.parentReference}));
   const driveId = shareItem.parentReference.driveId;
   const arifomaId = shareItem.parentReference.id; // carpeta Arifoma
   const admonId = shareItem.id; // carpeta 06. ADMINISTRACION
