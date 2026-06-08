@@ -10319,21 +10319,31 @@ async function ensayosSubirPDFs(files) {
 function _ensayosParseActa(text) {
   const r = {};
 
-  // Nº ACTA
-  const mActa = text.match(/(\d{4}\/\d+)\s*(?=.*ACTA|ACTA.*)/i) || text.match(/N[ºo°]\s*ACTA\D{0,30}?(\d{4}\/\d+)/i);
+  // Nº ACTA — buscar el número que sigue a la cabecera "Nº ACTA" o "ACTA"
+  // En tablas PDF.js extrae texto en orden: cabecera fila1 fila2...
+  // Formato tabla: "Nº ACTA ALBARAN Nº Nº SERIE Nº DE OBRA MUESTRA FECHA DE ACTA 2026/258  159 6716 2026/101 09/01/2026"
+  const mActa = text.match(/N[ºo°]\s*ACTA[\s\S]{0,80}?(20\d{2}\/\d+)/i);
   if (mActa) r.num_acta = mActa[1];
 
-  // Nº ALBARÁN / MUESTRA
-  const mAlb = text.match(/MUESTRA\s+\.?(\d{4}\/\d+)/i) || text.match(/\.(\d{4}\/\d{2,})/);
-  if (mAlb) r.num_albaran = mAlb[1];
+  // Nº ALBARÁN / MUESTRA — el que sigue a MUESTRA (distinto del acta)
+  const mAlb = text.match(/MUESTRA[\s\S]{0,40}?(20\d{2}\/\d+)/i);
+  if (mAlb && mAlb[1] !== r.num_acta) r.num_albaran = mAlb[1];
+  // Si no encontró o es igual al acta, buscar el segundo número 20xx/xxx
+  if (!r.num_albaran || r.num_albaran === r.num_acta) {
+    const todos = [...text.matchAll(/\b(20\d{2}\/\d+)\b/g)].map(m=>m[1]);
+    const distinto = todos.find(function(n){ return n !== r.num_acta; });
+    if (distinto) r.num_albaran = distinto;
+  }
 
   // Fecha de toma
   const mToma = text.match(/Fecha de toma[:\s]+(\d{2}\/\d{2}\/\d{4})/i);
   if (mToma) r.fecha_toma = _ensayosIsoFecha(mToma[1]);
 
   // Fecha acta / fin ensayos
+  // El PDF de ESOCAN tiene la fecha ANTES de "FECHA DE ACTA" en el flujo de texto
   const mFin = text.match(/Fin de ensayos[:\s]+(\d{2}\/\d{2}\/\d{4})/i)
-    || text.match(/FECHA DE ACTA\s+(\d{2}\/\d{2}\/\d{4})/i);
+    || text.match(/(\d{2}\/\d{2}\/\d{4})\s*(?=[\s\S]{0,30}FECHA DE ACTA)/i)
+    || text.match(/FECHA DE ACTA[\s\S]{0,30}?(\d{2}\/\d{2}\/\d{4})/i);
   if (mFin) r.fecha_acta = _ensayosIsoFecha(mFin[1]);
 
   // Fracción
@@ -10348,24 +10358,24 @@ function _ensayosParseActa(text) {
   else if (/caras.*fractura/i.test(text)) r.tipo_ensayo = 'caras_fractura';
 
   // Granulometría — tabla tamiz/pasa
+  // PDF.js extrae la tabla como: "Tamiz (mm)   Pasa (%) 14   100 12,5   99 10   91 8   79 6,3   58 4   8 2   1 1   0"
   if (r.tipo_ensayo === 'granulometria') {
     const res = {};
-    // Buscar bloque de tabla: tamiz seguido de valor % que pasa
-    // Formatos posibles: "8,000 100" / "8 100" / "8,000\n100" / "8\t100"
-    var tamices = [
-      ['8',    /\b8[,.]?0*\b[\s\t\n,;]+(\d{1,3}(?:[,.]\d+)?)/],
-      ['6.3',  /\b6[,.][,.]?3\b[\s\t\n,;]+(\d{1,3}(?:[,.]\d+)?)/],
-      ['4',    /(?<![0-9])4[,.]?0*(?![0-9\/])[\s\t\n,;]+(\d{1,3}(?:[,.]\d+)?)/],
-      ['2',    /(?<![0-9\/])2[,.]?0*(?![0-9\/])[\s\t\n,;]+(\d{1,3}(?:[,.]\d+)?)/],
-      ['1',    /(?<![0-9\/])1[,.]?0*(?![0-9\/\.])[\s\t\n,;]+(\d{1,3}(?:[,.]\d+)?)/],
-      ['0.5',  /\b0[,.]5\b[\s\t\n,;]+(\d{1,3}(?:[,.]\d+)?)/],
-      ['0.25', /\b0[,.]25\b[\s\t\n,;]+(\d{1,3}(?:[,.]\d+)?)/],
-      ['0.125',/\b0[,.]125\b[\s\t\n,;]+(\d{1,3}(?:[,.]\d+)?)/],
-      ['0.063',/\b0[,.]063\b[\s\t\n,;]+(\d{1,3}(?:[,.]\d+)?)/],
-    ];
-    tamices.forEach(function(p) {
-      var m = text.match(p[1]);
-      if (m) res['gran_' + p[0]] = Math.round(parseFloat(m[1].replace(',','.')));
+    // Extraer todos los pares (tamiz, pasa) del bloque de tabla
+    // Buscar desde "Tamiz" o "Pasa" hasta el final de la zona de datos
+    var bloqueM = text.match(/Tamiz[\s\S]{0,20}?Pasa[\s\S]+?((?:\d[\d,\.]*\s+\d{1,3}\s*){3,})/i);
+    var bloque = bloqueM ? bloqueM[1] : text;
+    // Extraer pares: número_tamiz  número_pasa separados por espacios
+    var pares = [...bloque.matchAll(/\b(\d+[,.]?\d*)\s{1,10}(\d{1,3})\b/g)];
+    // Mapa tamiz normalizado -> clave gran_
+    var tamMap = {'8':'8','6.3':'6.3','6,3':'6.3','4':'4','2':'2','1':'1',
+                  '0.5':'0.5','0,5':'0.5','0.25':'0.25','0,25':'0.25',
+                  '0.125':'0.125','0,125':'0.125','0.063':'0.063','0,063':'0.063'};
+    pares.forEach(function(p) {
+      var tamiz = p[1].trim();
+      var pasa = parseInt(p[2]);
+      var key = tamMap[tamiz];
+      if (key && pasa >= 0 && pasa <= 100) res['gran_' + key] = pasa;
     });
     r.resultados = res;
   }
