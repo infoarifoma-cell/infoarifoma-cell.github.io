@@ -10111,41 +10111,158 @@ function _ensayosRenderControl() {
 }
 
 // TAB REGISTROS
+// Definición de columnas por fracción
+var _COLS_REGISTROS = {
+  '0/4': {
+    titulo: 'CONTROL DE ENSAYOS 0/4. V8',
+    gran: ['8','6.3','4','2','1','0.5','0.25','0.125','0.063'],
+    extras: [
+      {label:'Equivalente de arena', key:'eq_arena'},
+      {label:'Azul de metileno', key:'azul_metileno'},
+      {label:'Contenido de finos', key:'cont_finos'},
+      {label:'Densidad de partículas', key:'densidad_p'},
+      {label:'Absorción de Agua', key:'absorcion'},
+      {label:'Ensayo del sulfato de magnesio', key:'sulfato_mg'},
+      {label:'Cloruros solubles en agua', key:'cloruros'},
+      {label:'Sulfatos solubles en ácido', key:'sulfatos_ac'},
+      {label:'Contenido total en azufre', key:'azufre'},
+      {label:'Contaminantes orgánicos ligeros', key:'co_ligeros'},
+      {label:'Contaminantes orgánicos: Húmicos', key:'co_humicos'},
+      {label:'Contaminantes orgánicos: Ácido Fúlvico', key:'co_fulvico'},
+      {label:'Contaminantes orgánicos: Ensayo del Mortero', key:'co_mortero'}
+    ]
+  },
+  '4/12': {
+    titulo: 'CONTROL DE ENSAYOS 4/12. V8',
+    gran: ['31.5','20','16','14','12.5','10','8','6.3','4','2'],
+    extras: [
+      {label:'Contenido de finos', key:'cont_finos'},
+      {label:'Índice de lajas<20', key:'ind_lajas'},
+      {label:'Porcentaje de caras de fractura', key:'caras_fractura'},
+      {label:'Resistencia a la fragmentación (LA 20)', key:'los_angeles'},
+      {label:'Resistencia al Pulimento (CPA)', key:'cpa'},
+      {label:'Densidad aparente', key:'densidad_p'},
+      {label:'Absorción de Agua', key:'absorcion'},
+      {label:'Ensayo del sulfato de magnesio', key:'sulfato_mg'},
+      {label:'Cloruros solubles en agua', key:'cloruros'}
+    ]
+  },
+  '12/20': {
+    titulo: 'CONTROL DE ENSAYOS 12/20. V8',
+    gran: ['63','40','31.5','20','16','14','12.5','10','8','6.3'],
+    extras: [
+      {label:'Contenido de finos', key:'cont_finos'},
+      {label:'Índice de lajas', key:'ind_lajas'},
+      {label:'Porcentaje de caras de fractura', key:'caras_fractura'},
+      {label:'Resistencia a la fragmentación (LA)', key:'los_angeles'},
+      {label:'Resistencia al Pulimento (CPA)', key:'cpa'},
+      {label:'Densidad aparente', key:'densidad_p'},
+      {label:'Absorción de Agua', key:'absorcion'},
+      {label:'Ensayo del sulfato de magnesio', key:'sulfato_mg'},
+      {label:'Cloruros solubles en agua', key:'cloruros'},
+      {label:'Sulfatos solubles en ácido', key:'sulfatos_ac'},
+      {label:'Contaminantes orgánicos ligeros', key:'co_ligeros'},
+      {label:'Contaminantes orgánicos: Húmicos', key:'co_humicos'},
+      {label:'Contaminantes orgánicos: Ácido Fúlvico', key:'co_fulvico'}
+    ]
+  },
+  '20/40': {
+    titulo: 'CONTROL DE ENSAYOS 20/40. V8',
+    gran: ['80','63','40','32','20','16','14','13','10'],
+    extras: [
+      {label:'Contenido de finos', key:'cont_finos'},
+      {label:'Índice de lajas<20', key:'ind_lajas'},
+      {label:'Porcentaje de caras de fractura', key:'caras_fractura'},
+      {label:'Resistencia a la fragmentación (LA)', key:'los_angeles'},
+      {label:'Resistencia al Pulimento (CPA)', key:'cpa'},
+      {label:'Densidad aparente', key:'densidad_p'},
+      {label:'Absorción de Agua', key:'absorcion'},
+      {label:'Ensayo del sulfato de magnesio', key:'sulfato_mg'},
+      {label:'Cloruros solubles en agua', key:'cloruros'},
+      {label:'Sulfatos solubles en ácido', key:'sulfatos_ac'},
+      {label:'Contaminantes orgánicos ligeros', key:'co_ligeros'},
+      {label:'Contaminantes orgánicos: Húmicos', key:'co_humicos'},
+      {label:'Contaminantes orgánicos: Ácido Fúlvico', key:'co_fulvico'},
+      {label:'Contaminantes orgánicos: Ensayo del Mortero', key:'co_mortero'}
+    ]
+  }
+};
+
 function _ensayosRenderRegistros() {
   const fracciones = ['0/4','4/12','12/20','20/40'];
-  let html = '<div style="display:flex;gap:8px;margin-bottom:16px">';
+  let html = '<div style="display:flex;gap:8px;margin-bottom:12px">';
   fracciones.forEach(function(f) {
     const active = _ensayosFraccion === f;
     html += '<button onclick="ensayosFraccionTab(\'' + f + '\')" style="padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:' + (active?'var(--accent)':'var(--surface)') + ';color:' + (active?'#fff':'var(--text)') + ';cursor:pointer;font-size:.82rem">' + f + '</button>';
   });
   html += '</div>';
 
+  const cfg = _COLS_REGISTROS[_ensayosFraccion] || _COLS_REGISTROS['0/4'];
+  const granCols = cfg.gran;
+  const extraCols = cfg.extras;
+
   const regs = _ensayosRegistros.filter(function(r){ return r.fraccion === _ensayosFraccion; })
     .sort(function(a,b){ return (b.fecha_toma||b.created_at||'').localeCompare(a.fecha_toma||a.created_at||''); });
 
-  // Agrupar por num_albaran (o por semana_id+fecha_toma si no hay albaran)
+  // Agrupar por num_albaran
   const grupos = [];
   const vistos = {};
   regs.forEach(function(r) {
     const key = r.num_albaran || (r.semana_id + '_' + (r.fecha_toma||''));
     if (!vistos[key]) {
-      vistos[key] = { key: key, regs: [], fecha_toma: r.fecha_toma, num_albaran: r.num_albaran };
+      vistos[key] = { key: key, regs: [] };
       grupos.push(vistos[key]);
     }
     vistos[key].regs.push(r);
   });
 
-  html += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:.78rem;width:100%">';
-  html += '<thead><tr style="background:#1e2a1e;color:#fff">';
-  ['ESTADO','FECHA TOMA','FECHA ENSAYO','N\u00ba ALBAR\u00c1N','N\u00ba ACTA','GRANULOMETR\u00cdA \u2014 % QUE PASA (UNE-EN 933-1)','EQ. ARENA','CONT. FINOS','IND. LAJAS',''].forEach(function(h){
-    html += '<th style="padding:7px 10px;white-space:nowrap;text-align:left">' + h + '</th>';
-  });
-  html += '</tr></thead><tbody>';
+  // Estilos cabecera
+  const TH_BLU = 'padding:4px 6px;border:1px solid #7eb8d8;background:#4472c4;color:#fff;text-align:center;font-size:.62rem;font-weight:700;white-space:nowrap;line-height:1.2;';
+  const TH_GRN = 'padding:4px 6px;border:1px solid #7eb87e;background:#70ad47;color:#fff;text-align:center;font-size:.62rem;font-weight:700;white-space:nowrap;line-height:1.2;';
+  const TH_PRP = 'padding:4px 6px;border:1px solid #9b8fbf;background:#7030a0;color:#fff;text-align:center;font-size:.62rem;font-weight:700;white-space:nowrap;line-height:1.2;';
+  const TH_HDR = 'padding:4px 6px;border:1px solid #ccc;background:#1e2a1e;color:#fff;text-align:center;font-size:.62rem;font-weight:700;white-space:nowrap;';
+  const TD = 'padding:3px 6px;border:1px solid #dde;font-size:.7rem;text-align:center;';
+  const nGran = granCols.length;
+  const nExtra = extraCols.length;
+  const nTotal = 6 + nGran + nExtra + 1; // estado+fecha_toma+fecha_acta+num_muestra+num_albaran+decl + gran + extra + acciones
 
+  // Título
+  html += '<div style="text-align:center;font-weight:700;font-size:.9rem;background:#4472c4;color:#fff;padding:6px;border-radius:6px 6px 0 0;letter-spacing:.05em">' + cfg.titulo + '</div>';
+  html += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:.7rem;background:#fff;width:100%">';
+  html += '<thead>';
+
+  // Fila 1: grupos
+  html += '<tr>';
+  html += '<th colspan="5" style="' + TH_HDR + '"></th>';
+  html += '<th rowspan="3" style="' + TH_HDR + 'vertical-align:middle;min-width:80px">Declaración<br>de<br>prestaciones</th>';
+  html += '<th colspan="' + nGran + '" style="' + TH_GRN + '">REQUISITOS GEOMÉTRICOS</th>';
+  extraCols.forEach(function(c){
+    html += '<th rowspan="3" style="' + TH_PRP + 'vertical-align:middle;max-width:70px;min-width:55px">' + c.label + '</th>';
+  });
+  html += '<th rowspan="3" style="' + TH_HDR + '"></th>';
+  html += '</tr>';
+
+  // Fila 2: sub-grupos granulometría
+  html += '<tr>';
+  html += '<th colspan="5" style="' + TH_HDR + '"></th>';
+  html += '<th colspan="' + nGran + '" style="' + TH_GRN + '">Granulometría (% que pasa)<br><span style="font-weight:400;font-size:.6rem">Tamiz</span></th>';
+  html += '</tr>';
+
+  // Fila 3: columnas individuales
+  html += '<tr>';
+  ['Fecha de toma','Fecha de ensayo','Nº de muestra','Nº Albarán','Estado'].forEach(function(h){
+    html += '<th style="' + TH_HDR + '">' + h + '</th>';
+  });
+  granCols.forEach(function(t){
+    html += '<th style="' + TH_GRN + '">' + t + '</th>';
+  });
+  html += '</tr>';
+  html += '</thead><tbody>';
+
+  // Filas de datos
   grupos.forEach(function(g) {
-    // Combinar datos de todos los registros del grupo
     const gran = {}, ids = [];
-    let eq_arena = null, cont_finos = null, ind_lajas = null;
+    const extras = {};
     let fecha_toma = null, fecha_acta = null, num_albaran = null, num_acta = null;
     let estado = 'recogido';
     g.regs.forEach(function(r) {
@@ -10156,38 +10273,52 @@ function _ensayosRenderRegistros() {
       if (r.num_albaran) num_albaran = r.num_albaran;
       if (r.num_acta) num_acta = r.num_acta;
       if (r.tipo_ensayo === 'granulometria') Object.assign(gran, res);
-      if (r.tipo_ensayo === 'eq_arena' && res.eq_arena != null) eq_arena = res.eq_arena;
-      if (r.tipo_ensayo === 'cont_finos' && res.cont_finos != null) cont_finos = res.cont_finos;
-      if (r.tipo_ensayo === 'ind_lajas' && res.ind_lajas != null) ind_lajas = res.ind_lajas;
+      // Mapear resultados a claves extras
+      extraCols.forEach(function(c) {
+        if (res[c.key] != null) extras[c.key] = res[c.key];
+        // aliases
+        if (c.key === 'eq_arena' && res.eq_arena != null) extras.eq_arena = res.eq_arena;
+        if (c.key === 'cont_finos' && res.cont_finos != null) extras.cont_finos = res.cont_finos;
+        if (c.key === 'ind_lajas' && res.ind_lajas != null) extras.ind_lajas = res.ind_lajas;
+      });
       if (r.estado === 'conforme') estado = 'conforme';
       else if (r.estado === 'no_conforme' && estado !== 'conforme') estado = 'no_conforme';
     });
-    const estadoLabel = estado === 'conforme' ? 'Conforme' : estado === 'no_conforme' ? 'No conforme' : 'Pendiente';
-    const estadoColor = estado === 'conforme' ? '#4caf50' : estado === 'no_conforme' ? '#f44336' : '#ff9800';
-    const _granTodos = ['63','50','40','32','20','16','14','12.5','10','8','6.3','4','2','1','0.5','0.25','0.125','0.063'];
-    const _granConVal = _granTodos.filter(function(t){ return gran['gran_'+t] != null; });
-    const _granMostrar = _granConVal.length > 0 ? _granConVal : _granTodos.slice(6);
-    const granStr = _granMostrar.map(function(t){ return gran['gran_'+t] != null ? '<span style="color:' + (_granTodos.indexOf(t)<3?'#888':'inherit') + '">' + gran['gran_'+t] + '</span>' : '\u2014'; }).join(' | ');
-    html += '<tr style="border-bottom:1px solid var(--border)">';
-    html += '<td style="padding:6px 10px"><span style="background:' + estadoColor + ';color:#fff;padding:2px 8px;border-radius:10px;font-size:.72rem">' + estadoLabel + '</span></td>';
-    html += '<td style="padding:6px 10px;white-space:nowrap">' + (fecha_toma||'\u2014') + '</td>';
-    html += '<td style="padding:6px 10px;white-space:nowrap">' + (fecha_acta||'\u2014') + '</td>';
-    html += '<td style="padding:6px 10px">' + (num_albaran||'\u2014') + '</td>';
-    html += '<td style="padding:6px 10px">' + (num_acta||'\u2014') + '</td>';
-    html += '<td style="padding:6px 10px;font-size:.72rem">' + granStr + '</td>';
-    html += '<td style="padding:6px 10px">' + (eq_arena!=null?eq_arena:'\u2014') + '</td>';
-    html += '<td style="padding:6px 10px">' + (cont_finos!=null?cont_finos:'\u2014') + '</td>';
-    html += '<td style="padding:6px 10px">' + (ind_lajas!=null?ind_lajas:'\u2014') + '</td>';
+
+    const estadoColor = estado === 'conforme' ? '#4caf50' : estado === 'no_conforme' ? '#c62828' : '#ff9800';
+    const estadoBg = estado === 'conforme' ? '#e8f5e9' : estado === 'no_conforme' ? '#ffebee' : '#fff8e1';
+    const rowBg = 'background:' + estadoBg + ';';
+
     const grupoKey = encodeURIComponent(g.key);
     const idsJson = encodeURIComponent(JSON.stringify(ids));
-    html += '<td style="padding:6px 10px;text-align:center;white-space:nowrap">'
-      + '<button onclick="ensayosEditarGrupo(\'' + grupoKey + '\')" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:.85rem;padding:2px 6px" title="Editar">✏️</button>'
-      + '<button onclick="ensayosEliminarGrupo(\'' + idsJson + '\')" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:1rem;padding:2px 4px" title="Eliminar grupo">\u2715</button>'
+
+    html += '<tr style="' + rowBg + 'border-bottom:1px solid #dde">';
+    html += '<td style="' + TD + 'white-space:nowrap">' + (fecha_toma||'\u2014') + '</td>';
+    html += '<td style="' + TD + 'white-space:nowrap">' + (fecha_acta||'\u2014') + '</td>';
+    html += '<td style="' + TD + '">' + (num_acta||'\u2014') + '</td>';
+    html += '<td style="' + TD + '">' + (num_albaran||'\u2014') + '</td>';
+    html += '<td style="' + TD + 'font-weight:700;color:' + estadoColor + '">' + (estado === 'conforme' ? 'C' : estado === 'no_conforme' ? 'NC' : 'P') + '</td>';
+
+    // Granulometría
+    granCols.forEach(function(t) {
+      const v = gran['gran_'+t];
+      html += '<td style="' + TD + (v!=null?'':'color:#ccc') + '">' + (v!=null?v:'\u2014') + '</td>';
+    });
+
+    // Extras
+    extraCols.forEach(function(c) {
+      const v = extras[c.key];
+      html += '<td style="' + TD + (v!=null?'':'color:#ccc') + '">' + (v!=null?v:'\u2014') + '</td>';
+    });
+
+    html += '<td style="' + TD + 'white-space:nowrap">'
+      + '<button onclick="ensayosEditarGrupo(\'' + grupoKey + '\')" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:.85rem;padding:2px 4px" title="Editar">✏️</button>'
+      + '<button onclick="ensayosEliminarGrupo(\'' + idsJson + '\')" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:1rem;padding:2px 4px" title="Eliminar">\u2715</button>'
       + '</td>';
     html += '</tr>';
   });
 
-  if (!grupos.length) html += '<tr><td colspan="10" style="padding:20px;text-align:center;color:var(--muted)">Sin registros para ' + _ensayosFraccion + '</td></tr>';
+  if (!grupos.length) html += '<tr><td colspan="' + nTotal + '" style="padding:20px;text-align:center;color:var(--muted)">Sin registros para ' + _ensayosFraccion + '</td></tr>';
   html += '</tbody></table></div>';
   return html;
 }
@@ -10495,7 +10626,7 @@ function _ensayosParseActa(text) {
     var bloque = bloqueM[1].replace(/------[\s\S]*/i,'').replace(/Esocan[\s\S]*/i,'').trim();
     var pares = [...bloque.matchAll(/\b(\d+[,.]?\d*)\s{1,15}(\d{1,3})\b/g)];
     // Mapa tamiz normalizado -> clave gran_
-    var tamMap = {'63':'63','50':'50','40':'40','32':'32','20':'20','16':'16','14':'14','12.5':'12.5','12,5':'12.5','10':'10',
+    var tamMap = {'80':'80','63':'63','50':'50','40':'40','32':'32','20':'20','16':'16','14':'14','13':'13','12.5':'12.5','12,5':'12.5','10':'10',
                   '8':'8','6.3':'6.3','6,3':'6.3','4':'4','2':'2','1':'1',
                   '0.5':'0.5','0,5':'0.5','0.25':'0.25','0,25':'0.25',
                   '0.125':'0.125','0,125':'0.125','0.063':'0.063','0,063':'0.063'};
