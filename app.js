@@ -10062,36 +10062,65 @@ function _ensayosRenderRegistros() {
   html += '</div>';
 
   const regs = _ensayosRegistros.filter(function(r){ return r.fraccion === _ensayosFraccion; })
-    .sort(function(a,b){ return (b.fecha_toma||'').localeCompare(a.fecha_toma||''); });
+    .sort(function(a,b){ return (b.fecha_toma||b.created_at||'').localeCompare(a.fecha_toma||a.created_at||''); });
+
+  // Agrupar por num_albaran (o por semana_id+fecha_toma si no hay albaran)
+  const grupos = [];
+  const vistos = {};
+  regs.forEach(function(r) {
+    const key = r.num_albaran || (r.semana_id + '_' + (r.fecha_toma||''));
+    if (!vistos[key]) {
+      vistos[key] = { key: key, regs: [], fecha_toma: r.fecha_toma, num_albaran: r.num_albaran };
+      grupos.push(vistos[key]);
+    }
+    vistos[key].regs.push(r);
+  });
 
   html += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:.78rem;width:100%">';
   html += '<thead><tr style="background:#1e2a1e;color:#fff">';
-  ['ESTADO','FECHA TOMA','FECHA ENSAYO','N\u00ba MUESTRA','N\u00ba ALBAR\u00c1N','DECL. PREST.','GRANULOMETR\u00cdA \u2014 % QUE PASA (UNE-EN 933-1)','EQ. ARENA','CONT. FINOS','COMENTARIO',''].forEach(function(h){
-    html += '<th style="padding:7px 10px;white-space:nowrap">' + h + '</th>';
+  ['ESTADO','FECHA TOMA','FECHA ENSAYO','N\u00ba ALBAR\u00c1N','N\u00ba ACTA','GRANULOMETR\u00cdA \u2014 % QUE PASA (UNE-EN 933-1)','EQ. ARENA','CONT. FINOS',''].forEach(function(h){
+    html += '<th style="padding:7px 10px;white-space:nowrap;text-align:left">' + h + '</th>';
   });
   html += '</tr></thead><tbody>';
 
-  regs.forEach(function(r) {
-    const res = r.resultados || {};
-    const estadoLabel = r.estado === 'conforme' ? 'Conforme' : r.estado === 'no_conforme' ? 'No conforme' : 'Pendiente';
-    const estadoColor = r.estado === 'conforme' ? '#4caf50' : r.estado === 'no_conforme' ? '#f44336' : '#ff9800';
-    const granStr = ['8','6.3','4','2','1','0.5','0.25','0.125','0.063'].map(function(t){ return res['gran_'+t] != null ? res['gran_'+t] : '\u2014'; }).join(' | ');
+  grupos.forEach(function(g) {
+    // Combinar datos de todos los registros del grupo
+    const gran = {}, ids = [];
+    let eq_arena = null, cont_finos = null;
+    let fecha_toma = null, fecha_acta = null, num_albaran = null, num_acta = null;
+    let estado = 'recogido';
+    g.regs.forEach(function(r) {
+      ids.push(r.id);
+      const res = r.resultados || {};
+      if (r.fecha_toma) fecha_toma = r.fecha_toma;
+      if (r.fecha_acta) fecha_acta = r.fecha_acta;
+      if (r.num_albaran) num_albaran = r.num_albaran;
+      if (r.num_acta) num_acta = r.num_acta;
+      if (r.tipo_ensayo === 'granulometria') Object.assign(gran, res);
+      if (r.tipo_ensayo === 'eq_arena' && res.eq_arena != null) eq_arena = res.eq_arena;
+      if (r.tipo_ensayo === 'cont_finos' && res.cont_finos != null) cont_finos = res.cont_finos;
+      if (r.estado === 'conforme') estado = 'conforme';
+      else if (r.estado === 'no_conforme' && estado !== 'conforme') estado = 'no_conforme';
+    });
+    const estadoLabel = estado === 'conforme' ? 'Conforme' : estado === 'no_conforme' ? 'No conforme' : 'Pendiente';
+    const estadoColor = estado === 'conforme' ? '#4caf50' : estado === 'no_conforme' ? '#f44336' : '#ff9800';
+    const granStr = ['8','6.3','4','2','1','0.5','0.25','0.125','0.063'].map(function(t){ return gran['gran_'+t] != null ? gran['gran_'+t] : '\u2014'; }).join(' | ');
     html += '<tr style="border-bottom:1px solid var(--border)">';
     html += '<td style="padding:6px 10px"><span style="background:' + estadoColor + ';color:#fff;padding:2px 8px;border-radius:10px;font-size:.72rem">' + estadoLabel + '</span></td>';
-    html += '<td style="padding:6px 10px;white-space:nowrap">' + (r.fecha_toma||'\u2014') + '</td>';
-    html += '<td style="padding:6px 10px;white-space:nowrap">' + (r.fecha_acta||'\u2014') + '</td>';
-    html += '<td style="padding:6px 10px">' + (r.num_muestra||'\u2014') + '</td>';
-    html += '<td style="padding:6px 10px">' + (r.num_albaran||'\u2014') + '</td>';
-    html += '<td style="padding:6px 10px">' + (r.num_acta||'\u2014') + '</td>';
+    html += '<td style="padding:6px 10px;white-space:nowrap">' + (fecha_toma||'\u2014') + '</td>';
+    html += '<td style="padding:6px 10px;white-space:nowrap">' + (fecha_acta||'\u2014') + '</td>';
+    html += '<td style="padding:6px 10px">' + (num_albaran||'\u2014') + '</td>';
+    html += '<td style="padding:6px 10px">' + (num_acta||'\u2014') + '</td>';
     html += '<td style="padding:6px 10px;font-size:.72rem">' + granStr + '</td>';
-    html += '<td style="padding:6px 10px">' + (res.eq_arena!=null?res.eq_arena:'\u2014') + '</td>';
-    html += '<td style="padding:6px 10px">' + (res.cont_finos!=null?res.cont_finos:'\u2014') + '</td>';
-    html += '<td style="padding:6px 10px;color:var(--muted)">' + (r.comentario||'') + '</td>';
-    html += '<td style="padding:6px 10px;text-align:center"><button onclick="ensayosEliminarRegistro(\'' + r.id + '\')" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:1rem;padding:2px 6px" title="Eliminar">\u2715</button></td>';
+    html += '<td style="padding:6px 10px">' + (eq_arena!=null?eq_arena:'\u2014') + '</td>';
+    html += '<td style="padding:6px 10px">' + (cont_finos!=null?cont_finos:'\u2014') + '</td>';
+    html += '<td style="padding:6px 10px;text-align:center">'
+      + ids.map(function(id){ return '<button onclick="ensayosEliminarRegistro(\'' + id + '\')" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:1rem;padding:2px 4px" title="Eliminar">\u2715</button>'; }).join('')
+      + '</td>';
     html += '</tr>';
   });
 
-  if (!regs.length) html += '<tr><td colspan="10" style="padding:20px;text-align:center;color:var(--muted)">Sin registros para ' + _ensayosFraccion + '</td></tr>';
+  if (!grupos.length) html += '<tr><td colspan="9" style="padding:20px;text-align:center;color:var(--muted)">Sin registros para ' + _ensayosFraccion + '</td></tr>';
   html += '</tbody></table></div>';
   return html;
 }
@@ -10326,10 +10355,12 @@ function _ensayosParseActa(text) {
   if (mActa) r.num_acta = mActa[1];
 
   // Nº ALBARÁN / MUESTRA — puede venir como ".2026/101" (con punto delante)
-  const mAlb = text.match(/MUESTRA[\s\S]{0,60}?\.?(20\d{2}\/\d+)/i);
+  // Solo años 202x/203x y mínimo 2 dígitos tras la barra (excluye "2015/1" de normas)
+  const reAlbaran = /\b(20[2-9]\d\/\d{2,})\b/g;
+  const mAlb = text.match(/MUESTRA[\s\S]{0,60}?\.?(20[2-9]\d\/\d{2,})/i);
   if (mAlb && mAlb[1] !== r.num_acta) r.num_albaran = mAlb[1];
   if (!r.num_albaran || r.num_albaran === r.num_acta) {
-    const todos = [...text.matchAll(/\.?(20\d{2}\/\d+)/g)].map(m=>m[1]);
+    const todos = [...text.matchAll(reAlbaran)].map(m=>m[1]);
     const distinto = todos.find(function(n){ return n !== r.num_acta; });
     if (distinto) r.num_albaran = distinto;
   }
@@ -10380,9 +10411,9 @@ function _ensayosParseActa(text) {
     r.resultados = res;
   }
 
-  // Eq. Arena
+  // Eq. Arena — "EQUIVALENTE DE ARENA   85"
   if (r.tipo_ensayo === 'eq_arena') {
-    const m = text.match(/(\d{1,3}(?:[,.]\d+)?)\s*%/);
+    const m = text.match(/EQUIVALENTE DE ARENA\s+([\d]+(?:[,.]\d+)?)/i);
     if (m) r.resultados = { eq_arena: parseFloat(m[1].replace(',','.')) };
   }
 
@@ -10416,6 +10447,72 @@ function ensayosDropPDFs(files) {
 
 // ── Modal confirmación acta ───────────────────────────────────
 let _ensayosConfirmResolve = null;
+let _ecfPdf = null;
+let _ecfPdfScale = 1.2;
+
+function _ecfRenderPdf() {
+  if (!_ecfPdf) return;
+  const wrap = document.getElementById('ecf-pdf-canvas-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  var pageNums = [];
+  for (var i = 1; i <= _ecfPdf.numPages; i++) pageNums.push(i);
+  pageNums.reduce(function(p, pageNum) {
+    return p.then(function() {
+      return _ecfPdf.getPage(pageNum).then(function(page) {
+        var vp = page.getViewport({ scale: _ecfPdfScale });
+        var canvas = document.createElement('canvas');
+        canvas.width = vp.width; canvas.height = vp.height;
+        canvas.style.cssText = 'display:block;width:100%;margin-bottom:4px;border-radius:4px';
+        wrap.appendChild(canvas);
+        return page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+      });
+    });
+  }, Promise.resolve());
+}
+
+function ecfPdfImprimir() {
+  if (!_ecfPdf) return;
+  // Renderizar todas las páginas en alta resolución en un iframe oculto y lanzar impresión
+  var iframe = document.getElementById('ecf-pdf-print-frame');
+  if (!iframe) {
+    iframe = document.createElement('iframe');
+    iframe.id = 'ecf-pdf-print-frame';
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none';
+    document.body.appendChild(iframe);
+  }
+  var printScale = 2.0;
+  var pageNums = [];
+  for (var i = 1; i <= _ecfPdf.numPages; i++) pageNums.push(i);
+  var canvases = [];
+  pageNums.reduce(function(p, pn) {
+    return p.then(function() {
+      return _ecfPdf.getPage(pn).then(function(page) {
+        var vp = page.getViewport({ scale: printScale });
+        var canvas = document.createElement('canvas');
+        canvas.width = vp.width; canvas.height = vp.height;
+        return page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise.then(function() {
+          canvases.push({ dataUrl: canvas.toDataURL('image/png'), w: vp.width, h: vp.height });
+        });
+      });
+    });
+  }, Promise.resolve()).then(function() {
+    var html = '<html><head><style>body{margin:0;padding:0}img{display:block;width:100%;page-break-after:always}</style></head><body>';
+    canvases.forEach(function(c) { html += '<img src="' + c.dataUrl + '">'; });
+    html += '</body></html>';
+    iframe.contentDocument.open();
+    iframe.contentDocument.write(html);
+    iframe.contentDocument.close();
+    setTimeout(function() { iframe.contentWindow.print(); }, 400);
+  });
+}
+
+function ecfPdfZoom(delta) {
+  _ecfPdfScale = Math.max(0.4, Math.min(3, _ecfPdfScale + delta));
+  const lbl = document.getElementById('ecf-pdf-zoom-label');
+  if (lbl) lbl.textContent = Math.round(_ecfPdfScale / 1.2 * 100) + '%';
+  _ecfRenderPdf();
+}
 
 async function ensayosAbrirConfirm(filename, d, pdfUrl) {
   return new Promise(function(resolve) {
@@ -10428,23 +10525,12 @@ async function ensayosAbrirConfirm(filename, d, pdfUrl) {
       if (pdfUrl) {
         pdfCol.style.display = 'flex';
         pdfWrap.innerHTML = '<div style="color:#aaa;font-size:.8rem;padding:12px">Cargando PDF...</div>';
+        _ecfPdfScale = 1.2;
+        const lbl2 = document.getElementById('ecf-pdf-zoom-label');
+        if (lbl2) lbl2.textContent = '100%';
         pdfjsLib.getDocument(pdfUrl).promise.then(function(pdf) {
-          pdfWrap.innerHTML = '';
-          var pageNums = [];
-          for (var i = 1; i <= pdf.numPages; i++) pageNums.push(i);
-          pageNums.reduce(function(p, pageNum) {
-            return p.then(function() {
-              return pdf.getPage(pageNum).then(function(page) {
-                var vp = page.getViewport({ scale: 1.2 });
-                var canvas = document.createElement('canvas');
-                canvas.width = vp.width;
-                canvas.height = vp.height;
-                canvas.style.cssText = 'display:block;width:100%;margin-bottom:4px;border-radius:4px';
-                pdfWrap.appendChild(canvas);
-                return page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
-              });
-            });
-          }, Promise.resolve());
+          _ecfPdf = pdf;
+          _ecfRenderPdf();
         }).catch(function() {
           pdfWrap.innerHTML = '<div style="color:#f88;font-size:.8rem;padding:12px">No se pudo cargar el PDF</div>';
         });
@@ -10517,6 +10603,7 @@ async function ensayosAbrirConfirm(filename, d, pdfUrl) {
 
 function ensayosCerrarConfirm() {
   document.getElementById('ensayos-confirm-modal').style.display = 'none';
+  _ecfPdf = null;
   if (_ensayosConfirmResolve) { _ensayosConfirmResolve(null); _ensayosConfirmResolve = null; }
 }
 
@@ -10551,7 +10638,7 @@ async function ensayosConfirmarGuardar() {
     num_acta: document.getElementById('ecf-num-acta').value || null,
     num_albaran: document.getElementById('ecf-num-albaran').value || null,
     resultados: resultados,
-    estado: 'recogido'
+    estado: Object.keys(resultados).length > 0 ? 'conforme' : 'recogido'
   };
 
   const existing = _ensayosRegistros.find(function(r) {
