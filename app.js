@@ -10116,8 +10116,9 @@ var _COLS_REGISTROS = {
   '0/4': {
     titulo: 'CONTROL DE ENSAYOS 0/4. V8',
     gran: ['8','6.3','4','2','1','0.5','0.25','0.125','0.063'],
+    granCnc: ['8','6.3','4'],  // tamices con columna C/NC
     extras: [
-      {label:'Equivalente de arena', key:'eq_arena'},
+      {label:'Equivalente de arena', key:'eq_arena', cnc:true},
       {label:'Azul de metileno', key:'azul_metileno'},
       {label:'Contenido de finos', key:'cont_finos'},
       {label:'Densidad de partículas', key:'densidad_p'},
@@ -10135,9 +10136,10 @@ var _COLS_REGISTROS = {
   '4/12': {
     titulo: 'CONTROL DE ENSAYOS 4/12. V8',
     gran: ['31.5','20','16','14','12.5','10','8','6.3','4','2'],
+    granCnc: ['14','12.5','2'],
     extras: [
       {label:'Contenido de finos', key:'cont_finos'},
-      {label:'Índice de lajas<20', key:'ind_lajas'},
+      {label:'Índice de lajas<20', key:'ind_lajas', cnc:true},
       {label:'Porcentaje de caras de fractura', key:'caras_fractura'},
       {label:'Resistencia a la fragmentación (LA 20)', key:'los_angeles'},
       {label:'Resistencia al Pulimento (CPA)', key:'cpa'},
@@ -10150,9 +10152,10 @@ var _COLS_REGISTROS = {
   '12/20': {
     titulo: 'CONTROL DE ENSAYOS 12/20. V8',
     gran: ['63','40','31.5','20','16','14','12.5','10','8','6.3'],
+    granCnc: ['20','16','12.5'],
     extras: [
-      {label:'Contenido de finos', key:'cont_finos'},
-      {label:'Índice de lajas', key:'ind_lajas'},
+      {label:'Contenido de finos', key:'cont_finos', cnc:true},
+      {label:'Índice de lajas', key:'ind_lajas', cnc:true},
       {label:'Porcentaje de caras de fractura', key:'caras_fractura'},
       {label:'Resistencia a la fragmentación (LA)', key:'los_angeles'},
       {label:'Resistencia al Pulimento (CPA)', key:'cpa'},
@@ -10169,9 +10172,10 @@ var _COLS_REGISTROS = {
   '20/40': {
     titulo: 'CONTROL DE ENSAYOS 20/40. V8',
     gran: ['80','63','40','32','20','16','14','13','10'],
+    granCnc: ['63','40'],
     extras: [
-      {label:'Contenido de finos', key:'cont_finos'},
-      {label:'Índice de lajas<20', key:'ind_lajas'},
+      {label:'Contenido de finos', key:'cont_finos', cnc:true},
+      {label:'Índice de lajas<20', key:'ind_lajas', cnc:true},
       {label:'Porcentaje de caras de fractura', key:'caras_fractura'},
       {label:'Resistencia a la fragmentación (LA)', key:'los_angeles'},
       {label:'Resistencia al Pulimento (CPA)', key:'cpa'},
@@ -10217,52 +10221,59 @@ function _ensayosRenderRegistros() {
   });
 
   // Estilos cabecera
-  const TH_BLU = 'padding:4px 6px;border:1px solid #7eb8d8;background:#4472c4;color:#fff;text-align:center;font-size:.62rem;font-weight:700;white-space:nowrap;line-height:1.2;';
   const TH_GRN = 'padding:4px 6px;border:1px solid #7eb87e;background:#70ad47;color:#fff;text-align:center;font-size:.62rem;font-weight:700;white-space:nowrap;line-height:1.2;';
+  const TH_GRN2 = 'padding:2px 3px;border:1px solid #7eb87e;background:#548235;color:#fff;text-align:center;font-size:.6rem;font-weight:700;white-space:nowrap;width:22px;min-width:18px;';
   const TH_PRP = 'padding:4px 6px;border:1px solid #9b8fbf;background:#7030a0;color:#fff;text-align:center;font-size:.62rem;font-weight:700;white-space:nowrap;line-height:1.2;';
+  const TH_PRP2 = 'padding:2px 3px;border:1px solid #9b8fbf;background:#4b1875;color:#fff;text-align:center;font-size:.6rem;font-weight:700;white-space:nowrap;width:22px;min-width:18px;';
   const TH_HDR = 'padding:4px 6px;border:1px solid #ccc;background:#1e2a1e;color:#fff;text-align:center;font-size:.62rem;font-weight:700;white-space:nowrap;';
   const TD = 'padding:3px 6px;border:1px solid #dde;font-size:.7rem;text-align:center;';
-  const nGran = granCols.length;
-  const nExtra = extraCols.length;
-  const nTotal = 6 + nGran + nExtra + 1; // estado+fecha_toma+fecha_acta+num_muestra+num_albaran+decl + gran + extra + acciones
+  const TD_CNC = 'padding:2px 3px;border:1px solid #dde;font-size:.65rem;text-align:center;font-weight:700;width:22px;min-width:18px;';
+  const granCnc = cfg.granCnc || [];
+  // Calcular colspan total para fila 1 REQUISITOS GEOMÉTRICOS (tamices + C/NC cols de gran)
+  const nGranCols = granCols.reduce(function(acc, t){ return acc + 1 + (granCnc.indexOf(t) >= 0 ? 1 : 0); }, 0);
+  const nTotal = 6 + nGranCols + extraCols.reduce(function(acc,c){ return acc + 1 + (c.cnc ? 1 : 0); }, 0) + 1;
 
   // Título
   html += '<div style="text-align:center;font-weight:700;font-size:.9rem;background:#4472c4;color:#fff;padding:6px;border-radius:6px 6px 0 0;letter-spacing:.05em">' + cfg.titulo + '</div>';
   html += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:.7rem;background:#fff;width:100%">';
   html += '<thead>';
 
-  // Fila 1: grupos
+  // Fila 1: grupos grandes
   html += '<tr>';
   html += '<th colspan="5" style="' + TH_HDR + '"></th>';
-  html += '<th rowspan="3" style="' + TH_HDR + 'vertical-align:middle;min-width:80px">Declaración<br>de<br>prestaciones</th>';
-  html += '<th colspan="' + nGran + '" style="' + TH_GRN + '">REQUISITOS GEOMÉTRICOS</th>';
+  html += '<th rowspan="2" style="' + TH_HDR + 'vertical-align:middle;min-width:70px;font-size:.58rem">Decl.<br>Prestaciones</th>';
+  html += '<th colspan="' + nGranCols + '" style="' + TH_GRN + '">REQUISITOS GEOMÉTRICOS — Granulometría (% que pasa) — Tamiz</th>';
   extraCols.forEach(function(c){
-    html += '<th rowspan="3" style="' + TH_PRP + 'vertical-align:bottom;width:32px;min-width:32px;max-width:40px;padding:6px 2px"><div style="writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;font-size:.6rem;line-height:1.1">' + c.label + '</div></th>';
+    var span = c.cnc ? 2 : 1;
+    html += '<th colspan="' + span + '" rowspan="' + (c.cnc ? 1 : 2) + '" style="' + TH_PRP + 'vertical-align:bottom;padding:6px 2px"><div style="writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;font-size:.6rem;line-height:1.1">' + c.label + '</div></th>';
   });
-  html += '<th rowspan="3" style="' + TH_HDR + '"></th>';
+  html += '<th rowspan="2" style="' + TH_HDR + '"></th>';
   html += '</tr>';
 
-  // Fila 2: sub-grupos granulometría
+  // Fila 2: columnas individuales
   html += '<tr>';
-  html += '<th colspan="5" style="' + TH_HDR + '"></th>';
-  html += '<th colspan="' + nGran + '" style="' + TH_GRN + '">Granulometría (% que pasa)<br><span style="font-weight:400;font-size:.6rem">Tamiz</span></th>';
-  html += '</tr>';
-
-  // Fila 3: columnas individuales
-  html += '<tr>';
-  ['Fecha de toma','Fecha de ensayo','Nº de muestra','Nº Albarán','Estado'].forEach(function(h){
-    html += '<th style="' + TH_HDR + '">' + h + '</th>';
+  ['Fecha toma','Fecha ensayo','Nº muestra','Nº Albarán','Estado'].forEach(function(h){
+    html += '<th style="' + TH_HDR + 'font-size:.58rem">' + h + '</th>';
   });
   granCols.forEach(function(t){
     html += '<th style="' + TH_GRN + '">' + t + '</th>';
+    if (granCnc.indexOf(t) >= 0) {
+      html += '<th style="' + TH_GRN2 + '">C/NC</th>';
+    }
+  });
+  extraCols.forEach(function(c){
+    if (c.cnc) {
+      html += '<th style="' + TH_PRP + 'vertical-align:bottom;padding:4px 2px"><div style="writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;font-size:.6rem">Valor</div></th>';
+      html += '<th style="' + TH_PRP2 + 'vertical-align:middle">C/NC</th>';
+    }
   });
   html += '</tr>';
   html += '</thead><tbody>';
 
   // Filas de datos
   grupos.forEach(function(g) {
-    const gran = {}, ids = [];
-    const extras = {};
+    const gran = {}, granCncVals = {}, ids = [];
+    const extras = {}, extraCncVals = {};
     let fecha_toma = null, fecha_acta = null, num_albaran = null, num_acta = null;
     let estado = 'recogido';
     g.regs.forEach(function(r) {
@@ -10273,14 +10284,12 @@ function _ensayosRenderRegistros() {
       if (r.num_albaran) num_albaran = r.num_albaran;
       if (r.num_acta) num_acta = r.num_acta;
       if (r.tipo_ensayo === 'granulometria') Object.assign(gran, res);
-      // Mapear resultados a claves extras
       extraCols.forEach(function(c) {
         if (res[c.key] != null) extras[c.key] = res[c.key];
-        // aliases
-        if (c.key === 'eq_arena' && res.eq_arena != null) extras.eq_arena = res.eq_arena;
-        if (c.key === 'cont_finos' && res.cont_finos != null) extras.cont_finos = res.cont_finos;
-        if (c.key === 'ind_lajas' && res.ind_lajas != null) extras.ind_lajas = res.ind_lajas;
       });
+      // leer C/NC guardados
+      if (res._cnc) Object.assign(extraCncVals, res._cnc);
+      if (res._gran_cnc) Object.assign(granCncVals, res._gran_cnc);
       if (r.estado === 'conforme') estado = 'conforme';
       else if (r.estado === 'no_conforme' && estado !== 'conforme') estado = 'no_conforme';
     });
@@ -10288,7 +10297,6 @@ function _ensayosRenderRegistros() {
     const estadoColor = estado === 'conforme' ? '#4caf50' : estado === 'no_conforme' ? '#c62828' : '#ff9800';
     const estadoBg = estado === 'conforme' ? '#e8f5e9' : estado === 'no_conforme' ? '#ffebee' : '#fff8e1';
     const rowBg = 'background:' + estadoBg + ';';
-
     const grupoKey = encodeURIComponent(g.key);
     const idsJson = encodeURIComponent(JSON.stringify(ids));
 
@@ -10298,17 +10306,29 @@ function _ensayosRenderRegistros() {
     html += '<td style="' + TD + '">' + (num_acta||'\u2014') + '</td>';
     html += '<td style="' + TD + '">' + (num_albaran||'\u2014') + '</td>';
     html += '<td style="' + TD + 'font-weight:700;color:' + estadoColor + '">' + (estado === 'conforme' ? 'C' : estado === 'no_conforme' ? 'NC' : 'P') + '</td>';
+    // Declaración prestaciones
+    html += '<td style="' + TD + '"></td>';
 
-    // Granulometría
+    // Granulometría + C/NC
     granCols.forEach(function(t) {
       const v = gran['gran_'+t];
       html += '<td style="' + TD + (v!=null?'':'color:#ccc') + '">' + (v!=null?v:'\u2014') + '</td>';
+      if (granCnc.indexOf(t) >= 0) {
+        const cv = granCncVals[t];
+        const cvBg = cv === 'C' ? 'background:#4caf50;color:#fff;' : cv === 'NC' ? 'background:#c62828;color:#fff;' : '';
+        html += '<td style="' + TD_CNC + cvBg + '">' + (cv||'') + '</td>';
+      }
     });
 
-    // Extras
+    // Extras + C/NC
     extraCols.forEach(function(c) {
       const v = extras[c.key];
       html += '<td style="' + TD + (v!=null?'':'color:#ccc') + '">' + (v!=null?v:'\u2014') + '</td>';
+      if (c.cnc) {
+        const cv = extraCncVals[c.key];
+        const cvBg = cv === 'C' ? 'background:#4caf50;color:#fff;' : cv === 'NC' ? 'background:#c62828;color:#fff;' : '';
+        html += '<td style="' + TD_CNC + cvBg + '">' + (cv||'') + '</td>';
+      }
     });
 
     html += '<td style="' + TD + 'white-space:nowrap">'
