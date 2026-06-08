@@ -10119,7 +10119,9 @@ function _ensayosRenderRegistros() {
     html += '<td style="padding:6px 10px">' + (eq_arena!=null?eq_arena:'\u2014') + '</td>';
     html += '<td style="padding:6px 10px">' + (cont_finos!=null?cont_finos:'\u2014') + '</td>';
     html += '<td style="padding:6px 10px">' + (ind_lajas!=null?ind_lajas:'\u2014') + '</td>';
-    html += '<td style="padding:6px 10px;text-align:center">'
+    const grupoKey = encodeURIComponent(g.key);
+    html += '<td style="padding:6px 10px;text-align:center;white-space:nowrap">'
+      + '<button onclick="ensayosEditarGrupo(\'' + grupoKey + '\')" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:.85rem;padding:2px 6px" title="Editar">✏️</button>'
       + ids.map(function(id){ return '<button onclick="ensayosEliminarRegistro(\'' + id + '\')" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:1rem;padding:2px 4px" title="Eliminar">\u2715</button>'; }).join('')
       + '</td>';
     html += '</tr>';
@@ -10580,6 +10582,10 @@ async function ensayosAbrirConfirm(filename, d, pdfUrl) {
       }
     }
 
+    // Limpiar modo edición (solo se activa desde ensayosEditarGrupo)
+    const _editIdsEl = document.getElementById('ecf-edit-ids');
+    if (_editIdsEl && !_editIdsEl.value) _editIdsEl.value = '';
+
     // Rellenar campos
     document.getElementById('ensayos-confirm-filename').textContent = filename;
     document.getElementById('ecf-num-acta').value = d.num_acta || '';
@@ -10653,6 +10659,8 @@ async function ensayosAbrirConfirm(filename, d, pdfUrl) {
 function ensayosCerrarConfirm() {
   document.getElementById('ensayos-confirm-modal').style.display = 'none';
   _ecfPdf = null;
+  const _eIdsEl = document.getElementById('ecf-edit-ids');
+  if (_eIdsEl) _eIdsEl.value = '';
   if (_ensayosConfirmResolve) { _ensayosConfirmResolve(null); _ensayosConfirmResolve = null; }
 }
 
@@ -10693,13 +10701,24 @@ async function ensayosConfirmarGuardar() {
     estado: Object.keys(resultados).length > 0 ? 'conforme' : 'recogido'
   };
 
-  const existing = _ensayosRegistros.find(function(r) {
-    return r.semana_id === semanaId && r.tipo_ensayo === tipo && r.fraccion === fraccion;
-  });
+  // Modo edición — actualizar todos los registros del grupo
+  const editIdsEl = document.getElementById('ecf-edit-ids');
+  const editIds = editIdsEl && editIdsEl.value ? editIdsEl.value.split(',') : null;
 
   let res;
-  if (existing) res = await updateEnsayoRegistro(existing.id, payload);
-  else res = await insertEnsayoRegistro(payload);
+  if (editIds && editIds.length > 0) {
+    // Actualizar cada registro del grupo con los campos comunes
+    const updates = editIds.map(function(id) { return updateEnsayoRegistro(id, payload); });
+    const results = await Promise.all(updates);
+    const failed = results.find(function(r){ return !r.ok; });
+    res = failed || { ok: true };
+  } else {
+    const existing = _ensayosRegistros.find(function(r) {
+      return r.semana_id === semanaId && r.tipo_ensayo === tipo && r.fraccion === fraccion;
+    });
+    if (existing) res = await updateEnsayoRegistro(existing.id, payload);
+    else res = await insertEnsayoRegistro(payload);
+  }
 
   if (!res.ok) { alert('Error al guardar: ' + res.error); return; }
 
@@ -10718,6 +10737,57 @@ async function ensayosConfirmarGuardar() {
     toast.style.display = 'block';
     setTimeout(function(){ toast.style.display='none'; toast.style.background='#333'; }, 3000);
   }
+}
+
+// ── Editar grupo de registros ──────────────────────────────────
+let _ecfEditIds = null; // IDs a actualizar en modo edición
+
+async function ensayosEditarGrupo(grupoKey) {
+  const key = decodeURIComponent(grupoKey);
+  const regs = _ensayosRegistros.filter(function(r) {
+    const k = r.num_albaran || (r.semana_id + '_' + (r.fecha_toma||''));
+    return k === key && r.fraccion === _ensayosFraccion;
+  });
+  if (!regs.length) return;
+
+  // Combinar datos del grupo igual que en render
+  const gran = {}, ids = [];
+  let eq_arena = null, cont_finos = null, ind_lajas = null;
+  let fecha_toma = null, fecha_acta = null, num_albaran = null, num_acta = null;
+  let semana_id = null, fraccion = null, tipo_ensayo = null;
+  regs.forEach(function(r) {
+    ids.push(r.id);
+    const res = r.resultados || {};
+    if (r.fecha_toma) fecha_toma = r.fecha_toma;
+    if (r.fecha_acta) fecha_acta = r.fecha_acta;
+    if (r.num_albaran) num_albaran = r.num_albaran;
+    if (r.num_acta) num_acta = r.num_acta;
+    if (r.semana_id) semana_id = r.semana_id;
+    if (r.fraccion) fraccion = r.fraccion;
+    if (r.tipo_ensayo) tipo_ensayo = r.tipo_ensayo;
+    if (r.tipo_ensayo === 'granulometria') Object.assign(gran, res);
+    if (r.tipo_ensayo === 'eq_arena' && res.eq_arena != null) eq_arena = res.eq_arena;
+    if (r.tipo_ensayo === 'cont_finos' && res.cont_finos != null) cont_finos = res.cont_finos;
+    if (r.tipo_ensayo === 'ind_lajas' && res.ind_lajas != null) ind_lajas = res.ind_lajas;
+  });
+
+  // Rellenar campo oculto con IDs del grupo
+  const editIdsEl2 = document.getElementById('ecf-edit-ids');
+  if (editIdsEl2) editIdsEl2.value = ids.join(',');
+
+  const d = {
+    num_acta, num_albaran, fecha_toma, fecha_acta,
+    fraccion, tipo_ensayo,
+    resultados: tipo_ensayo === 'granulometria' ? gran
+      : tipo_ensayo === 'eq_arena' ? { eq_arena }
+      : tipo_ensayo === 'cont_finos' ? { cont_finos }
+      : tipo_ensayo === 'ind_lajas' ? { ind_lajas }
+      : {}
+  };
+
+  // Cambiar título modal a "Editar"
+  await ensayosAbrirConfirm('Editar registro — ' + (num_albaran||fraccion), d, null);
+  _ecfEditIds = null;
 }
 
 // ── Eliminar registro ─────────────────────────────────────────
