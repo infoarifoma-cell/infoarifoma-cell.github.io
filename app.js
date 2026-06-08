@@ -9849,9 +9849,12 @@ let _ensayosFraccion = '0/4';
 
 // API
 async function getEnsayosSemanas(anio) {
+  const res = await dbQuery({ action:'select', table:'ensayos_semanas', options:{ select:'*', order:'fecha_lunes.desc', limit:500 } });
+  if (!res.ok) return res;
   const desde = anio + '-01-01';
   const hasta = anio + '-12-31';
-  return dbQuery({ action:'select', table:'ensayos_semanas', options:{ select:'*', order:'fecha_lunes.desc' }, filters:[{column:'fecha_lunes',op:'gte',value:desde},{column:'fecha_lunes',op:'lte',value:hasta}] });
+  res.data = res.data.filter(function(r){ return r.fecha_lunes >= desde && r.fecha_lunes <= hasta; });
+  return res;
 }
 async function insertEnsayoSemana(data) {
   return dbQuery({ action:'insert', table:'ensayos_semanas', data });
@@ -9860,9 +9863,12 @@ async function updateEnsayoSemana(id, data) {
   return dbQuery({ action:'update', table:'ensayos_semanas', data, filters:[{column:'id',op:'eq',value:id}] });
 }
 async function getEnsayosRegistros(anio) {
+  const res = await dbQuery({ action:'select', table:'ensayos_registros', options:{ select:'*', order:'fecha_toma.desc', limit:1000 } });
+  if (!res.ok) return res;
   const desde = anio + '-01-01';
   const hasta = anio + '-12-31';
-  return dbQuery({ action:'select', table:'ensayos_registros', options:{ select:'*', order:'fecha_toma.desc' }, filters:[{column:'fecha_toma',op:'gte',value:desde},{column:'fecha_toma',op:'lte',value:hasta}] });
+  res.data = res.data.filter(function(r){ return r.fecha_toma >= desde && r.fecha_toma <= hasta; });
+  return res;
 }
 async function insertEnsayoRegistro(data) {
   return dbQuery({ action:'insert', table:'ensayos_registros', data });
