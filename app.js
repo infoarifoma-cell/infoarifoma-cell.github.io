@@ -9853,7 +9853,7 @@ async function getEnsayosSemanas(anio) {
   if (!res.ok) return res;
   const desde = anio + '-01-01';
   const hasta = anio + '-12-31';
-  res.data = res.data.filter(function(r){ return r.fecha_lunes >= desde && r.fecha_lunes <= hasta; });
+  res.data = res.data.filter(function(r){ const f = (r.fecha_lunes||'').slice(0,10); return f >= desde && f <= hasta; });
   return res;
 }
 async function insertEnsayoSemana(data) {
@@ -9867,7 +9867,7 @@ async function getEnsayosRegistros(anio) {
   if (!res.ok) return res;
   const desde = anio + '-01-01';
   const hasta = anio + '-12-31';
-  res.data = res.data.filter(function(r){ return r.fecha_toma >= desde && r.fecha_toma <= hasta; });
+  res.data = res.data.filter(function(r){ const f = (r.fecha_toma||'').slice(0,10); return f >= desde && f <= hasta; });
   return res;
 }
 async function insertEnsayoRegistro(data) {

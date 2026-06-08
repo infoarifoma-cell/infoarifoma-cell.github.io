@@ -59,7 +59,8 @@ export default async function handler(req, res) {
     'tblGamasOT', 'tblAusencias', 'tblControlDocumental',
     'tblGamasNormas', 'tblGamasDependientes', 'tblGamasActivos',
     'tblGamasListadoPreventivo', 'tblUsuarios',
-    'tblactivos', 'tblcaja', 'tblnotas', 'tblchoferes', 'tblTareas'
+    'tblactivos', 'tblcaja', 'tblnotas', 'tblchoferes', 'tblTareas',
+    'ensayos_semanas', 'ensayos_registros', 'ensayos_prestaciones', 'ensayos_limites'
   ];
 
   if (!table || !ALLOWED_TABLES.includes(table)) {
