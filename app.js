@@ -10429,10 +10429,12 @@ function _ensayosParseActa(text) {
     const res = {};
     // Extraer todos los pares (tamiz, pasa) del bloque de tabla
     // Buscar desde "Tamiz" o "Pasa" hasta el final de la zona de datos
-    var bloqueM = text.match(/Tamiz[\s\S]{0,20}?Pasa[\s\S]+?((?:\d[\d,\.]*\s+\d{1,3}\s*){3,})/i);
-    var bloque = bloqueM ? bloqueM[1] : text;
-    // Extraer pares: número_tamiz  número_pasa separados por espacios
-    var pares = [...bloque.matchAll(/\b(\d+[,.]?\d*)\s{1,10}(\d{1,3})\b/g)];
+    // Buscar tabla "Tamiz (mm)   Pasa (%)" — si no existe no parsear
+    var bloqueM = text.match(/Tamiz\s*\(mm\)[\s\S]{0,30}?Pasa\s*\(%\)([\s\S]{0,600})/i);
+    if (!bloqueM) { r.resultados = res; return r; }
+    // Truncar en "------" o "Esocan" para evitar texto posterior
+    var bloque = bloqueM[1].replace(/------[\s\S]*/i,'').replace(/Esocan[\s\S]*/i,'').trim();
+    var pares = [...bloque.matchAll(/\b(\d+[,.]?\d*)\s{1,15}(\d{1,3})\b/g)];
     // Mapa tamiz normalizado -> clave gran_
     var tamMap = {'63':'63','50':'50','40':'40','32':'32','20':'20','16':'16','14':'14','12.5':'12.5','12,5':'12.5','10':'10',
                   '8':'8','6.3':'6.3','6,3':'6.3','4':'4','2':'2','1':'1',
