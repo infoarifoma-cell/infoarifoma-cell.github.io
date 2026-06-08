@@ -10237,7 +10237,7 @@ function _ensayosRenderRegistros() {
   html += '<th rowspan="3" style="' + TH_HDR + 'vertical-align:middle;min-width:80px">Declaración<br>de<br>prestaciones</th>';
   html += '<th colspan="' + nGran + '" style="' + TH_GRN + '">REQUISITOS GEOMÉTRICOS</th>';
   extraCols.forEach(function(c){
-    html += '<th rowspan="3" style="' + TH_PRP + 'vertical-align:middle;max-width:70px;min-width:55px">' + c.label + '</th>';
+    html += '<th rowspan="3" style="' + TH_PRP + 'vertical-align:bottom;width:32px;min-width:32px;max-width:40px;padding:6px 2px"><div style="writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;font-size:.6rem;line-height:1.1">' + c.label + '</div></th>';
   });
   html += '<th rowspan="3" style="' + TH_HDR + '"></th>';
   html += '</tr>';
