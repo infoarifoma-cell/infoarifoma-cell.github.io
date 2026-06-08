@@ -9913,7 +9913,12 @@ function _ensayosRenderTab(tab) {
   _ensayosTab = tab;
   ['control','registros','anuales','prestaciones'].forEach(function(t) {
     const btn = document.getElementById('ensayos-tab-' + t);
-    if (btn) btn.classList.toggle('active', t === tab);
+    if (!btn) return;
+    btn.classList.toggle('active', t === tab);
+    const on = t === tab;
+    btn.style.background = on ? 'var(--accent)' : 'var(--surface)';
+    btn.style.color = on ? '#fff' : 'var(--text)';
+    btn.style.fontWeight = on ? '600' : '400';
   });
   const body = document.getElementById('ensayos-body');
   if (!body) return;
@@ -10299,7 +10304,9 @@ async function ensayosSubirPDFs(files) {
       const d = _ensayosParseActa(texto);
       if (toast) toast.style.display = 'none';
       ensayosCerrarDrop();
-      await ensayosAbrirConfirm(file.name, d);
+      const pdfUrl = URL.createObjectURL(file);
+      await ensayosAbrirConfirm(file.name, d, pdfUrl);
+      URL.revokeObjectURL(pdfUrl);
 
     } catch(e) {
       alert('Error procesando ' + file.name + ': ' + e.message);
@@ -10343,10 +10350,22 @@ function _ensayosParseActa(text) {
   // Granulometría — tabla tamiz/pasa
   if (r.tipo_ensayo === 'granulometria') {
     const res = {};
-    [['8','8'],['6.3','6[,.]3'],['4','4'],['2','2'],['1','\b1\b'],['0.5','0[,.]5'],['0.25','0[,.]25'],['0.125','0[,.]125'],['0.063','0[,.]063']].forEach(function(p) {
-      const re = new RegExp(p[1] + '\s+(\d{1,3})(?:\s|$)');
-      const m = text.match(re);
-      if (m) res['gran_' + p[0]] = parseInt(m[1]);
+    // Buscar bloque de tabla: tamiz seguido de valor % que pasa
+    // Formatos posibles: "8,000 100" / "8 100" / "8,000\n100" / "8\t100"
+    var tamices = [
+      ['8',    /\b8[,.]?0*\b[\s\t\n,;]+(\d{1,3}(?:[,.]\d+)?)/],
+      ['6.3',  /\b6[,.][,.]?3\b[\s\t\n,;]+(\d{1,3}(?:[,.]\d+)?)/],
+      ['4',    /(?<![0-9])4[,.]?0*(?![0-9\/])[\s\t\n,;]+(\d{1,3}(?:[,.]\d+)?)/],
+      ['2',    /(?<![0-9\/])2[,.]?0*(?![0-9\/])[\s\t\n,;]+(\d{1,3}(?:[,.]\d+)?)/],
+      ['1',    /(?<![0-9\/])1[,.]?0*(?![0-9\/\.])[\s\t\n,;]+(\d{1,3}(?:[,.]\d+)?)/],
+      ['0.5',  /\b0[,.]5\b[\s\t\n,;]+(\d{1,3}(?:[,.]\d+)?)/],
+      ['0.25', /\b0[,.]25\b[\s\t\n,;]+(\d{1,3}(?:[,.]\d+)?)/],
+      ['0.125',/\b0[,.]125\b[\s\t\n,;]+(\d{1,3}(?:[,.]\d+)?)/],
+      ['0.063',/\b0[,.]063\b[\s\t\n,;]+(\d{1,3}(?:[,.]\d+)?)/],
+    ];
+    tamices.forEach(function(p) {
+      var m = text.match(p[1]);
+      if (m) res['gran_' + p[0]] = Math.round(parseFloat(m[1].replace(',','.')));
     });
     r.resultados = res;
   }
@@ -10381,9 +10400,22 @@ function ensayosDropPDFs(files) {
 // ── Modal confirmación acta ───────────────────────────────────
 let _ensayosConfirmResolve = null;
 
-async function ensayosAbrirConfirm(filename, d) {
+async function ensayosAbrirConfirm(filename, d, pdfUrl) {
   return new Promise(function(resolve) {
     _ensayosConfirmResolve = resolve;
+
+    // Visor PDF
+    const visor = document.getElementById('ecf-pdf-visor');
+    if (visor) {
+      if (pdfUrl) {
+        visor.src = pdfUrl;
+        visor.style.display = 'block';
+        visor.parentElement.style.display = 'flex';
+      } else {
+        visor.style.display = 'none';
+        visor.parentElement.style.display = 'none';
+      }
+    }
 
     // Rellenar campos
     document.getElementById('ensayos-confirm-filename').textContent = filename;
