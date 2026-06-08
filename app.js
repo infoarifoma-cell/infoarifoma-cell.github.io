@@ -9979,10 +9979,10 @@ function _ensayosRenderControl() {
 
     function estadoReg(tipo, frac) {
       const r = regs.find(function(r){ return r.tipo_ensayo === tipo && r.fraccion === frac; });
-      if (!r) return '<span style="color:var(--muted)">+</span>';
-      if (r.estado === 'conforme') return '<span style="color:#4caf50;font-weight:700">X</span>';
-      if (r.estado === 'no_conforme') return '<span style="color:#f44336;font-weight:700">\u2717</span>';
-      return '<span style="color:#ff9800">\u25cb</span>';
+      if (!r) return '<span style="color:#ccc;font-size:.8rem">+</span>';
+      if (r.estado === 'conforme') return '<span style="color:#2e7d32;font-size:1rem;font-weight:700">\u2713\u2713</span>';
+      if (r.estado === 'no_conforme') return '<span style="color:#c62828;font-size:1rem;font-weight:700">\u2717</span>';
+      return '<span style="color:#e65100;font-size:1rem;font-weight:700">\u2713</span>';
     }
 
     let estadoGlobal = 'NP', estadoColor = 'var(--muted)';
@@ -10038,11 +10038,10 @@ function _ensayosRenderControl() {
   if (!semanas.length) html += '<tr><td colspan="27" style="padding:24px;text-align:center;color:var(--muted)">Sin semanas para ' + _ensayosAnio + '</td></tr>';
   html += '</tbody></table></div>';
   html += '<div style="display:flex;gap:16px;margin-top:10px;font-size:.72rem;color:var(--muted);flex-wrap:wrap">';
-  html += '<span><span style="color:#4caf50;font-weight:700">X</span> Conforme</span>';
-  html += '<span><span style="color:#f44336;font-weight:700">\u2717</span> No conforme</span>';
-  html += '<span><span style="color:#ff9800">\u25cb</span> Recogido (sin resultado)</span>';
-  html += '<span><span style="color:#ff9800;font-weight:700">X</span> Pendiente resultado</span>';
-  html += '<span>\u2014 No aplica</span>';
+  html += '<span><span style="color:#2e7d32;font-weight:700">\u2713\u2713</span> Conforme</span>';
+  html += '<span><span style="color:#c62828;font-weight:700">\u2717</span> No conforme</span>';
+  html += '<span><span style="color:#e65100;font-weight:700">\u2713</span> Recogido (sin resultado)</span>';
+  html += '<span style="color:#ccc">+ Sin ensayo</span>';
   html += '</div>';
   return html;
 }
