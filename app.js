@@ -9122,8 +9122,8 @@ async function infExportarExcel() {
 
   // Subir a OneDrive
   try {
-    const [yyyy, mm] = d.fecha.split('-');
-    const fileName = `Informe_Planta_${d.fecha}.xlsx`;
+    const [yyyy, mm] = _infData.fecha.split('-');
+    const fileName = `Informe_Planta_${_infData.fecha}.xlsx`;
     const INF_BASE = '06. ADMINISTRACION/06.11 DOCUMENTOS/Informes Diarios';
     const token = await comprasGetToken();
     const shareToken = 'u!' + btoa(COMPRAS_SHARE_URL).replace(/=+$/, '').replace(/\//g, '_').replace(/\+/g, '-');
