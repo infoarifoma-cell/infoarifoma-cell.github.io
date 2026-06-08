@@ -9863,12 +9863,9 @@ async function updateEnsayoSemana(id, data) {
   return dbQuery({ action:'update', table:'ensayos_semanas', data, filters:[{column:'id',op:'eq',value:id}] });
 }
 async function getEnsayosRegistros(anio) {
-  const res = await dbQuery({ action:'select', table:'ensayos_registros', options:{ select:'*', order:'created_at.desc', limit:1000 } });
-  if (!res.ok) return res;
-  // Filtrar por semana_id de las semanas ya cargadas para este año
-  const semanaIds = new Set(_ensayosSemanas.map(function(s){ return s.id; }));
-  res.data = res.data.filter(function(r){ return semanaIds.has(r.semana_id); });
-  return res;
+  const semanaIds = _ensayosSemanas.map(function(s){ return s.id; });
+  if (!semanaIds.length) return { ok:true, data:[] };
+  return dbQuery({ action:'select', table:'ensayos_registros', options:{ select:'*', order:'semana_id.asc', limit:1000 }, filters:[{ column:'semana_id', op:'in', value:semanaIds }] });
 }
 async function insertEnsayoRegistro(data) {
   return dbQuery({ action:'insert', table:'ensayos_registros', data });
