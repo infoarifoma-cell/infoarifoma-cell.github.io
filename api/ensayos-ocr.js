@@ -1,20 +1,16 @@
 // POST /api/ensayos-ocr
 // Extrae datos de actas de ensayo de áridos (ESOCAN) en PDF digital
 
-import pdfParse from 'pdf-parse';
-
 export const config = { api: { bodyParser: { sizeLimit: '25mb' } } };
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'Método no permitido' });
 
   try {
-    const { pdfBase64 } = req.body;
-    if (!pdfBase64) return res.status(400).json({ ok: false, error: 'Falta pdfBase64' });
+    const { texto } = req.body;
+    if (!texto) return res.status(400).json({ ok: false, error: 'Falta texto' });
 
-    const buffer = Buffer.from(pdfBase64, 'base64');
-    const data = await pdfParse(buffer);
-    const text = data.text;
+    const text = texto;
 
     const result = parsearActa(text);
     return res.status(200).json({ ok: true, data: result, texto: text });

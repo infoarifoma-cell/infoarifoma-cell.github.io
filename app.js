@@ -10278,20 +10278,35 @@ async function ensayosSubirPDFs(files) {
   const toast = document.getElementById('ensayos-toast');
   const resultados = [];
 
-  for (const file of Array.from(files)) {
-    const base64 = await new Promise(function(resolve) {
-      const reader = new FileReader();
-      reader.onload = function(e) { resolve(e.target.result.split(',')[1]); };
-      reader.readAsDataURL(file);
+  // Cargar PDF.js si no está
+  if (!window.pdfjsLib) {
+    await new Promise(function(resolve, reject) {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
     });
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
 
+  for (const file of Array.from(files)) {
     if (toast) { toast.textContent = 'Procesando ' + file.name + '...'; toast.style.display = 'block'; }
 
     try {
+      // Extraer texto del PDF en el cliente
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let texto = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        texto += content.items.map(function(it){ return it.str; }).join(' ') + '\n';
+      }
+
       const resp = await fetch('/api/ensayos-ocr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pdfBase64: base64 })
+        body: JSON.stringify({ texto: texto })
       });
       const json = await resp.json();
       if (!json.ok) { alert('Error en ' + file.name + ': ' + json.error); continue; }
