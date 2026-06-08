@@ -9899,13 +9899,14 @@ async function initEnsayos() {
 }
 
 async function _ensayosCargarTodo() {
-  const [rSem, rReg, rPrest, rLim] = await Promise.all([
-    getEnsayosSemanas(_ensayosAnio),
+  // Semanas primero — registros dependen de los semana_id
+  const rSem = await getEnsayosSemanas(_ensayosAnio);
+  _ensayosSemanas = rSem.ok ? rSem.data : [];
+  const [rReg, rPrest, rLim] = await Promise.all([
     getEnsayosRegistros(_ensayosAnio),
     getEnsayosPrestaciones(),
     getEnsayosLimites()
   ]);
-  _ensayosSemanas = rSem.ok ? rSem.data : [];
   _ensayosRegistros = rReg.ok ? rReg.data : [];
   _ensayosPrestaciones = rPrest.ok ? rPrest.data : [];
   _ensayosLimites = rLim.ok ? rLim.data : [];
