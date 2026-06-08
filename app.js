@@ -9922,19 +9922,50 @@ function _ensayosRenderTab(tab) {
 // TAB CONTROL
 function _ensayosRenderControl() {
   const semanas = _ensayosSemanas;
+  const TH = 'padding:5px 8px;border:1px solid #d0d7c8;white-space:nowrap;font-size:.72rem;';
+  const TH_GRP = 'padding:5px 8px;border:1px solid #d0d7c8;text-align:center;font-size:.72rem;font-weight:700;';
+  const BG_HDR = 'background:#2c3a2c;color:#fff;';
+  const BG_GRAN = 'background:#3a4a3a;color:#fff;';
+  const BG_FINO = 'background:#3a4a30;color:#fff;';
+  const BG_EQ   = 'background:#2a3a4a;color:#fff;';
+  const BG_LAJ  = 'background:#4a3a2a;color:#fff;';
+  const BG_CAR  = 'background:#4a2a3a;color:#fff;';
+
   let html = '<div style="font-size:.8rem;color:var(--muted);margin-bottom:8px">' + semanas.length + ' semanas</div>';
-  html += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:.78rem;min-width:900px">';
-  html += '<thead><tr style="background:#1e2a1e;color:#fff">';
-  ['EST.','REC.','Nº','FECHA','MAT.','TN TOTAL','0/4','4/12','12/20','20/40',
-   'Gran 0/4','Gran 4/12','Gran 12/20','Gran 20/40',
-   'Finos 0/4','Finos 4/12','Finos 12/20','Finos 20/40',
-   'Eq.Ar 0/4','Eq.Ar ZA25',
-   'Lajas 4/12','Lajas 12/20','Lajas 20/40','Lajas ZA25',
-   'Caras 4/12','Caras 12/20','Caras 20/40'
-  ].forEach(function(h) {
-    html += '<th style="padding:6px 8px;white-space:nowrap">' + h + '</th>';
-  });
-  html += '</tr></thead><tbody>';
+  html += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:.78rem;min-width:1100px;background:var(--surface)">';
+
+  // Fila 1: grupos con colspan
+  html += '<thead>';
+  html += '<tr>';
+  html += '<th colspan="2" style="' + TH + BG_HDR + '"></th>';
+  html += '<th style="' + TH + BG_HDR + '">N\u00ba</th>';
+  html += '<th style="' + TH + BG_HDR + '">FECHA</th>';
+  html += '<th style="' + TH + BG_HDR + '">MAT.</th>';
+  html += '<th style="' + TH + BG_HDR + '">TN TOTAL</th>';
+  html += '<th colspan="4" style="' + TH_GRP + BG_HDR + '">PRODUCCI\u00d3N (TN)</th>';
+  html += '<th colspan="4" style="' + TH_GRP + BG_GRAN + '">GRANULOMETR\u00cdA<br><span style="font-weight:400;font-size:.68rem">UNE-EN 933-1 \u00b7 SEMANAL</span></th>';
+  html += '<th colspan="4" style="' + TH_GRP + BG_FINO + '">CONT. DE FINOS<br><span style="font-weight:400;font-size:.68rem">UNE-EN 933-1 \u00b7 SEMANAL</span></th>';
+  html += '<th colspan="2" style="' + TH_GRP + BG_EQ + '">EQ. ARENA<br><span style="font-weight:400;font-size:.68rem">UNE-EN 933-8 \u00b7 SEMANAL</span></th>';
+  html += '<th colspan="4" style="' + TH_GRP + BG_LAJ + '">\u00cdNDICE LAJAS<br><span style="font-weight:400;font-size:.68rem">UNE-EN 933-3 \u00b7 MENSUAL</span></th>';
+  html += '<th colspan="3" style="' + TH_GRP + BG_CAR + '">% CAPAS FRAG.<br><span style="font-weight:400;font-size:.68rem">UNE-EN 933-5 \u00b7 MENSUAL</span></th>';
+  html += '</tr>';
+
+  // Fila 2: subcolumnas
+  html += '<tr>';
+  html += '<th style="' + TH + BG_HDR + '">EST.</th>';
+  html += '<th style="' + TH + BG_HDR + '">REC.</th>';
+  html += '<th style="' + TH + BG_HDR + '"></th>';
+  html += '<th style="' + TH + BG_HDR + '"></th>';
+  html += '<th style="' + TH + BG_HDR + '"></th>';
+  html += '<th style="' + TH + BG_HDR + '"></th>';
+  ['0/4','4/12','12/20','20/40'].forEach(function(f){ html += '<th style="' + TH + BG_HDR + '">' + f + '</th>'; });
+  ['0/4','4/12','12/20','20/40'].forEach(function(f){ html += '<th style="' + TH + BG_GRAN + '">' + f + '</th>'; });
+  ['0/4','4/12','12/20','20/40'].forEach(function(f){ html += '<th style="' + TH + BG_FINO + '">' + f + '</th>'; });
+  ['0/4','ZA25'].forEach(function(f){ html += '<th style="' + TH + BG_EQ + '">' + f + '</th>'; });
+  ['4/12','12/20','20/40','ZA25'].forEach(function(f){ html += '<th style="' + TH + BG_LAJ + '">' + f + '</th>'; });
+  ['4/12','12/20','20/40'].forEach(function(f){ html += '<th style="' + TH + BG_CAR + '">' + f + '</th>'; });
+  html += '</tr>';
+  html += '</thead><tbody>';
 
   semanas.forEach(function(sem, i) {
     const num = semanas.length - i;
@@ -9959,38 +9990,56 @@ function _ensayosRenderControl() {
     const mat = sem.tipo_material || 'NP';
     const matColor = mat === 'AC' ? 'var(--accent)' : 'var(--muted)';
 
-    html += '<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="ensayosAbrirSemana(\'' + sem.id + '\')">';
-    html += '<td style="padding:5px 8px;text-align:center;color:' + estadoColor + ';font-weight:700;font-size:.7rem">' + estadoGlobal + '</td>';
-    html += '<td style="padding:5px 8px;text-align:center;color:var(--muted)">\u2014</td>';
-    html += '<td style="padding:5px 8px;text-align:center;font-weight:600">' + num + '</td>';
-    html += '<td style="padding:5px 8px;white-space:nowrap">' + fecha + '</td>';
-    html += '<td style="padding:5px 8px;text-align:center;color:' + matColor + ';font-weight:600">' + mat + '</td>';
-    html += '<td style="padding:5px 8px;text-align:right">' + (tnTotal ? Number(tnTotal).toLocaleString('es') : '\u2014') + '</td>';
-    html += '<td style="padding:5px 8px;text-align:right">' + (sem.tn_04 ? Number(sem.tn_04).toLocaleString('es') : '\u2014') + '</td>';
-    html += '<td style="padding:5px 8px;text-align:right">' + (sem.tn_412 ? Number(sem.tn_412).toLocaleString('es') : '\u2014') + '</td>';
-    html += '<td style="padding:5px 8px;text-align:right">' + (sem.tn_1220 ? Number(sem.tn_1220).toLocaleString('es') : '\u2014') + '</td>';
-    html += '<td style="padding:5px 8px;text-align:right">' + (sem.tn_2040 ? Number(sem.tn_2040).toLocaleString('es') : '\u2014') + '</td>';
-    html += '<td style="padding:5px 8px;text-align:center;background:#0d1a0d">' + estadoReg('granulometria','0/4') + '</td>';
-    html += '<td style="padding:5px 8px;text-align:center;background:#0d1a0d">' + estadoReg('granulometria','4/12') + '</td>';
-    html += '<td style="padding:5px 8px;text-align:center;background:#0d1a0d">' + estadoReg('granulometria','12/20') + '</td>';
-    html += '<td style="padding:5px 8px;text-align:center;background:#0d1a0d">' + estadoReg('granulometria','20/40') + '</td>';
-    html += '<td style="padding:5px 8px;text-align:center;background:#0d1500">' + estadoReg('cont_finos','0/4') + '</td>';
-    html += '<td style="padding:5px 8px;text-align:center;background:#0d1500">' + estadoReg('cont_finos','4/12') + '</td>';
-    html += '<td style="padding:5px 8px;text-align:center;background:#0d1500">' + estadoReg('cont_finos','12/20') + '</td>';
-    html += '<td style="padding:5px 8px;text-align:center;background:#0d1500">' + estadoReg('cont_finos','20/40') + '</td>';
-    html += '<td style="padding:5px 8px;text-align:center;background:#05101a">' + estadoReg('eq_arena','0/4') + '</td>';
-    html += '<td style="padding:5px 8px;text-align:center;background:#05101a">' + estadoReg('eq_arena','ZA25') + '</td>';
-    html += '<td style="padding:5px 8px;text-align:center;background:#1a1000">' + estadoReg('ind_lajas','4/12') + '</td>';
-    html += '<td style="padding:5px 8px;text-align:center;background:#1a1000">' + estadoReg('ind_lajas','12/20') + '</td>';
-    html += '<td style="padding:5px 8px;text-align:center;background:#1a1000">' + estadoReg('ind_lajas','20/40') + '</td>';
-    html += '<td style="padding:5px 8px;text-align:center;background:#1a1000">' + estadoReg('ind_lajas','ZA25') + '</td>';
-    html += '<td style="padding:5px 8px;text-align:center;background:#150008">' + estadoReg('caras_fractura','4/12') + '</td>';
-    html += '<td style="padding:5px 8px;text-align:center;background:#150008">' + estadoReg('caras_fractura','12/20') + '</td>';
-    html += '<td style="padding:5px 8px;text-align:center;background:#150008">' + estadoReg('caras_fractura','20/40') + '</td>';
+    const TD = 'padding:5px 8px;border:1px solid #e8ede4;';
+    const TD_C = TD + 'text-align:center;';
+    const TD_R = TD + 'text-align:right;';
+    const BG_G = 'background:#eef4ea;';
+    const BG_F = 'background:#f0f4e8;';
+    const BG_E = 'background:#e8eef4;';
+    const BG_L = 'background:#f4ede8;';
+    const BG_Ca= 'background:#f4e8ee;';
+    const rowBg = i % 2 === 0 ? '' : 'background:#f9faf8;';
+
+    html += '<tr style="' + rowBg + 'cursor:pointer" onclick="ensayosAbrirSemana(\'' + sem.id + '\')">';
+    html += '<td style="' + TD_C + 'color:' + estadoColor + ';font-weight:700;font-size:.7rem">' + estadoGlobal + '</td>';
+    html += '<td style="' + TD_C + 'color:var(--muted)">\u2014</td>';
+    html += '<td style="' + TD_C + 'font-weight:600">' + num + '</td>';
+    html += '<td style="' + TD + 'white-space:nowrap">' + fecha + '</td>';
+    html += '<td style="' + TD_C + 'color:' + matColor + ';font-weight:600">' + mat + '</td>';
+    html += '<td style="' + TD_R + '">' + (tnTotal ? Number(tnTotal).toLocaleString('es') : '\u2014') + '</td>';
+    html += '<td style="' + TD_R + '">' + (sem.tn_04 ? Number(sem.tn_04).toLocaleString('es') : '\u2014') + '</td>';
+    html += '<td style="' + TD_R + '">' + (sem.tn_412 ? Number(sem.tn_412).toLocaleString('es') : '\u2014') + '</td>';
+    html += '<td style="' + TD_R + '">' + (sem.tn_1220 ? Number(sem.tn_1220).toLocaleString('es') : '\u2014') + '</td>';
+    html += '<td style="' + TD_R + '">' + (sem.tn_2040 ? Number(sem.tn_2040).toLocaleString('es') : '\u2014') + '</td>';
+    html += '<td style="' + TD_C + BG_G + '">' + estadoReg('granulometria','0/4') + '</td>';
+    html += '<td style="' + TD_C + BG_G + '">' + estadoReg('granulometria','4/12') + '</td>';
+    html += '<td style="' + TD_C + BG_G + '">' + estadoReg('granulometria','12/20') + '</td>';
+    html += '<td style="' + TD_C + BG_G + '">' + estadoReg('granulometria','20/40') + '</td>';
+    html += '<td style="' + TD_C + BG_F + '">' + estadoReg('cont_finos','0/4') + '</td>';
+    html += '<td style="' + TD_C + BG_F + '">' + estadoReg('cont_finos','4/12') + '</td>';
+    html += '<td style="' + TD_C + BG_F + '">' + estadoReg('cont_finos','12/20') + '</td>';
+    html += '<td style="' + TD_C + BG_F + '">' + estadoReg('cont_finos','20/40') + '</td>';
+    html += '<td style="' + TD_C + BG_E + '">' + estadoReg('eq_arena','0/4') + '</td>';
+    html += '<td style="' + TD_C + BG_E + '">' + estadoReg('eq_arena','ZA25') + '</td>';
+    html += '<td style="' + TD_C + BG_L + '">' + estadoReg('ind_lajas','4/12') + '</td>';
+    html += '<td style="' + TD_C + BG_L + '">' + estadoReg('ind_lajas','12/20') + '</td>';
+    html += '<td style="' + TD_C + BG_L + '">' + estadoReg('ind_lajas','20/40') + '</td>';
+    html += '<td style="' + TD_C + BG_L + '">' + estadoReg('ind_lajas','ZA25') + '</td>';
+    html += '<td style="' + TD_C + BG_Ca + '">' + estadoReg('caras_fractura','4/12') + '</td>';
+    html += '<td style="' + TD_C + BG_Ca + '">' + estadoReg('caras_fractura','12/20') + '</td>';
+    html += '<td style="' + TD_C + BG_Ca + '">' + estadoReg('caras_fractura','20/40') + '</td>';
     html += '</tr>';
   });
 
+  if (!semanas.length) html += '<tr><td colspan="27" style="padding:24px;text-align:center;color:var(--muted)">Sin semanas para ' + _ensayosAnio + '</td></tr>';
   html += '</tbody></table></div>';
+  html += '<div style="display:flex;gap:16px;margin-top:10px;font-size:.72rem;color:var(--muted);flex-wrap:wrap">';
+  html += '<span><span style="color:#4caf50;font-weight:700">X</span> Conforme</span>';
+  html += '<span><span style="color:#f44336;font-weight:700">\u2717</span> No conforme</span>';
+  html += '<span><span style="color:#ff9800">\u25cb</span> Recogido (sin resultado)</span>';
+  html += '<span><span style="color:#ff9800;font-weight:700">X</span> Pendiente resultado</span>';
+  html += '<span>\u2014 No aplica</span>';
+  html += '</div>';
   return html;
 }
 
