@@ -10272,3 +10272,88 @@ function _ensayosLunesActual() {
   d.setDate(d.getDate() + diff);
   return d.toISOString().slice(0,10);
 }
+
+async function ensayosSubirPDFs(files) {
+  if (!files || !files.length) return;
+  const toast = document.getElementById('ensayos-toast');
+  const resultados = [];
+
+  for (const file of Array.from(files)) {
+    const base64 = await new Promise(function(resolve) {
+      const reader = new FileReader();
+      reader.onload = function(e) { resolve(e.target.result.split(',')[1]); };
+      reader.readAsDataURL(file);
+    });
+
+    if (toast) { toast.textContent = 'Procesando ' + file.name + '...'; toast.style.display = 'block'; }
+
+    try {
+      const resp = await fetch('/api/ensayos-ocr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pdfBase64: base64 })
+      });
+      const json = await resp.json();
+      if (!json.ok) { alert('Error en ' + file.name + ': ' + json.error); continue; }
+
+      const d = json.data;
+      if (!d.tipo_ensayo || !d.fraccion) { alert('No se pudo detectar tipo/fracción en ' + file.name); continue; }
+
+      // Buscar semana por fecha_toma
+      const semana = _ensayosSemanas.find(function(s) {
+        if (!d.fecha_toma) return false;
+        const lunes = new Date(s.fecha_lunes);
+        const toma = new Date(d.fecha_toma);
+        const domingo = new Date(lunes); domingo.setDate(domingo.getDate() + 6);
+        return toma >= lunes && toma <= domingo;
+      });
+
+      if (!semana) {
+        alert('No se encontró semana para fecha ' + d.fecha_toma + ' en ' + file.name);
+        continue;
+      }
+
+      // Insertar o actualizar registro
+      const existing = _ensayosRegistros.find(function(r) {
+        return r.semana_id === semana.id && r.tipo_ensayo === d.tipo_ensayo && r.fraccion === d.fraccion;
+      });
+
+      const payload = {
+        semana_id: semana.id,
+        tipo_ensayo: d.tipo_ensayo,
+        fraccion: d.fraccion,
+        norma: d.norma || null,
+        fecha_toma: d.fecha_toma || null,
+        fecha_acta: d.fecha_acta || null,
+        num_acta: d.num_acta || null,
+        num_albaran: d.num_albaran || null,
+        resultados: d.resultados || {},
+        estado: 'recogido'
+      };
+
+      let res;
+      if (existing) {
+        res = await updateEnsayoRegistro(existing.id, payload);
+      } else {
+        res = await insertEnsayoRegistro(payload);
+      }
+
+      if (!res.ok) { alert('Error guardando ' + file.name + ': ' + res.error); continue; }
+      resultados.push(file.name + ' → semana ' + semana.fecha_lunes + ' (' + d.tipo_ensayo + ' ' + d.fraccion + ')');
+
+    } catch(e) {
+      alert('Error procesando ' + file.name + ': ' + e.message);
+    }
+  }
+
+  if (toast) toast.style.display = 'none';
+  document.getElementById('ensayos-pdf-input').value = '';
+
+  if (resultados.length) {
+    // Recargar registros
+    const rReg = await getEnsayosRegistros(_ensayosAnio);
+    _ensayosRegistros = rReg.ok ? rReg.data : [];
+    _ensayosRenderTab(_ensayosTab);
+    alert('Procesados:\n' + resultados.join('\n'));
+  }
+}
