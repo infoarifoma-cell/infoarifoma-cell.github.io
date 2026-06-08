@@ -3293,14 +3293,14 @@ function delVac(n,id){fst.vacaciones[n]=fst.vacaciones[n].filter(v=>v.id!==id);s
 function renderVac(){
   document.getElementById('vac-grid').innerHTML=WORKERS.map(n=>{
     const used=usedDays(n);const pct=Math.min(100,Math.round(used/TOTAL_VAC*100));
-    const items=fst.vacaciones[n].map(v=>`<div class="vac-item"><span>${fmtDate(v.start)} – ${fmtDate(v.end)} (${v.dias}d)</span><span><button onclick="imprimirSolicitudVacaciones('${n}',${v.id},this)" style="background:transparent;border:none;cursor:pointer;color:var(--accent);font-size:.82rem" title="Imprimir solicitud">🖨</button><button onclick="openVacModal('${n}',${v.id})" ${_btnEdit}>&#9998;</button><button onclick="delVac('${n}',${v.id})" style="background:transparent;border:none;cursor:pointer;color:var(--danger);font-size:.82rem">✕</button></span></div>`).join('');
+    const items=fst.vacaciones[n].map(v=>`<div class="vac-item"><span>${fmtDate(v.start)} – ${fmtDate(v.end)} (${v.dias}d)</span><span><button onclick="openVacModal('${n}',${v.id})" ${_btnEdit}>&#9998;</button><button onclick="delVac('${n}',${v.id})" style="background:transparent;border:none;cursor:pointer;color:var(--danger);font-size:.82rem">✕</button></span></div>`).join('');
     return `<div class="vac-card"><div style="font-size:.86rem;font-weight:600;color:var(--text);margin-bottom:6px">${n}</div><div style="font-size:1.4rem;font-weight:700;color:var(--text);font-family:'DM Mono',monospace">${TOTAL_VAC-used}<span style="font-size:.82rem;font-weight:400;color:var(--muted)"> días restantes</span></div><div style="font-size:.68rem;color:var(--muted);margin-bottom:8px">${used} de ${TOTAL_VAC} días usados</div><div class="vac-bar"><div class="vac-bar-fill" style="width:${pct}%"></div></div>${items?'<div>'+items+'</div>':'<div style="font-size:.68rem;color:var(--muted)">Sin vacaciones registradas</div>'}</div>`;
   }).join('');
 }
 
 async function imprimirSolicitudVacaciones(worker, vacId, btnEl) {
   try {
-    if (btnEl) { btnEl.textContent = '⏳'; btnEl.disabled = true; }
+    if (btnEl) { btnEl.innerHTML = '⏳'; btnEl.disabled = true; }
     const token = await comprasGetToken();
     const shareToken = 'u!' + btoa(COMPRAS_SHARE_URL).replace(/=+$/, '').replace(/\//g, '_').replace(/\+/g, '-');
     const shareRes = await fetch('https://graph.microsoft.com/v1.0/shares/' + shareToken + '/driveItem?$select=id,parentReference', {
@@ -3309,8 +3309,8 @@ async function imprimirSolicitudVacaciones(worker, vacId, btnEl) {
     if (!shareRes.ok) throw new Error('No se pudo acceder a OneDrive');
     const shareItem = await shareRes.json();
     const driveId = shareItem.parentReference.driveId;
-    const ruta = 'Arifoma/06. ADMINISTRACION/06.00 PERSONAL/06.00.02 VACACIONES/SOLICITUD DE VACACIONES.rtf';
-    const fileRes = await fetch('https://graph.microsoft.com/v1.0/drives/' + driveId + '/root:/' + ruta.replace(/ /g,'%20') + '?$select=id,name,webUrl', {
+    const rutaParts = ['Arifoma','06. ADMINISTRACION','06.00 PERSONAL','06.00.02 VACACIONES','SOLICITUD DE VACACIONES.rtf'];
+    const fileRes = await fetch('https://graph.microsoft.com/v1.0/drives/' + driveId + '/root:/' + rutaParts.map(encodeURIComponent).join('/') + '?$select=id,name,webUrl', {
       headers: { 'Authorization': 'Bearer ' + token }
     });
     if (!fileRes.ok) throw new Error('Archivo no encontrado en OneDrive');
@@ -3794,8 +3794,8 @@ async function docAbrirOneDrive(nombre, btnEl) {
     const driveId = shareItem.parentReference.driveId;
 
     // Buscar archivo en la carpeta documental por ruta
-    const ruta = 'Arifoma/07. CONTROL DOCUMENTAL/07.01 DOCUMENTOS/' + nombre;
-    const searchRes = await fetch('https://graph.microsoft.com/v1.0/drives/' + driveId + '/root:/' + encodeURIComponent(ruta).replace(/%2F/g, '/') + '?$select=id,name,webUrl', {
+    const rutaParts = ['Arifoma','07. CONTROL DOCUMENTAL','07.01 DOCUMENTOS', nombre];
+    const searchRes = await fetch('https://graph.microsoft.com/v1.0/drives/' + driveId + '/root:/' + rutaParts.map(encodeURIComponent).join('/') + '?$select=id,name,webUrl', {
       headers: { 'Authorization': 'Bearer ' + token }
     });
     if (searchRes.ok) {
@@ -3803,7 +3803,8 @@ async function docAbrirOneDrive(nombre, btnEl) {
       window.open(item.webUrl, '_blank');
     } else {
       // Si no coincide exacto, buscar por nombre en la carpeta
-      const folderRes = await fetch('https://graph.microsoft.com/v1.0/drives/' + driveId + '/root:/Arifoma/07. CONTROL DOCUMENTAL/07.01 DOCUMENTOS:/children?$select=id,name,webUrl&$top=500', {
+      const folderPath = 'Arifoma/07. CONTROL DOCUMENTAL/07.01 DOCUMENTOS';
+    const folderRes = await fetch('https://graph.microsoft.com/v1.0/drives/' + driveId + '/root:/' + folderPath.split('/').map(encodeURIComponent).join('/') + ':/children?$select=id,name,webUrl&$top=500', {
         headers: { 'Authorization': 'Bearer ' + token }
       });
       if (!folderRes.ok) throw new Error('Carpeta no encontrada');

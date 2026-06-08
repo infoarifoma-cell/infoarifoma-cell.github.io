@@ -1961,7 +1961,10 @@
           <div class="ctrl-section active" id="ctrl-vac">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
               <div class="sec-title" style="margin:0">Vacaciones 2026 — 35 días</div>
-              <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="openVacModal()">+ Añadir</button>
+              <div style="display:flex;gap:6px">
+                <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="imprimirSolicitudVacaciones(null,null,this)">🖨 Modelo</button>
+                <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="openVacModal()">+ Añadir</button>
+              </div>
             </div>
             <div class="grid2" id="vac-grid" style="gap:10px;margin-bottom:1.2rem"></div>
           </div>
