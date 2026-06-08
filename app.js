@@ -10278,24 +10278,15 @@ async function ensayosSubirPDFs(files) {
   const toast = document.getElementById('ensayos-toast');
   const resultados = [];
 
-  // Cargar PDF.js si no está
-  if (!window.pdfjsLib) {
-    await new Promise(function(resolve, reject) {
-      const s = document.createElement('script');
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-      s.onload = resolve; s.onerror = reject;
-      document.head.appendChild(s);
-    });
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-  }
+  await _ensurePdfjs();
 
   for (const file of Array.from(files)) {
     if (toast) { toast.textContent = 'Procesando ' + file.name + '...'; toast.style.display = 'block'; }
 
     try {
-      // Extraer texto del PDF en el cliente
+      // Extraer texto del PDF en el cliente con PDF.js
       const arrayBuffer = await file.arrayBuffer();
-      const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       let texto = '';
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
@@ -10303,15 +10294,8 @@ async function ensayosSubirPDFs(files) {
         texto += content.items.map(function(it){ return it.str; }).join(' ') + '\n';
       }
 
-      const resp = await fetch('/api/ensayos-ocr', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ texto: texto })
-      });
-      const json = await resp.json();
-      if (!json.ok) { alert('Error en ' + file.name + ': ' + json.error); continue; }
-
-      const d = json.data;
+      // Parsear directamente en cliente
+      const d = _ensayosParseActa(texto);
       if (!d.tipo_ensayo || !d.fraccion) { alert('No se pudo detectar tipo/fracción en ' + file.name); continue; }
 
       // Buscar semana por fecha_toma
@@ -10371,4 +10355,61 @@ async function ensayosSubirPDFs(files) {
     _ensayosRenderTab(_ensayosTab);
     alert('Procesados:\n' + resultados.join('\n'));
   }
+}
+
+function _ensayosParseActa(text) {
+  const r = {};
+
+  // Nº ACTA
+  const mActa = text.match(/(\d{4}\/\d+)\s*(?=.*ACTA|ACTA.*)/i) || text.match(/N[ºo°]\s*ACTA\D{0,30}?(\d{4}\/\d+)/i);
+  if (mActa) r.num_acta = mActa[1];
+
+  // Nº ALBARÁN / MUESTRA
+  const mAlb = text.match(/MUESTRA\s+\.?(\d{4}\/\d+)/i) || text.match(/\.(\d{4}\/\d{2,})/);
+  if (mAlb) r.num_albaran = mAlb[1];
+
+  // Fecha de toma
+  const mToma = text.match(/Fecha de toma[:\s]+(\d{2}\/\d{2}\/\d{4})/i);
+  if (mToma) r.fecha_toma = _ensayosIsoFecha(mToma[1]);
+
+  // Fecha acta / fin ensayos
+  const mFin = text.match(/Fin de ensayos[:\s]+(\d{2}\/\d{2}\/\d{4})/i)
+    || text.match(/FECHA DE ACTA\s+(\d{2}\/\d{2}\/\d{4})/i);
+  if (mFin) r.fecha_acta = _ensayosIsoFecha(mFin[1]);
+
+  // Fracción
+  const mFrac = text.match(/[ÁA]rido\s+([\d\/]+)/i) || text.match(/Tipo de material[:\s]+[ÁA]rido\s+([\d\/]+)/i);
+  if (mFrac) r.fraccion = mFrac[1].trim();
+
+  // Tipo ensayo
+  if (/granulometr/i.test(text)) r.tipo_ensayo = 'granulometria';
+  else if (/equivalente.*arena/i.test(text)) r.tipo_ensayo = 'eq_arena';
+  else if (/contenido.*fino|finos.*tamiz/i.test(text)) r.tipo_ensayo = 'cont_finos';
+  else if (/[íi]ndice.*laja/i.test(text)) r.tipo_ensayo = 'ind_lajas';
+  else if (/caras.*fractura/i.test(text)) r.tipo_ensayo = 'caras_fractura';
+
+  // Granulometría — tabla tamiz/pasa
+  if (r.tipo_ensayo === 'granulometria') {
+    const res = {};
+    [['8','8'],['6.3','6[,.]3'],['4','4'],['2','2'],['1','\b1\b'],['0.5','0[,.]5'],['0.25','0[,.]25'],['0.125','0[,.]125'],['0.063','0[,.]063']].forEach(function(p) {
+      const re = new RegExp(p[1] + '\s+(\d{1,3})(?:\s|$)');
+      const m = text.match(re);
+      if (m) res['gran_' + p[0]] = parseInt(m[1]);
+    });
+    r.resultados = res;
+  }
+
+  // Eq. Arena
+  if (r.tipo_ensayo === 'eq_arena') {
+    const m = text.match(/(\d{1,3}(?:[,.]\d+)?)\s*%/);
+    if (m) r.resultados = { eq_arena: parseFloat(m[1].replace(',','.')) };
+  }
+
+  r.estado = 'recogido';
+  return r;
+}
+
+function _ensayosIsoFecha(ddmmyyyy) {
+  const p = ddmmyyyy.split('/');
+  return p.length === 3 ? p[2]+'-'+p[1]+'-'+p[0] : ddmmyyyy;
 }
