@@ -10208,6 +10208,34 @@ function _ensayosRenderPrestaciones() {
   return html;
 }
 
+function ensayosImprimirRegistros() {
+  const tabla = document.querySelector('#ensayos-body table');
+  if (!tabla) return;
+  const titulo = 'Control de Ensayos ' + _ensayosAnio + ' — Fracción ' + _ensayosFraccion;
+  const html = '<html><head><title>' + titulo + '</title><style>'
+    + 'body{font-family:sans-serif;font-size:11px;margin:20px}'
+    + 'h2{font-size:14px;margin-bottom:12px}'
+    + 'table{border-collapse:collapse;width:100%}'
+    + 'th,td{border:1px solid #ccc;padding:4px 7px;white-space:nowrap}'
+    + 'th{background:#2c3a2c;color:#fff}'
+    + '@media print{@page{size:landscape}}'
+    + '</style></head><body>'
+    + '<h2>' + titulo + '</h2>'
+    + tabla.outerHTML
+    + '</body></html>';
+  var iframe = document.getElementById('ensayos-print-frame');
+  if (!iframe) {
+    iframe = document.createElement('iframe');
+    iframe.id = 'ensayos-print-frame';
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none';
+    document.body.appendChild(iframe);
+  }
+  iframe.contentDocument.open();
+  iframe.contentDocument.write(html);
+  iframe.contentDocument.close();
+  setTimeout(function() { iframe.contentWindow.print(); }, 300);
+}
+
 // ACCIONES
 function ensayosFraccionTab(f) {
   _ensayosFraccion = f;
@@ -10417,6 +10445,13 @@ function _ensayosParseActa(text) {
     if (m) r.resultados = { eq_arena: parseFloat(m[1].replace(',','.')) };
   }
 
+  // Índice de lajas — "Indice de lajas   IL   25"
+  if (r.tipo_ensayo === 'ind_lajas') {
+    const m = text.match(/[Ii]ndice de lajas[\s\S]{0,20}?IL\s+([\d]+(?:[,.]\d+)?)/i)
+      || text.match(/[Íí]ndice de lajas[\s\S]{0,20}?([\d]+(?:[,.]\d+)?)/i);
+    if (m) r.resultados = { ind_lajas: parseFloat(m[1].replace(',','.')) };
+  }
+
   // Contenido en finos — "Contenido en finos que pasan por el tamiz 0.063   11,29"
   if (r.tipo_ensayo === 'cont_finos') {
     const m = text.match(/Contenido en finos[\s\S]{0,60}?([\d]+[,.]\d+)\s*(?:\n|$| {2})/i)
@@ -10583,6 +10618,12 @@ async function ensayosAbrirConfirm(filename, d, pdfUrl) {
               + '</label>';
           }).join('')
         + '</div>';
+    } else if (d.tipo_ensayo === 'ind_lajas') {
+      const v = d.resultados ? d.resultados.ind_lajas : '';
+      wrap.innerHTML = '<label style="font-size:.8rem;color:var(--muted)">Índice de lajas (IL)'
+        + '<input type="number" id="ecf-ind-lajas" value="' + (v!=null&&v!==''?v:'') + '" step="0.1" min="0" max="100"'
+        + ' style="width:100%;margin-top:3px;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font-size:.85rem">'
+        + '</label>';
     } else if (d.tipo_ensayo === 'cont_finos') {
       const v = d.resultados ? d.resultados.cont_finos : '';
       wrap.innerHTML = '<label style="font-size:.8rem;color:var(--muted)">Contenido en finos (%)'
@@ -10621,6 +10662,9 @@ async function ensayosConfirmarGuardar() {
       const el = document.getElementById('ecf-gran-' + t.replace('.','_'));
       if (el && el.value !== '') resultados['gran_'+t] = parseInt(el.value);
     });
+  } else if (tipo === 'ind_lajas') {
+    const el = document.getElementById('ecf-ind-lajas');
+    if (el && el.value !== '') resultados.ind_lajas = parseFloat(el.value);
   } else if (tipo === 'cont_finos') {
     const el = document.getElementById('ecf-cont-finos');
     if (el && el.value !== '') resultados.cont_finos = parseFloat(el.value);
