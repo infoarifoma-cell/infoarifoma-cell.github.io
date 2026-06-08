@@ -10078,7 +10078,7 @@ function _ensayosRenderRegistros() {
 
   html += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:.78rem;width:100%">';
   html += '<thead><tr style="background:#1e2a1e;color:#fff">';
-  ['ESTADO','FECHA TOMA','FECHA ENSAYO','N\u00ba ALBAR\u00c1N','N\u00ba ACTA','GRANULOMETR\u00cdA \u2014 % QUE PASA (UNE-EN 933-1)','EQ. ARENA','CONT. FINOS',''].forEach(function(h){
+  ['ESTADO','FECHA TOMA','FECHA ENSAYO','N\u00ba ALBAR\u00c1N','N\u00ba ACTA','GRANULOMETR\u00cdA \u2014 % QUE PASA (UNE-EN 933-1)','EQ. ARENA','CONT. FINOS','IND. LAJAS',''].forEach(function(h){
     html += '<th style="padding:7px 10px;white-space:nowrap;text-align:left">' + h + '</th>';
   });
   html += '</tr></thead><tbody>';
@@ -10086,7 +10086,7 @@ function _ensayosRenderRegistros() {
   grupos.forEach(function(g) {
     // Combinar datos de todos los registros del grupo
     const gran = {}, ids = [];
-    let eq_arena = null, cont_finos = null;
+    let eq_arena = null, cont_finos = null, ind_lajas = null;
     let fecha_toma = null, fecha_acta = null, num_albaran = null, num_acta = null;
     let estado = 'recogido';
     g.regs.forEach(function(r) {
@@ -10099,12 +10099,16 @@ function _ensayosRenderRegistros() {
       if (r.tipo_ensayo === 'granulometria') Object.assign(gran, res);
       if (r.tipo_ensayo === 'eq_arena' && res.eq_arena != null) eq_arena = res.eq_arena;
       if (r.tipo_ensayo === 'cont_finos' && res.cont_finos != null) cont_finos = res.cont_finos;
+      if (r.tipo_ensayo === 'ind_lajas' && res.ind_lajas != null) ind_lajas = res.ind_lajas;
       if (r.estado === 'conforme') estado = 'conforme';
       else if (r.estado === 'no_conforme' && estado !== 'conforme') estado = 'no_conforme';
     });
     const estadoLabel = estado === 'conforme' ? 'Conforme' : estado === 'no_conforme' ? 'No conforme' : 'Pendiente';
     const estadoColor = estado === 'conforme' ? '#4caf50' : estado === 'no_conforme' ? '#f44336' : '#ff9800';
-    const granStr = ['8','6.3','4','2','1','0.5','0.25','0.125','0.063'].map(function(t){ return gran['gran_'+t] != null ? gran['gran_'+t] : '\u2014'; }).join(' | ');
+    const _granTodos = ['14','12.5','10','8','6.3','4','2','1','0.5','0.25','0.125','0.063'];
+    const _granConVal = _granTodos.filter(function(t){ return gran['gran_'+t] != null; });
+    const _granMostrar = _granConVal.length > 0 ? _granConVal : _granTodos.slice(3);
+    const granStr = _granMostrar.map(function(t){ return gran['gran_'+t] != null ? '<span style="color:' + (_granTodos.indexOf(t)<3?'#888':'inherit') + '">' + gran['gran_'+t] + '</span>' : '\u2014'; }).join(' | ');
     html += '<tr style="border-bottom:1px solid var(--border)">';
     html += '<td style="padding:6px 10px"><span style="background:' + estadoColor + ';color:#fff;padding:2px 8px;border-radius:10px;font-size:.72rem">' + estadoLabel + '</span></td>';
     html += '<td style="padding:6px 10px;white-space:nowrap">' + (fecha_toma||'\u2014') + '</td>';
@@ -10114,13 +10118,14 @@ function _ensayosRenderRegistros() {
     html += '<td style="padding:6px 10px;font-size:.72rem">' + granStr + '</td>';
     html += '<td style="padding:6px 10px">' + (eq_arena!=null?eq_arena:'\u2014') + '</td>';
     html += '<td style="padding:6px 10px">' + (cont_finos!=null?cont_finos:'\u2014') + '</td>';
+    html += '<td style="padding:6px 10px">' + (ind_lajas!=null?ind_lajas:'\u2014') + '</td>';
     html += '<td style="padding:6px 10px;text-align:center">'
       + ids.map(function(id){ return '<button onclick="ensayosEliminarRegistro(\'' + id + '\')" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:1rem;padding:2px 4px" title="Eliminar">\u2715</button>'; }).join('')
       + '</td>';
     html += '</tr>';
   });
 
-  if (!grupos.length) html += '<tr><td colspan="9" style="padding:20px;text-align:center;color:var(--muted)">Sin registros para ' + _ensayosFraccion + '</td></tr>';
+  if (!grupos.length) html += '<tr><td colspan="10" style="padding:20px;text-align:center;color:var(--muted)">Sin registros para ' + _ensayosFraccion + '</td></tr>';
   html += '</tbody></table></div>';
   return html;
 }
@@ -10426,10 +10431,10 @@ function _ensayosParseActa(text) {
     // Extraer pares: número_tamiz  número_pasa separados por espacios
     var pares = [...bloque.matchAll(/\b(\d+[,.]?\d*)\s{1,10}(\d{1,3})\b/g)];
     // Mapa tamiz normalizado -> clave gran_
-    var tamMap = {'8':'8','6.3':'6.3','6,3':'6.3','4':'4','2':'2','1':'1',
+    var tamMap = {'14':'14','12.5':'12.5','12,5':'12.5','10':'10',
+                  '8':'8','6.3':'6.3','6,3':'6.3','4':'4','2':'2','1':'1',
                   '0.5':'0.5','0,5':'0.5','0.25':'0.25','0,25':'0.25',
-                  '0.125':'0.125','0,125':'0.125','0.063':'0.063','0,063':'0.063',
-                  }; // 14, 12.5, 10 se ignoran — no están en nuestros campos
+                  '0.125':'0.125','0,125':'0.125','0.063':'0.063','0,063':'0.063'};
     pares.forEach(function(p) {
       var tamiz = p[1].trim();
       var pasa = parseInt(p[2]);
@@ -10607,9 +10612,12 @@ async function ensayosAbrirConfirm(filename, d, pdfUrl) {
     const wrap = document.getElementById('ecf-resultados-wrap');
     wrap.innerHTML = '';
     if (d.tipo_ensayo === 'granulometria' && d.resultados) {
+      const todosT = ['14','12.5','10','8','6.3','4','2','1','0.5','0.25','0.125','0.063','0.063'];
+      const conValor = ['14','12.5','10','8','6.3','4','2','1','0.5','0.25','0.125','0.063'].filter(function(t){ return d.resultados['gran_'+t] != null; });
+      const mostrar = conValor.length > 0 ? conValor : ['8','6.3','4','2','1','0.5','0.25','0.125','0.063'];
       wrap.innerHTML = '<div style="font-size:.8rem;color:var(--muted);margin-bottom:6px">Granulometría — % que pasa</div>'
         + '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">'
-        + ['8','6.3','4','2','1','0.5','0.25','0.125','0.063'].map(function(t) {
+        + mostrar.map(function(t) {
             const v = d.resultados['gran_'+t];
             return '<label style="font-size:.75rem;text-align:center">'
               + '<span style="display:block;color:var(--muted);margin-bottom:2px">' + t + '</span>'
@@ -10658,7 +10666,7 @@ async function ensayosConfirmarGuardar() {
   // Recoger resultados
   let resultados = {};
   if (tipo === 'granulometria') {
-    ['8','6.3','4','2','1','0.5','0.25','0.125','0.063'].forEach(function(t) {
+    ['14','12.5','10','8','6.3','4','2','1','0.5','0.25','0.125','0.063'].forEach(function(t) {
       const el = document.getElementById('ecf-gran-' + t.replace('.','_'));
       if (el && el.value !== '') resultados['gran_'+t] = parseInt(el.value);
     });
