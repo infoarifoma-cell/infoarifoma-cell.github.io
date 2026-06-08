@@ -10386,6 +10386,13 @@ function _ensayosParseActa(text) {
     if (m) r.resultados = { eq_arena: parseFloat(m[1].replace(',','.')) };
   }
 
+  // Contenido en finos — "Contenido en finos que pasan por el tamiz 0.063   11,29"
+  if (r.tipo_ensayo === 'cont_finos') {
+    const m = text.match(/Contenido en finos[\s\S]{0,60}?([\d]+[,.]\d+)\s*(?:\n|$| {2})/i)
+      || text.match(/tamiz 0[.,]063[\s\S]{0,20}?([\d]+[,.]\d+)/i);
+    if (m) r.resultados = { cont_finos: parseFloat(m[1].replace(',','.')) };
+  }
+
   r.estado = 'recogido';
   return r;
 }
@@ -10475,7 +10482,7 @@ async function ensayosAbrirConfirm(filename, d, pdfUrl) {
       semSel.appendChild(opt);
     });
 
-    // Resultados granulometría
+    // Resultados según tipo
     const wrap = document.getElementById('ecf-resultados-wrap');
     wrap.innerHTML = '';
     if (d.tipo_ensayo === 'granulometria' && d.resultados) {
@@ -10490,6 +10497,18 @@ async function ensayosAbrirConfirm(filename, d, pdfUrl) {
               + '</label>';
           }).join('')
         + '</div>';
+    } else if (d.tipo_ensayo === 'cont_finos') {
+      const v = d.resultados ? d.resultados.cont_finos : '';
+      wrap.innerHTML = '<label style="font-size:.8rem;color:var(--muted)">Contenido en finos (%)'
+        + '<input type="number" id="ecf-cont-finos" value="' + (v!=null&&v!==''?v:'') + '" step="0.01" min="0" max="100"'
+        + ' style="width:100%;margin-top:3px;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font-size:.85rem">'
+        + '</label>';
+    } else if (d.tipo_ensayo === 'eq_arena') {
+      const v = d.resultados ? d.resultados.eq_arena : '';
+      wrap.innerHTML = '<label style="font-size:.8rem;color:var(--muted)">Equivalente de arena (%)'
+        + '<input type="number" id="ecf-eq-arena" value="' + (v!=null&&v!==''?v:'') + '" step="0.1" min="0" max="100"'
+        + ' style="width:100%;margin-top:3px;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font-size:.85rem">'
+        + '</label>';
     }
 
     document.getElementById('ensayos-confirm-modal').style.display = 'flex';
@@ -10515,6 +10534,12 @@ async function ensayosConfirmarGuardar() {
       const el = document.getElementById('ecf-gran-' + t.replace('.','_'));
       if (el && el.value !== '') resultados['gran_'+t] = parseInt(el.value);
     });
+  } else if (tipo === 'cont_finos') {
+    const el = document.getElementById('ecf-cont-finos');
+    if (el && el.value !== '') resultados.cont_finos = parseFloat(el.value);
+  } else if (tipo === 'eq_arena') {
+    const el = document.getElementById('ecf-eq-arena');
+    if (el && el.value !== '') resultados.eq_arena = parseFloat(el.value);
   }
 
   const payload = {
