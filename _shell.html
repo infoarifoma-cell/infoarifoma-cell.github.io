@@ -2371,7 +2371,20 @@
             </div>
             <div style="display:flex;gap:8px">
               <input type="file" id="ensayos-pdf-input" accept=".pdf" multiple style="display:none" onchange="ensayosSubirPDFs(this.files)">
-              <button onclick="document.getElementById('ensayos-pdf-input').click()" style="padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:.82rem">&#8593; Subir PDFs</button>
+              <!-- Modal drop zone -->
+              <div id="ensayos-drop-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center">
+                <div id="ensayos-drop-zone" style="background:var(--surface);border-radius:16px;padding:48px 40px;width:420px;max-width:95vw;text-align:center;border:2px dashed var(--border);transition:border-color .2s"
+                  ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+                  ondragleave="this.style.borderColor='var(--border)'"
+                  ondrop="event.preventDefault();this.style.borderColor='var(--border)';ensayosDropPDFs(event.dataTransfer.files);ensayosCerrarDrop()">
+                  <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" style="width:52px;height:52px;margin:0 auto 16px;opacity:.4"><path d="M12 34H8a6 6 0 010-12 6 6 0 0111-4 8 8 0 1013 6h-4"/><path d="M24 22v16M18 32l6 6 6-6"/></svg>
+                  <div style="font-size:1rem;font-weight:700;margin-bottom:6px">Sube tus PDFs aquí</div>
+                  <div style="font-size:.82rem;color:var(--muted);margin-bottom:20px">Arrastra los archivos o haz clic para seleccionar</div>
+                  <button onclick="document.getElementById('ensayos-pdf-input').click()" style="padding:9px 22px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:.85rem;font-weight:600">Seleccionar PDFs</button>
+                  <div style="margin-top:16px"><button onclick="ensayosCerrarDrop()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.82rem">Cancelar</button></div>
+                </div>
+              </div>
+              <button onclick="ensayosAbrirDrop()" style="padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:.82rem">&#8593; Subir PDFs</button>
               <button onclick="ensayosNuevaSemana()" style="padding:7px 16px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:.82rem;font-weight:600">+ Nueva semana</button>
             </div>
           </div>

@@ -10345,15 +10345,21 @@ async function ensayosSubirPDFs(files) {
     }
   }
 
-  if (toast) toast.style.display = 'none';
   document.getElementById('ensayos-pdf-input').value = '';
+  ensayosCerrarDrop();
 
   if (resultados.length) {
-    // Recargar registros
     const rReg = await getEnsayosRegistros(_ensayosAnio);
     _ensayosRegistros = rReg.ok ? rReg.data : [];
     _ensayosRenderTab(_ensayosTab);
-    alert('Procesados:\n' + resultados.join('\n'));
+    if (toast) {
+      toast.style.background = '#2e7d32';
+      toast.textContent = '\u2713 ' + resultados.length + ' acta' + (resultados.length>1?'s':'') + ' procesada' + (resultados.length>1?'s':'') + ' correctamente';
+      toast.style.display = 'block';
+      setTimeout(function(){ toast.style.display='none'; toast.style.background='#333'; }, 4000);
+    }
+  } else {
+    if (toast) toast.style.display = 'none';
   }
 }
 
@@ -10412,4 +10418,16 @@ function _ensayosParseActa(text) {
 function _ensayosIsoFecha(ddmmyyyy) {
   const p = ddmmyyyy.split('/');
   return p.length === 3 ? p[2]+'-'+p[1]+'-'+p[0] : ddmmyyyy;
+}
+
+function ensayosAbrirDrop() {
+  const m = document.getElementById('ensayos-drop-modal');
+  if (m) m.style.display = 'flex';
+}
+function ensayosCerrarDrop() {
+  const m = document.getElementById('ensayos-drop-modal');
+  if (m) m.style.display = 'none';
+}
+function ensayosDropPDFs(files) {
+  ensayosSubirPDFs(files);
 }
