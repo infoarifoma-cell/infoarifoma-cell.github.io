@@ -10415,35 +10415,35 @@ async function ensayosAbrirConfirm(filename, d, pdfUrl) {
     _ensayosConfirmResolve = resolve;
 
     // Visor PDF — renderizar con PDF.js en canvas (evita CSP frame-src)
-    const col = document.getElementById('ecf-pdf-col');
-    const wrap = document.getElementById('ecf-pdf-canvas-wrap');
-    if (col && wrap) {
+    const pdfCol = document.getElementById('ecf-pdf-col');
+    const pdfWrap = document.getElementById('ecf-pdf-canvas-wrap');
+    if (pdfCol && pdfWrap) {
       if (pdfUrl) {
-        col.style.display = 'flex';
-        wrap.innerHTML = '<div style="color:#aaa;font-size:.8rem;padding:12px">Cargando PDF...</div>';
+        pdfCol.style.display = 'flex';
+        pdfWrap.innerHTML = '<div style="color:#aaa;font-size:.8rem;padding:12px">Cargando PDF...</div>';
         pdfjsLib.getDocument(pdfUrl).promise.then(function(pdf) {
-          wrap.innerHTML = '';
-          var renders = [];
-          for (var i = 1; i <= pdf.numPages; i++) {
-            renders.push((function(pageNum) {
+          pdfWrap.innerHTML = '';
+          var pageNums = [];
+          for (var i = 1; i <= pdf.numPages; i++) pageNums.push(i);
+          pageNums.reduce(function(p, pageNum) {
+            return p.then(function() {
               return pdf.getPage(pageNum).then(function(page) {
                 var vp = page.getViewport({ scale: 1.2 });
                 var canvas = document.createElement('canvas');
                 canvas.width = vp.width;
                 canvas.height = vp.height;
                 canvas.style.cssText = 'display:block;width:100%;margin-bottom:4px;border-radius:4px';
-                wrap.appendChild(canvas);
+                pdfWrap.appendChild(canvas);
                 return page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
               });
-            })(i));
-          }
-          renders.reduce(function(p, fn) { return p.then(fn); }, Promise.resolve());
+            });
+          }, Promise.resolve());
         }).catch(function() {
-          wrap.innerHTML = '<div style="color:#f88;font-size:.8rem;padding:12px">No se pudo cargar el PDF</div>';
+          pdfWrap.innerHTML = '<div style="color:#f88;font-size:.8rem;padding:12px">No se pudo cargar el PDF</div>';
         });
       } else {
-        col.style.display = 'none';
-        wrap.innerHTML = '';
+        pdfCol.style.display = 'none';
+        pdfWrap.innerHTML = '';
       }
     }
 
