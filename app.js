@@ -1660,6 +1660,8 @@ function mostrarAlbaranUltimaLinea(){
   const esCE=/\b(0\/4|4\/12|12\/20)\b/.test(nombre);
   const ceImg=document.getElementById('alb-ce-img');
   if(ceImg)ceImg.style.display=esCE?'inline':'none';
+  const ceWrap=document.getElementById('alb-ce-wrap');
+  if(ceWrap)ceWrap.style.display=esCE?'flex':'none';
   _renderAlbaranQR(p.productoNombre);
   const aw=document.getElementById('albaran-wrap');
   aw.style.display='flex';
@@ -1749,6 +1751,8 @@ async function mostrarAlbaran(id,p){
   const esCE=/\b(0\/4|4\/12|12\/20)\b/.test(nombre);
   const ceImg=document.getElementById('alb-ce-img');
   if(ceImg)ceImg.style.display=esCE?'inline':'none';
+  const ceWrap2=document.getElementById('alb-ce-wrap');
+  if(ceWrap2)ceWrap2.style.display=esCE?'flex':'none';
   _renderAlbaranQR(p.productoNombre);
   // Mostrar albarán
   const aw=document.getElementById('albaran-wrap');
@@ -6564,7 +6568,18 @@ function printOTHistorial(id){
   const r=otHistData.find(x=>x.id==id);
   if(!r)return;
   const machine=MACHINES.find(m=>m.id===r.activo)||{name:r.activo,fabricante:'—'};
-  const gama=getEffectiveGamas().find(g=>g.id===r.gama)||{nombre:r.gama,intervalo:'—',checks:[]};
+  let gama=getEffectiveGamas().find(g=>g.id===r.gama);
+  // Fallback: si no encuentra por id, buscar por modelo de la máquina (OTs antiguos guardaban nombre en lugar de id)
+  if(!gama||!gama.checks||!gama.checks.length){
+    const gamasPorModelo=getEffectiveGamas().filter(g=>g.modelo===machine.modelo&&g.checks&&g.checks.length);
+    if(gamasPorModelo.length===1) gama=gamasPorModelo[0];
+    else if(gamasPorModelo.length>1){
+      // Elegir la que tenga más checks coincidentes con los del OT
+      const checks0=Array.isArray(r.checks)?r.checks:[];
+      gama=gamasPorModelo.reduce(function(best,g){ return g.checks.length>=checks0.filter(Boolean).length?g:best; },gamasPorModelo[0]);
+    }
+  }
+  if(!gama)gama={nombre:r.gama,intervalo:'—',checks:[]};
   const checks=Array.isArray(r.checks)?r.checks:[];
   document.getElementById('otp-ref').textContent='OT-'+String(r.ot||r.id).padStart(4,'0');
   document.getElementById('otp-maquina').textContent=machine.name+' ('+r.activo+')';
@@ -10647,7 +10662,7 @@ async function ensayosAbrirConfirm(filename, d, pdfUrl) {
         + '</div>'
         + '</div>';
     } else if (d.tipo_ensayo === 'granulometria' && d.resultados) {
-      const conValor = ['32','20','16','14','12.5','10','8','6.3','4','2','1','0.5','0.25','0.125','0.063'].filter(function(t){ return res['gran_'+t] != null; });
+      const conValor = ['63','50','40','32','20','16','14','12.5','10','8','6.3','4','2','1','0.5','0.25','0.125','0.063'].filter(function(t){ return res['gran_'+t] != null; });
       const mostrar = conValor.length > 0 ? conValor : ['8','6.3','4','2','1','0.5','0.25','0.125','0.063'];
       wrap.innerHTML = '<div style="font-size:.8rem;color:var(--muted);margin-bottom:6px">Granulometría — % que pasa</div>'
         + '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">'
