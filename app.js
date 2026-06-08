@@ -3309,13 +3309,24 @@ async function imprimirSolicitudVacaciones(worker, vacId, btnEl) {
     if (!shareRes.ok) throw new Error('No se pudo acceder a OneDrive');
     const shareItem = await shareRes.json();
     const driveId = shareItem.parentReference.driveId;
-    const rutaParts = ['Arifoma','06. ADMINISTRACION','06.00 PERSONAL','06.00.02 VACACIONES','SOLICITUD DE VACACIONES.rtf'];
-    const fileRes = await fetch('https://graph.microsoft.com/v1.0/drives/' + driveId + '/root:/' + rutaParts.map(encodeURIComponent).join('/') + '?$select=id,name,webUrl', {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
-    if (!fileRes.ok) throw new Error('Archivo no encontrado en OneDrive');
-    const file = await fileRes.json();
-    window.open(file.webUrl, '_blank');
+    const { driveId, admonId } = await _oneDriveGetArifomaRoot(token);
+    async function getChild(parentId, childName) {
+      const r = await fetch('https://graph.microsoft.com/v1.0/drives/' + driveId + '/items/' + parentId + '/children?$select=id,name,webUrl,folder&$top=200', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (!r.ok) throw new Error('Error listando carpeta');
+      const j = await r.json();
+      const norm = s => s.trim().toLowerCase();
+      return (j.value || []).find(i => norm(i.name) === norm(childName));
+    }
+    // admonId = 06. ADMINISTRACION → navegar directo sin pasar por Arifoma
+    const c2 = await getChild(admonId, '06.00 PERSONAL');
+    if (!c2) throw new Error('"06.00 PERSONAL" no encontrada');
+    const c3 = await getChild(c2.id, '06.00.02 VACACIONES');
+    if (!c3) throw new Error('"06.00.02 VACACIONES" no encontrada');
+    const c4 = await getChild(c3.id, 'SOLICITUD DE VACACIONES.rtf');
+    if (!c4) throw new Error('Archivo no encontrado');
+    window.open(c4.webUrl, '_blank');
   } catch(e) {
     alert('Error: ' + e.message);
   } finally {
@@ -3780,47 +3791,59 @@ function renderDocumentos(){
   }).join('');
 }
 
+async function _oneDriveGetArifomaRoot(token) {
+  // Share link apunta a 06. ADMINISTRACION — su padre es la carpeta Arifoma
+  const shareToken = 'u!' + btoa(COMPRAS_SHARE_URL).replace(/=+$/, '').replace(/\//g, '_').replace(/\+/g, '-');
+  const shareRes = await fetch('https://graph.microsoft.com/v1.0/shares/' + shareToken + '/driveItem?$select=id,parentReference', {
+    headers: { 'Authorization': 'Bearer ' + token }
+  });
+  if (!shareRes.ok) throw new Error('No se pudo acceder a OneDrive');
+  const shareItem = await shareRes.json();
+  const driveId = shareItem.parentReference.driveId;
+  const arifomaId = shareItem.parentReference.id; // carpeta Arifoma
+  const admonId = shareItem.id; // carpeta 06. ADMINISTRACION
+  return { driveId, arifomaId, admonId };
+}
+
 async function docAbrirOneDrive(nombre, btnEl) {
   try {
     if (btnEl) { btnEl.textContent = '⏳'; btnEl.disabled = true; }
     const token = await comprasGetToken();
-    // Obtener driveId desde share link existente
-    const shareToken = 'u!' + btoa(COMPRAS_SHARE_URL).replace(/=+$/, '').replace(/\//g, '_').replace(/\+/g, '-');
-    const shareRes = await fetch('https://graph.microsoft.com/v1.0/shares/' + shareToken + '/driveItem?$select=id,parentReference', {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
-    if (!shareRes.ok) throw new Error('No se pudo acceder a OneDrive');
-    const shareItem = await shareRes.json();
-    const driveId = shareItem.parentReference.driveId;
+    const { driveId, arifomaId } = await _oneDriveGetArifomaRoot(token);
 
-    // Buscar archivo en la carpeta documental por ruta
-    const rutaParts = ['Arifoma','07. CONTROL DOCUMENTAL','07.01 DOCUMENTOS', nombre];
-    const searchRes = await fetch('https://graph.microsoft.com/v1.0/drives/' + driveId + '/root:/' + rutaParts.map(encodeURIComponent).join('/') + '?$select=id,name,webUrl', {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
-    if (searchRes.ok) {
-      const item = await searchRes.json();
-      window.open(item.webUrl, '_blank');
-    } else {
-      // Si no coincide exacto, buscar por nombre en la carpeta
-      const folderPath = 'Arifoma/07. CONTROL DOCUMENTAL/07.01 DOCUMENTOS';
-    const folderRes = await fetch('https://graph.microsoft.com/v1.0/drives/' + driveId + '/root:/' + folderPath.split('/').map(encodeURIComponent).join('/') + ':/children?$select=id,name,webUrl&$top=500', {
+    // Navegar desde Arifoma → 07. CONTROL DOCUMENTAL → 07.01 DOCUMENTOS
+    async function getChild(parentId, childName) {
+      const r = await fetch('https://graph.microsoft.com/v1.0/drives/' + driveId + '/items/' + parentId + '/children?$select=id,name,webUrl,folder&$top=200', {
         headers: { 'Authorization': 'Bearer ' + token }
       });
-      if (!folderRes.ok) throw new Error('Carpeta no encontrada');
-      const folderJson = await folderRes.json();
-      const norm = s => s.trim().toLowerCase().replace(/\.[^.]+$/, '');
-      const found = (folderJson.value || []).find(i => norm(i.name) === norm(nombre));
-      if (found) {
-        window.open(found.webUrl, '_blank');
-      } else {
-        alert('Documento no encontrado en OneDrive:\n' + nombre);
-      }
+      if (!r.ok) throw new Error('Error listando carpeta');
+      const j = await r.json();
+      const norm = s => s.trim().toLowerCase();
+      return (j.value || []).find(i => norm(i.name) === norm(childName));
+    }
+
+    const carpeta07 = await getChild(arifomaId, '07. CONTROL DOCUMENTAL');
+    if (!carpeta07) throw new Error('Carpeta "07. CONTROL DOCUMENTAL" no encontrada');
+    const carpetaDocs = await getChild(carpeta07.id, '07.01 DOCUMENTOS');
+    if (!carpetaDocs) throw new Error('Carpeta "07.01 DOCUMENTOS" no encontrada');
+
+    // Buscar archivo por nombre (con o sin extensión)
+    const r = await fetch('https://graph.microsoft.com/v1.0/drives/' + driveId + '/items/' + carpetaDocs.id + '/children?$select=id,name,webUrl&$top=500', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!r.ok) throw new Error('Error listando documentos');
+    const j = await r.json();
+    const norm = s => s.trim().toLowerCase().replace(/\.[^.]+$/, '');
+    const found = (j.value || []).find(i => norm(i.name) === norm(nombre));
+    if (found) {
+      window.open(found.webUrl, '_blank');
+    } else {
+      alert('Documento no encontrado en OneDrive:\n' + nombre);
     }
   } catch(e) {
     alert('Error abriendo OneDrive: ' + e.message);
   } finally {
-    if (btnEl) { btnEl.textContent = '☁'; btnEl.disabled = false; }
+    if (btnEl) { btnEl.textContent = '☁ Ver'; btnEl.disabled = false; }
   }
 }
 
