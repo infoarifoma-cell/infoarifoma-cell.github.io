@@ -10065,6 +10065,7 @@ function _ensayosRenderControl() {
   }
   if (semSelIds.length > 0) {
     html += '<button onclick="_ensayosEnviarLab()" style="padding:7px 18px;background:#1565c0;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:.8rem;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.2)">&#9993; Enviar a laboratorio (' + semSelIds.length + ')</button>';
+    html += '<button onclick="_ensayosGenerarPDF()" style="padding:7px 18px;background:#2e7d32;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:.8rem;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.2)">&#128196; Generar PDF</button>';
     html += '<button onclick="_ensayosLimpiarSelEmail()" style="padding:7px 14px;background:#fff;color:var(--muted);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:.8rem">&#10005;</button>';
   }
   html += '</div>';
@@ -10273,7 +10274,7 @@ function _ensayosEnviarLab() {
   };
 
   const hoy = new Date().toLocaleDateString('es-ES');
-  let cuerpo = 'Buenos días,\n\nDesde Áridos Fonseca le solicitamos la realización de los siguientes ensayos:\n\n';
+  let cuerpo = 'Buenos días,\n\nDesde Áridos Fonoliticos de Maspalomas le solicitamos la realización de los siguientes ensayos:\n\n';
 
   sems.sort(function(a,b){ return (a.fecha_lunes||'').localeCompare(b.fecha_lunes||''); });
 
@@ -10299,13 +10300,80 @@ function _ensayosEnviarLab() {
   cuerpo += '────────────────────────\n\n';
   cuerpo += 'Fecha de solicitud: ' + hoy + '\n\n';
   cuerpo += 'Por favor, confírmenos la recepción y la fecha estimada de entrega de resultados.\n\n';
-  cuerpo += 'Gracias,\nÁridos Fonseca';
+  cuerpo += 'Un saludo y gracias,\n';
 
   const asunto = 'Solicitud de ensayos de áridos — ' + hoy;
   const outlookUrl = 'https://outlook.office.com/mail/deeplink/compose?to=' + encodeURIComponent('info@esocansl.com') +
     '&subject=' + encodeURIComponent(asunto) +
     '&body=' + encodeURIComponent(cuerpo);
   window.open(outlookUrl, '_blank');
+}
+
+async function _ensayosGenerarPDF() {
+  const sems = Object.values(_ensayosSelEmail);
+  if (!sems.length) { alert('Selecciona al menos una semana'); return; }
+
+  const { PDFDocument, rgb, StandardFonts } = PDFLib;
+
+  // Cargar plantilla
+  const templateBytes = await fetch('/PLANTILLA ENSAYOS.pdf').then(r => r.arrayBuffer());
+
+  // Mapeo ensayo → fila (índice 0 = Granulometría)
+  const FILA_ENSAYO = {
+    'granulometria': 0,
+    'cont_finos':    1,
+    'eq_arena':      2,
+    'ind_lajas':     3,
+    'caras_fractura':4
+  };
+  // Columnas ÁRIDO CANTERA (x centers aproximados en pts, origen abajo-izq)
+  const COL_FRAC = { '0/4': 312, '4/12': 339, '12/20': 366, '20/40': 393 };
+  // Y de la primera fila de ensayos (Granulometría), cada fila ~18.5pt hacia abajo
+  const Y_PRIMERA_FILA = 618;
+  const ALTO_FILA = 18.5;
+
+  for (const sem of sems) {
+    const pdfDoc = await PDFDocument.load(templateBytes);
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const page = pdfDoc.getPages()[0];
+
+    // Fecha de recogida
+    const fecha = sem.fecha_lunes ? new Date(sem.fecha_lunes).toLocaleDateString('es-ES') : '';
+    page.drawText(fecha, { x: 105, y: 728, size: 9, font, color: rgb(0,0,0) });
+
+    // Muestras seleccionadas de esta semana
+    const regs = _ensayosRegistros.filter(function(r){ return r.semana_id === sem.id && r.estado === 'recogido'; });
+    const marcados = {}; // 'tipo|frac' => true
+    regs.forEach(function(r){ marcados[r.tipo_ensayo + '|' + r.fraccion] = true; });
+
+    // Dibujar X en cada celda marcada
+    Object.keys(marcados).forEach(function(key) {
+      const parts = key.split('|');
+      const tipo = parts[0], frac = parts[1];
+      const filaIdx = FILA_ENSAYO[tipo];
+      const colX = COL_FRAC[frac];
+      if (filaIdx === undefined || colX === undefined) return;
+      const y = Y_PRIMERA_FILA - filaIdx * ALTO_FILA;
+      page.drawText('X', { x: colX - 3, y: y, size: 8, font, color: rgb(0,0,0) });
+    });
+
+    // Nº muestras = fracciones distintas
+    const fracs = [...new Set(regs.map(function(r){ return r.fraccion; }))];
+    page.drawText(String(fracs.length), { x: 105, y: 68, size: 9, font, color: rgb(0,0,0) });
+
+    // Solicitante
+    page.drawText('Áridos Fonseca', { x: 480, y: 115, size: 9, font, color: rgb(0,0,0) });
+
+    const pdfBytes = await pdfDoc.save();
+    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const fechaStr = sem.fecha_lunes ? sem.fecha_lunes.slice(0,10) : 'sem';
+    a.href = url;
+    a.download = 'Ensayos_' + fechaStr + '.pdf';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 }
 
 function _ensayosToggleSelCelda(key, semanaId, tipo, frac) {
