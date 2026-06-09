@@ -10042,132 +10042,85 @@ function _ensayosRenderTab(tab) {
 }
 
 // TAB CONTROL
-// Definición de columnas para la tabla de control (drag & drop)
-var _ENSAYOS_CTRL_COLS_DEFAULT = [
-  { id:'estado',   label:'D',        grupo:'',           fixed:true },
-  { id:'num',      label:'S',        grupo:'',           fixed:true },
-  { id:'lunes',    label:'LUNES',    grupo:'',           fixed:true },
-  { id:'tn',       label:'TN',       grupo:'PRODUCCIÓN', norma:'', per:'' },
-  { id:'tn04',     label:'0/4',      grupo:'PRODUCCIÓN', norma:'', per:'' },
-  { id:'tn412',    label:'4/12',     grupo:'PRODUCCIÓN', norma:'', per:'' },
-  { id:'tn1220',   label:'12/20',    grupo:'PRODUCCIÓN', norma:'', per:'' },
-  { id:'tn2040',   label:'20/40',    grupo:'PRODUCCIÓN', norma:'', per:'' },
-  { id:'mat',      label:'TIPO MAT.',grupo:'PRODUCCIÓN', norma:'', per:'' },
-  { id:'albaran',  label:'FECHA ALBARÁN', grupo:'',      norma:'', per:'' },
-  { id:'gran04',   label:'0/4',      grupo:'GRANULOMETRIA',    norma:'UNE-EN 933-1', per:'SEMANAL' },
-  { id:'gran412',  label:'4/12',     grupo:'GRANULOMETRIA',    norma:'UNE-EN 933-1', per:'SEMANAL' },
-  { id:'gran1220', label:'12/20',    grupo:'GRANULOMETRIA',    norma:'UNE-EN 933-1', per:'SEMANAL' },
-  { id:'gran2040', label:'20/40',    grupo:'GRANULOMETRIA',    norma:'UNE-EN 933-1', per:'SEMANAL' },
-  { id:'fino04',   label:'0/4',      grupo:'CONTENIDO DE FINOS', norma:'UNE-EN 933-1', per:'SEMANAL' },
-  { id:'fino412',  label:'4/12',     grupo:'CONTENIDO DE FINOS', norma:'UNE-EN 933-1', per:'SEMANAL' },
-  { id:'fino1220', label:'12/20',    grupo:'CONTENIDO DE FINOS', norma:'UNE-EN 933-1', per:'SEMANAL' },
-  { id:'fino2040', label:'20/40',    grupo:'CONTENIDO DE FINOS', norma:'UNE-EN 933-1', per:'SEMANAL' },
-  { id:'eq04',     label:'0/4',      grupo:'EQUI. EN ARENA',   norma:'UNE-EN 933-8', per:'SEMANAL' },
-  { id:'laj412',   label:'4/12',     grupo:'INDICE LAJAS',     norma:'UNE-EN 933-3', per:'MENSUAL' },
-  { id:'laj1220',  label:'12/20',    grupo:'INDICE LAJAS',     norma:'UNE-EN 933-3', per:'MENSUAL' },
-  { id:'laj2040',  label:'20/40',    grupo:'INDICE LAJAS',     norma:'UNE-EN 933-3', per:'MENSUAL' },
-  { id:'car412',   label:'4/12',     grupo:'% CAPAS FRACT.',   norma:'UNE-EN 933-5', per:'MENSUAL' },
-  { id:'car1220',  label:'12/20',    grupo:'% CAPAS FRACT.',   norma:'UNE-EN 933-5', per:'MENSUAL' },
-  { id:'car2040',  label:'20/40',    grupo:'% CAPAS FRACT.',   norma:'UNE-EN 933-5', per:'MENSUAL' },
-  { id:'obs',      label:'OBSERVACIONES', grupo:'',            fixed:true }
-];
-
-function _ensayosGetCols() {
-  var saved = null;
-  try { saved = JSON.parse(localStorage.getItem('ensayos_ctrl_cols')); } catch(e){}
-  if (!saved) return _ENSAYOS_CTRL_COLS_DEFAULT.slice();
-  // Reorder default cols by saved order, add any missing
-  var result = [];
-  saved.forEach(function(sid) {
-    var c = _ENSAYOS_CTRL_COLS_DEFAULT.find(function(c){ return c.id === sid; });
-    if (c) result.push(c);
-  });
-  _ENSAYOS_CTRL_COLS_DEFAULT.forEach(function(c) {
-    if (!result.find(function(r){ return r.id === c.id; })) result.push(c);
-  });
-  return result;
-}
-
-function _ensayosSaveCols(cols) {
-  localStorage.setItem('ensayos_ctrl_cols', JSON.stringify(cols.map(function(c){ return c.id; })));
-}
-
-function _ensayosResetCols() {
-  localStorage.removeItem('ensayos_ctrl_cols');
-  _ensayosRenderTab('control');
-}
-
 function _ensayosRenderControl() {
   const semanas = _ensayosSemanas;
-  const cols = _ensayosGetCols();
+  const TH = 'padding:5px 8px;border:1px solid #d0d7c8;white-space:nowrap;font-size:.72rem;';
+  const TH_GRP = 'padding:5px 8px;border:1px solid #d0d7c8;text-align:center;font-size:.72rem;font-weight:700;';
+  const BG_HDR = 'background:#2c3a2c;color:#fff;';
+  const BG_GRAN = 'background:#3a4a3a;color:#fff;';
+  const BG_FINO = 'background:#3a4a30;color:#fff;';
+  const BG_EQ   = 'background:#2a3a4a;color:#fff;';
+  const BG_LAJ  = 'background:#4a3a2a;color:#fff;';
+  const BG_CAR  = 'background:#4a2a3a;color:#fff;';
 
-  const TH_Y = 'padding:3px 5px;border:1px solid #7eb87e;text-align:center;font-weight:700;font-size:.65rem;background:#c6efce;color:#1a3a1a;line-height:1.2;white-space:nowrap;';
-  const TH_W = 'padding:3px 5px;border:1px solid #7eb87e;text-align:center;font-weight:700;font-size:.65rem;background:#fff;color:#1a3a1a;line-height:1.2;white-space:nowrap;';
-  const TD   = 'padding:5px 8px;border:1px solid #e8ede4;';
-  const TD_C = TD + 'text-align:center;';
-  const TD_R = TD + 'text-align:right;';
-  const BG_G = 'background:#eef4ea;';
-  const BG_F = 'background:#f0f4e8;';
-  const BG_E = 'background:#e8eef4;';
-  const BG_L = 'background:#f4ede8;';
-  const BG_Ca= 'background:#f4e8ee;';
+  let html = '<div style="font-size:.8rem;color:var(--muted);margin-bottom:8px">' + semanas.length + ' semanas</div>';
+  html += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:.7rem;min-width:1300px;background:#fff">';
 
-  // Grupo colors for header
-  var grupoStyle = function(g) {
-    if (g === 'GRANULOMETRIA' || g === 'CONTENIDO DE FINOS') return TH_Y;
-    if (g === 'EQUI. EN ARENA' || g === 'INDICE LAJAS' || g === '% CAPAS FRACT.') return TH_Y;
-    return TH_W;
-  };
+  const TH_Y = 'padding:3px 5px;border:1px solid #7eb87e;text-align:center;font-weight:700;font-size:.65rem;background:#c6efce;color:#1a3a1a;line-height:1.2;';
+  const TH_W = 'padding:3px 5px;border:1px solid #7eb87e;text-align:center;font-weight:700;font-size:.65rem;background:#fff;color:#1a3a1a;line-height:1.2;';
 
-  var html = '';
-  html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap">';
-  html += '<span style="font-size:.8rem;color:var(--muted)">' + semanas.length + ' semanas</span>';
-  html += '<span style="font-size:.75rem;color:var(--muted);background:#f0f4f0;border:1px solid #d0d7c8;border-radius:6px;padding:3px 10px;cursor:default" title="Arrastra las cabeceras de columna para reordenar">&#8645; Arrastra columnas para reordenar</span>';
-  html += '<button onclick="_ensayosResetCols()" style="font-size:.72rem;padding:3px 10px;border-radius:6px;border:1px solid #d0d7c8;background:#fff;cursor:pointer;color:var(--muted)">Restablecer orden</button>';
-  html += '</div>';
-
-  html += '<div style="overflow-x:auto"><table id="ensayos-ctrl-table" style="border-collapse:collapse;font-size:.7rem;background:#fff">';
   html += '<thead>';
 
-  // Fila 1: título fijo + grupos
+  // Fila 1: título + grupos
+  // Columnas fijas: D(1) S(1) LUNES(1) = 3 cols con rowspan=4
+  // PRODUCCIÓN: TIPO MAT + TN + 0/4 + 4/12 + 12/20 + 20/40 = 6 cols
+  // FECHA ALBARÁN: 1 col rowspan=4
+  // GRANULOMETRÍA: 4 cols, CONTENIDO FINOS: 4 cols, EQUI ARENA: 1 col, IND LAJAS: 3 cols, CAPAS FRACT: 3 cols
+  // OBSERVACIONES: 1 col rowspan=4
   html += '<tr>';
-  html += '<th rowspan="3" colspan="3" style="' + TH_Y + 'font-size:.68rem;line-height:1.4;vertical-align:middle;min-width:90px">CONTROL DE<br>ENSAYOS DE<br>\u00c1RIDO ' + _ensayosAnio + '<br><span style="font-weight:400;font-size:.6rem">(MENSUALES Y<br>SEMANALES)</span></th>';
-  // Grupos para columnas no-fixed
-  var movableCols = cols.filter(function(c){ return !c.fixed; });
-  var grupos = [];
-  movableCols.forEach(function(c) {
-    var g = c.grupo || '';
-    if (!grupos.length || grupos[grupos.length-1].name !== g) {
-      grupos.push({ name: g, count: 1, norma: c.norma||'', per: c.per||'' });
-    } else {
-      grupos[grupos.length-1].count++;
-    }
-  });
-  grupos.forEach(function(g) {
-    var st = g.name ? grupoStyle(g.name) : TH_W;
-    html += '<th colspan="' + g.count + '" style="' + st + 'vertical-align:middle">' + (g.name || '&nbsp;') + '</th>';
-  });
+  html += '<th rowspan="4" colspan="3" style="' + TH_Y + 'font-size:.68rem;line-height:1.4;vertical-align:middle">CONTROL DE<br>ENSAYOS DE<br>\u00c1RIDO ' + _ensayosAnio + '<br><span style="font-weight:400;font-size:.6rem">(MENSUALES Y<br>SEMANALES)</span></th>';
+  html += '<th colspan="6" rowspan="2" style="' + TH_W + 'vertical-align:middle">PRODUCCI\u00d3N</th>';
+  html += '<th rowspan="4" style="' + TH_W + 'vertical-align:middle">FECHA<br>ALBAR\u00c1N</th>';
+  html += '<th colspan="4" style="' + TH_W + '">RECUENTO</th>';
+  html += '<th colspan="4" style="' + TH_W + '">RECUENTO</th>';
+  html += '<th style="' + TH_W + '">RECUENTO</th>';
+  html += '<th colspan="3" style="' + TH_W + '">RECUENTO</th>';
+  html += '<th colspan="3" style="' + TH_W + '">RECUENTO</th>';
+  html += '<th rowspan="4" style="' + TH_W + 'vertical-align:middle">OBSERVACIONES</th>';
   html += '</tr>';
 
-  // Fila 2: normas
+  // Fila 2: NORMA
   html += '<tr>';
-  movableCols.forEach(function(c) {
-    html += '<th style="' + TH_W + '">' + (c.norma || '&nbsp;') + '</th>';
-  });
+  html += '<th colspan="4" style="' + TH_W + '">UNE-EN 933-1</th>';
+  html += '<th colspan="4" style="' + TH_W + '">UNE-EN 933-1</th>';
+  html += '<th style="' + TH_W + '">UNE-EN 933-8</th>';
+  html += '<th colspan="3" style="' + TH_W + '">UNE-EN 933-3</th>';
+  html += '<th colspan="3" style="' + TH_W + '">UNE-EN 933-5</th>';
   html += '</tr>';
 
-  // Fila 3: etiquetas de columna (arrastrables)
-  html += '<tr id="ensayos-ctrl-header-row">';
-  movableCols.forEach(function(c, idx) {
-    var draggable = !c.fixed;
-    html += '<th draggable="' + draggable + '" data-col-id="' + c.id + '" style="' + grupoStyle(c.grupo||'') + 'cursor:' + (draggable?'grab':'default') + ';user-select:none" ' +
-      'ondragstart="_ensayosColDragStart(event,\'' + c.id + '\')" ' +
-      'ondragover="_ensayosColDragOver(event)" ' +
-      'ondrop="_ensayosColDrop(event,\'' + c.id + '\')" ' +
-      'ondragend="_ensayosColDragEnd(event)">' +
-      c.label + '</th>';
-  });
+  // Fila 3: subgrupos de PRODUCCIÓN + labels ensayos
+  html += '<tr>';
+  html += '<th style="' + TH_W + '">TIPO<br>MAT.</th>';
+  html += '<th style="' + TH_W + '">TN</th>';
+  html += '<th style="' + TH_W + '">0/4</th>';
+  html += '<th style="' + TH_W + '">4/12</th>';
+  html += '<th style="' + TH_W + '">12/20</th>';
+  html += '<th style="' + TH_W + '">20/40</th>';
+  html += '<th colspan="4" style="' + TH_Y + '">GRANULOMETRIA<br><span style="font-weight:400;font-size:.6rem">SEMANAL</span></th>';
+  html += '<th colspan="4" style="' + TH_Y + '">CONTENIDO DE FINOS<br><span style="font-weight:400;font-size:.6rem">SEMANAL</span></th>';
+  html += '<th style="' + TH_Y + '">EQUI. EN<br>ARENA<br><span style="font-weight:400;font-size:.6rem">SEMANAL</span></th>';
+  html += '<th colspan="3" style="' + TH_Y + '">INDICE LAJAS<br><span style="font-weight:400;font-size:.6rem">MENSUAL</span></th>';
+  html += '<th colspan="3" style="' + TH_Y + '">PORCENTAJE CAPAS<br>FRAGTURADAS<br><span style="font-weight:400;font-size:.6rem">MENSUAL</span></th>';
   html += '</tr>';
+
+  // Fila 4: D S LUNES + fracciones
+  html += '<tr>';
+  html += '<th style="' + TH_Y + '">D</th>';
+  html += '<th style="' + TH_Y + '">S</th>';
+  html += '<th style="' + TH_Y + '">LUNES</th>';
+  html += '<th style="' + TH_W + '">TIPO<br>MAT.</th>';
+  html += '<th style="' + TH_W + '">TN</th>';
+  html += '<th style="' + TH_W + '">0/4</th>';
+  html += '<th style="' + TH_W + '">4/12</th>';
+  html += '<th style="' + TH_W + '">12/20</th>';
+  html += '<th style="' + TH_W + '">20/40</th>';
+  ['0/4','4/12','12/20','20/40'].forEach(function(f){ html += '<th style="' + TH_Y + '">' + f + '</th>'; });
+  ['0/4','4/12','12/20','20/40'].forEach(function(f){ html += '<th style="' + TH_Y + '">' + f + '</th>'; });
+  html += '<th style="' + TH_Y + '">0/4</th>';
+  ['4/12','12/20','20/40'].forEach(function(f){ html += '<th style="' + TH_Y + '">' + f + '</th>'; });
+  ['4/12','12/20','20/40'].forEach(function(f){ html += '<th style="' + TH_Y + '">' + f + '</th>'; });
+  html += '</tr>';
+
   html += '</thead><tbody>';
 
   semanas.forEach(function(sem, i) {
@@ -10192,45 +10145,52 @@ function _ensayosRenderControl() {
     }
     const mat = sem.tipo_material || 'NP';
     const matColor = mat === 'AC' ? 'var(--accent)' : 'var(--muted)';
-    const primerReg = regs.find(function(r){ return r.num_albaran; });
-    const fechaAlbaran = primerReg ? (primerReg.num_albaran || '\u2014') : '\u2014';
+
+    const TD = 'padding:5px 8px;border:1px solid #e8ede4;';
+    const TD_C = TD + 'text-align:center;';
+    const TD_R = TD + 'text-align:right;';
+    const BG_G = 'background:#eef4ea;';
+    const BG_F = 'background:#f0f4e8;';
+    const BG_E = 'background:#e8eef4;';
+    const BG_L = 'background:#f4ede8;';
+    const BG_Ca= 'background:#f4e8ee;';
     const rowBg = i % 2 === 0 ? '' : 'background:#f9faf8;';
 
-    var cellMap = {
-      estado:  '<td style="' + TD_C + 'color:' + estadoColor + ';font-weight:700;font-size:.7rem">' + estadoGlobal + '</td>',
-      num:     '<td style="' + TD_C + 'font-weight:600;font-size:.7rem">' + num + '</td>',
-      lunes:   '<td style="' + TD + 'white-space:nowrap;font-size:.7rem">' + fecha + '</td>',
-      tn:      '<td style="' + TD_R + '">' + (tnTotal ? Number(tnTotal).toLocaleString('es') : '\u2014') + '</td>',
-      tn04:    '<td style="' + TD_R + '">' + (sem.tn_04   ? Number(sem.tn_04).toLocaleString('es')   : '\u2014') + '</td>',
-      tn412:   '<td style="' + TD_R + '">' + (sem.tn_412  ? Number(sem.tn_412).toLocaleString('es')  : '\u2014') + '</td>',
-      tn1220:  '<td style="' + TD_R + '">' + (sem.tn_1220 ? Number(sem.tn_1220).toLocaleString('es') : '\u2014') + '</td>',
-      tn2040:  '<td style="' + TD_R + '">' + (sem.tn_2040 ? Number(sem.tn_2040).toLocaleString('es') : '\u2014') + '</td>',
-      mat:     '<td style="' + TD_C + 'color:' + matColor + ';font-weight:600">' + mat + '</td>',
-      albaran: '<td style="' + TD_C + 'font-size:.68rem">' + fechaAlbaran + '</td>',
-      gran04:  '<td style="' + TD_C + BG_G + '">' + estadoReg('granulometria','0/4')   + '</td>',
-      gran412: '<td style="' + TD_C + BG_G + '">' + estadoReg('granulometria','4/12')  + '</td>',
-      gran1220:'<td style="' + TD_C + BG_G + '">' + estadoReg('granulometria','12/20') + '</td>',
-      gran2040:'<td style="' + TD_C + BG_G + '">' + estadoReg('granulometria','20/40') + '</td>',
-      fino04:  '<td style="' + TD_C + BG_F + '">' + estadoReg('cont_finos','0/4')   + '</td>',
-      fino412: '<td style="' + TD_C + BG_F + '">' + estadoReg('cont_finos','4/12')  + '</td>',
-      fino1220:'<td style="' + TD_C + BG_F + '">' + estadoReg('cont_finos','12/20') + '</td>',
-      fino2040:'<td style="' + TD_C + BG_F + '">' + estadoReg('cont_finos','20/40') + '</td>',
-      eq04:    '<td style="' + TD_C + BG_E + '">' + estadoReg('eq_arena','0/4')   + '</td>',
-      laj412:  '<td style="' + TD_C + BG_L + '">' + estadoReg('ind_lajas','4/12')  + '</td>',
-      laj1220: '<td style="' + TD_C + BG_L + '">' + estadoReg('ind_lajas','12/20') + '</td>',
-      laj2040: '<td style="' + TD_C + BG_L + '">' + estadoReg('ind_lajas','20/40') + '</td>',
-      car412:  '<td style="' + TD_C + BG_Ca + '">' + estadoReg('caras_fractura','4/12')  + '</td>',
-      car1220: '<td style="' + TD_C + BG_Ca + '">' + estadoReg('caras_fractura','12/20') + '</td>',
-      car2040: '<td style="' + TD_C + BG_Ca + '">' + estadoReg('caras_fractura','20/40') + '</td>',
-      obs:     '<td style="' + TD + '"></td>'
-    };
+    // Fecha albarán: num_albaran del primer registro de la semana
+    const primerReg = regs.find(function(r){ return r.num_albaran; });
+    const fechaAlbaran = primerReg ? (primerReg.num_albaran || '\u2014') : '\u2014';
 
     html += '<tr style="' + rowBg + 'cursor:pointer" onclick="ensayosAbrirSemana(\'' + sem.id + '\')">';
-    cols.forEach(function(c) { html += cellMap[c.id] || ''; });
+    html += '<td style="' + TD_C + 'color:' + estadoColor + ';font-weight:700;font-size:.7rem">' + estadoGlobal + '</td>';
+    html += '<td style="' + TD_C + 'font-weight:600;font-size:.7rem">' + num + '</td>';
+    html += '<td style="' + TD + 'white-space:nowrap;font-size:.7rem">' + fecha + '</td>';
+    html += '<td style="' + TD_C + 'color:' + matColor + ';font-weight:600">' + mat + '</td>';
+    html += '<td style="' + TD_R + '">' + (tnTotal ? Number(tnTotal).toLocaleString('es') : '\u2014') + '</td>';
+    html += '<td style="' + TD_R + '">' + (sem.tn_04 ? Number(sem.tn_04).toLocaleString('es') : '\u2014') + '</td>';
+    html += '<td style="' + TD_R + '">' + (sem.tn_412 ? Number(sem.tn_412).toLocaleString('es') : '\u2014') + '</td>';
+    html += '<td style="' + TD_R + '">' + (sem.tn_1220 ? Number(sem.tn_1220).toLocaleString('es') : '\u2014') + '</td>';
+    html += '<td style="' + TD_R + '">' + (sem.tn_2040 ? Number(sem.tn_2040).toLocaleString('es') : '\u2014') + '</td>';
+    html += '<td style="' + TD_C + 'font-size:.68rem">' + fechaAlbaran + '</td>';
+    html += '<td style="' + TD_C + BG_G + '">' + estadoReg('granulometria','0/4') + '</td>';
+    html += '<td style="' + TD_C + BG_G + '">' + estadoReg('granulometria','4/12') + '</td>';
+    html += '<td style="' + TD_C + BG_G + '">' + estadoReg('granulometria','12/20') + '</td>';
+    html += '<td style="' + TD_C + BG_G + '">' + estadoReg('granulometria','20/40') + '</td>';
+    html += '<td style="' + TD_C + BG_F + '">' + estadoReg('cont_finos','0/4') + '</td>';
+    html += '<td style="' + TD_C + BG_F + '">' + estadoReg('cont_finos','4/12') + '</td>';
+    html += '<td style="' + TD_C + BG_F + '">' + estadoReg('cont_finos','12/20') + '</td>';
+    html += '<td style="' + TD_C + BG_F + '">' + estadoReg('cont_finos','20/40') + '</td>';
+    html += '<td style="' + TD_C + BG_E + '">' + estadoReg('eq_arena','0/4') + '</td>';
+    html += '<td style="' + TD_C + BG_L + '">' + estadoReg('ind_lajas','4/12') + '</td>';
+    html += '<td style="' + TD_C + BG_L + '">' + estadoReg('ind_lajas','12/20') + '</td>';
+    html += '<td style="' + TD_C + BG_L + '">' + estadoReg('ind_lajas','20/40') + '</td>';
+    html += '<td style="' + TD_C + BG_Ca + '">' + estadoReg('caras_fractura','4/12') + '</td>';
+    html += '<td style="' + TD_C + BG_Ca + '">' + estadoReg('caras_fractura','12/20') + '</td>';
+    html += '<td style="' + TD_C + BG_Ca + '">' + estadoReg('caras_fractura','20/40') + '</td>';
+    html += '<td style="' + TD + '"></td>'; // observaciones
     html += '</tr>';
   });
 
-  if (!semanas.length) html += '<tr><td colspan="' + cols.length + '" style="padding:24px;text-align:center;color:var(--muted)">Sin semanas para ' + _ensayosAnio + '</td></tr>';
+  if (!semanas.length) html += '<tr><td colspan="26" style="padding:24px;text-align:center;color:var(--muted)">Sin semanas para ' + _ensayosAnio + '</td></tr>';
   html += '</tbody></table></div>';
   html += '<div style="display:flex;gap:16px;margin-top:10px;font-size:.72rem;color:var(--muted);flex-wrap:wrap">';
   html += '<span><span style="color:#2e7d32;font-weight:700">\u2713\u2713</span> Conforme</span>';
@@ -10241,44 +10201,6 @@ function _ensayosRenderControl() {
   return html;
 }
 
-var _ensayosDragCol = null;
-
-function _ensayosColDragStart(e, colId) {
-  _ensayosDragCol = colId;
-  e.dataTransfer.effectAllowed = 'move';
-  e.target.style.opacity = '0.4';
-}
-
-function _ensayosColDragOver(e) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  // Highlight target
-  document.querySelectorAll('#ensayos-ctrl-header-row th').forEach(function(th) {
-    th.style.outline = '';
-  });
-  e.currentTarget.style.outline = '2px solid var(--accent)';
-}
-
-function _ensayosColDrop(e, targetId) {
-  e.preventDefault();
-  if (!_ensayosDragCol || _ensayosDragCol === targetId) return;
-  var cols = _ensayosGetCols();
-  var fromIdx = cols.findIndex(function(c){ return c.id === _ensayosDragCol; });
-  var toIdx   = cols.findIndex(function(c){ return c.id === targetId; });
-  if (fromIdx < 0 || toIdx < 0) return;
-  var moved = cols.splice(fromIdx, 1)[0];
-  cols.splice(toIdx, 0, moved);
-  _ensayosSaveCols(cols);
-  _ensayosRenderTab('control');
-}
-
-function _ensayosColDragEnd(e) {
-  e.target.style.opacity = '';
-  document.querySelectorAll('#ensayos-ctrl-header-row th').forEach(function(th) {
-    th.style.outline = '';
-  });
-  _ensayosDragCol = null;
-}
 
 // TAB REGISTROS
 // Definición de columnas por fracción
