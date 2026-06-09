@@ -10056,11 +10056,16 @@ function _ensayosRenderControl() {
   const BG_CAR  = 'background:#4a2a3a;color:#fff;';
 
   var selCount0 = Object.keys(_ensayosSelCeldas).length;
+  var semSelIds = Object.keys(_ensayosSelEmail);
   let html = '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap">';
   html += '<span style="font-size:.8rem;color:var(--muted)">' + semanas.length + ' semanas</span>';
   if (loginUser && loginUser.rol === 'admin' && selCount0 > 0) {
     html += '<button onclick="_ensayosAceptarSeleccion()" style="padding:7px 18px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:.8rem;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.2)">\u2713 Marcar recogido (' + selCount0 + ')</button>';
     html += '<button onclick="_ensayosLimpiarSel()" style="padding:7px 14px;background:#fff;color:var(--muted);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:.8rem">Cancelar</button>';
+  }
+  if (semSelIds.length > 0) {
+    html += '<button onclick="_ensayosEnviarLab()" style="padding:7px 18px;background:#1565c0;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:.8rem;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.2)">&#9993; Enviar a laboratorio (' + semSelIds.length + ')</button>';
+    html += '<button onclick="_ensayosLimpiarSelEmail()" style="padding:7px 14px;background:#fff;color:var(--muted);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:.8rem">&#10005;</button>';
   }
   html += '</div>';
   html += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:.7rem;min-width:1300px;background:#fff">';
@@ -10077,6 +10082,7 @@ function _ensayosRenderControl() {
   // GRANULOMETRÍA: 4 cols, CONTENIDO FINOS: 4 cols, EQUI ARENA: 1 col, IND LAJAS: 3 cols, CAPAS FRACT: 3 cols
   // OBSERVACIONES: 1 col rowspan=4
   html += '<tr>';
+  html += '<th rowspan="4" style="' + TH_W + 'vertical-align:middle" title="Seleccionar para laboratorio">&#9993;</th>';
   html += '<th rowspan="4" colspan="3" style="' + TH_Y + 'font-size:.68rem;line-height:1.4;vertical-align:middle">CONTROL DE<br>ENSAYOS DE<br>\u00c1RIDO ' + _ensayosAnio + '<br><span style="font-weight:400;font-size:.6rem">(MENSUALES Y<br>SEMANALES)</span></th>';
   html += '<th colspan="6" rowspan="2" style="' + TH_W + 'vertical-align:middle">PRODUCCI\u00d3N</th>';
   html += '<th rowspan="4" style="' + TH_W + 'vertical-align:middle">FECHA<br>ALBAR\u00c1N</th>';
@@ -10147,7 +10153,7 @@ function _ensayosRenderControl() {
       const spanSel = seleccionado ? 'background:var(--accent);color:#fff;border-radius:3px;padding:1px 3px;' : '';
       if (!r) return '<td><span' + spanClick + ' style="' + spanSel + 'color:' + (seleccionado ? '#fff' : '#ccc') + ';font-size:.9rem;font-weight:700;cursor:' + (esAdmin?'pointer':'default') + '">' + (seleccionado ? '\u2713' : '+') + '</span></td>';
       if (r.estado === 'conforme') return '<td><span style="color:#2e7d32;font-size:1rem;font-weight:700">\u2713\u2713</span></td>';
-      if (r.estado === 'no_conforme') return '<td><span style="color:#c62828;font-size:1rem;font-weight:700">\u2717</span></td>';
+      if (r.estado === 'no_conforme') return '<td><span style="color:#c62828;font-size:1rem;font-weight:700">\u2713\u2713</span><span style="color:#c62828;font-size:.6rem;font-weight:700;vertical-align:super"> NC</span></td>';
       return '<td><span' + spanClick + ' style="' + spanSel + 'color:' + (seleccionado ? '#fff' : '#e65100') + ';font-size:1rem;font-weight:700;cursor:' + (esAdmin?'pointer':'default') + '">\u2713</span></td>';
     }
 
@@ -10174,7 +10180,13 @@ function _ensayosRenderControl() {
     const primerReg = regs.find(function(r){ return r.num_albaran; });
     const fechaAlbaran = primerReg ? (primerReg.num_albaran || '\u2014') : '\u2014';
 
+    var emailSel = !!_ensayosSelEmail[sem.id];
     html += '<tr style="' + rowBg + '">';
+    html += '<td style="' + TD_C + '">' +
+      '<input type="checkbox"' + (emailSel ? ' checked' : '') +
+      ' onchange="_ensayosToggleSelEmail(\'' + sem.id + '\')"' +
+      ' style="cursor:pointer;accent-color:#1565c0" title="Seleccionar para enviar al laboratorio">' +
+      '</td>';
     html += '<td style="' + TD_C + 'color:' + estadoColor + ';font-weight:700;font-size:.7rem">' + estadoGlobal + '</td>';
     html += '<td style="' + TD_C + 'font-weight:600;font-size:.7rem">' + num + '</td>';
     var iconEdit = '<span onclick="ensayosAbrirSemana(\'' + sem.id + '\')" style="cursor:pointer;color:var(--muted);font-size:.8rem;margin-left:4px" title="Editar">&#9998;</span>';
@@ -10221,7 +10233,7 @@ function _ensayosRenderControl() {
   // Botón flotante aceptar (solo admin)
   html += '<div style="display:flex;gap:16px;margin-top:10px;font-size:.72rem;color:var(--muted);flex-wrap:wrap">';
   html += '<span><span style="color:#2e7d32;font-weight:700">\u2713\u2713</span> Conforme</span>';
-  html += '<span><span style="color:#c62828;font-weight:700">\u2717</span> No conforme</span>';
+  html += '<span><span style="color:#c62828;font-weight:700">\u2713\u2713</span><span style="color:#c62828;font-size:.6rem;font-weight:700;vertical-align:super"> NC</span> No conforme</span>';
   html += '<span><span style="color:#e65100;font-weight:700">\u2713</span> Recogido (sin resultado)</span>';
   html += '<span style="color:#ccc">+ Sin ensayo</span>';
   html += '</div>';
@@ -10231,6 +10243,68 @@ function _ensayosRenderControl() {
 
 // Selección múltiple celdas control
 var _ensayosSelCeldas = {}; // key: 'semanaId|tipo|frac' => {semana_id, tipo_ensayo, fraccion}
+var _ensayosSelEmail = {}; // key: semana_id => semana obj
+
+function _ensayosToggleSelEmail(semanaId) {
+  if (_ensayosSelEmail[semanaId]) {
+    delete _ensayosSelEmail[semanaId];
+  } else {
+    const sem = _ensayosSemanas.find(function(s){ return s.id === semanaId; });
+    if (sem) _ensayosSelEmail[semanaId] = sem;
+  }
+  _ensayosRenderTab('control');
+}
+
+function _ensayosLimpiarSelEmail() {
+  _ensayosSelEmail = {};
+  _ensayosRenderTab('control');
+}
+
+function _ensayosEnviarLab() {
+  const sems = Object.values(_ensayosSelEmail);
+  if (!sems.length) return;
+
+  const TIPOS_LABEL = {
+    'granulometria': 'Granulometría (UNE-EN 933-1)',
+    'cont_finos':    'Contenido de finos (UNE-EN 933-1)',
+    'eq_arena':      'Equivalente de arena (UNE-EN 933-8)',
+    'ind_lajas':     'Índice de lajas (UNE-EN 933-3)',
+    'caras_fractura':'% Caras fracturadas (UNE-EN 933-5)'
+  };
+
+  const hoy = new Date().toLocaleDateString('es-ES');
+  let cuerpo = 'Buenos días,\n\nDesde Áridos Fonseca le solicitamos la realización de los siguientes ensayos:\n\n';
+
+  sems.sort(function(a,b){ return (a.fecha_lunes||'').localeCompare(b.fecha_lunes||''); });
+
+  sems.forEach(function(sem) {
+    const regs = _ensayosRegistros.filter(function(r){ return r.semana_id === sem.id && r.estado === 'recogido'; });
+    const fecha = sem.fecha_lunes ? new Date(sem.fecha_lunes).toLocaleDateString('es-ES') : '—';
+    cuerpo += '────────────────────────\n';
+    cuerpo += 'Semana: ' + fecha + '\n';
+    if (regs.length) {
+      const grupos = {};
+      regs.forEach(function(r){
+        if (!grupos[r.tipo_ensayo]) grupos[r.tipo_ensayo] = [];
+        grupos[r.tipo_ensayo].push(r.fraccion);
+      });
+      Object.keys(grupos).forEach(function(tipo){
+        cuerpo += '  · ' + (TIPOS_LABEL[tipo] || tipo) + ': ' + grupos[tipo].join(', ') + '\n';
+      });
+    } else {
+      cuerpo += '  (Todos los ensayos pendientes de resultado)\n';
+    }
+  });
+
+  cuerpo += '────────────────────────\n\n';
+  cuerpo += 'Fecha de solicitud: ' + hoy + '\n\n';
+  cuerpo += 'Por favor, confírmenos la recepción y la fecha estimada de entrega de resultados.\n\n';
+  cuerpo += 'Gracias,\nÁridos Fonseca';
+
+  const asunto = 'Solicitud de ensayos de áridos — ' + hoy;
+  const mailto = 'mailto:info@esocansl.com?subject=' + encodeURIComponent(asunto) + '&body=' + encodeURIComponent(cuerpo);
+  window.open(mailto, '_blank');
+}
 
 function _ensayosToggleSelCelda(key, semanaId, tipo, frac) {
   if (_ensayosSelCeldas[key]) {
