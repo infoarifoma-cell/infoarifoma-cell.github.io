@@ -9270,71 +9270,74 @@ function initStock() {
 async function cargarStock() {
   const anyo = parseInt(document.getElementById('stock-anyo').value);
   try {
-    // Leer fecha (C) y stock (N,O,P,Q)
-    const query = `select C,N,O,P,Q`;
-    const url = `https://docs.google.com/spreadsheets/d/${STOCK_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(STOCK_SHEET_TAB)}&tq=${encodeURIComponent(query)}`;
-    const res = await fetch(url);
-    const txt = await res.text();
-    const jsonStr = txt.replace(/^[^(]*\(/, '').replace(/\);?\s*$/, '');
-    const gviz = JSON.parse(jsonStr);
-    const rows = gviz.table.rows || [];
+    const iniAnyo = `${anyo}-01-01`;
+    const finAnyo = `${anyo}-12-31`;
 
-    const keys = ['04', '412', '1220', '2040'];
-    // Parse todas las filas con fecha y valores
-    const daily = []; // {date, '04':v, '412':v, ...}
-    for (let i = 0; i < rows.length; i++) {
-      const r = rows[i];
-      if (!r.c) continue;
-      // Fecha en col 0 (C)
-      const dateCell = r.c[0];
-      let fecha = null;
-      if (dateCell && dateCell.v) {
-        // gviz dates: "Date(2026,0,1)" or string
-        const dv = dateCell.v;
-        if (typeof dv === 'string' && dv.startsWith('Date(')) {
-          const parts = dv.replace('Date(','').replace(')','').split(',').map(Number);
-          fecha = new Date(parts[0], parts[1], parts[2]);
-        } else if (dv instanceof Date) {
-          fecha = dv;
-        } else if (typeof dv === 'string') {
-          fecha = new Date(dv);
-        }
-      }
-      // Stock values (cols 1-4 = N,O,P,Q)
-      const vals = {};
-      let hasAny = false;
-      for (let k = 0; k < 4; k++) {
-        const cell = r.c[k + 1];
-        const v = cell && cell.v != null ? Number(cell.v) : null;
-        vals[keys[k]] = v;
-        if (v != null && !isNaN(v)) hasAny = true;
-      }
-      if (hasAny) daily.push({ fecha, ...vals });
+    // Cargar producción y pedidos del año en paralelo
+    const [prodRes, pedRes] = await Promise.all([
+      dbQuery({ action: 'select', table: 'PRODUCCION',
+        filters: [{ column: 'fecha', op: 'gte', value: iniAnyo }, { column: 'fecha', op: 'lte', value: finAnyo }],
+        options: { select: 'fecha,t04,t412,t1220,t2040', order: 'fecha' }
+      }),
+      dbQuery({ action: 'select', table: 'tblpedidos',
+        filters: [{ column: 'fechaHora', op: 'gte', value: iniAnyo + 'T00:00:00Z' }, { column: 'fechaHora', op: 'lte', value: finAnyo + 'T23:59:59Z' }],
+        options: { select: 'fechaHora,productoNombre,pesoNeto', order: 'fechaHora' }
+      })
+    ]);
+
+    const prodRows = prodRes.ok ? (prodRes.data || []) : [];
+    const pedRows  = pedRes.ok  ? (pedRes.data  || []) : [];
+
+    // Acumular producción por mes
+    const prodMes = Array.from({length:12}, () => ({t04:0,t412:0,t1220:0,t2040:0}));
+    for (const r of prodRows) {
+      const m = new Date(r.fecha).getMonth();
+      prodMes[m].t04   += Number(r.t04   || 0);
+      prodMes[m].t412  += Number(r.t412  || 0);
+      prodMes[m].t1220 += Number(r.t1220 || 0);
+      prodMes[m].t2040 += Number(r.t2040 || 0);
     }
 
-    _stockRawDaily = daily;
+    // Mapear producto → fracción usando getCat
+    const catKey = { '0/4':'t04', '4/12':'t412', '12/20':'t1220', '20/40':'t2040' };
+    // Acumular ventas por mes (kg → Tn)
+    const ventMes = Array.from({length:12}, () => ({t04:0,t412:0,t1220:0,t2040:0}));
+    for (const r of pedRows) {
+      const m = new Date(r.fechaHora).getMonth();
+      const cat = getCat(r.productoNombre);
+      const k = catKey[cat];
+      if (k) ventMes[m][k] += Number(r.pesoNeto || 0) / 1000;
+    }
 
-    // Filtrar por año y agrupar por mes
-    const filtered = daily.filter(d => d.fecha && d.fecha.getFullYear() === anyo);
+    // Calcular stock acumulado mes a mes
+    const keys = ['04', '412', '1220', '2040'];
+    const keyProd = { '04':'t04', '412':'t412', '1220':'t1220', '2040':'t2040' };
+    // Stock inicial conocido al 5 enero (Tn)
+    const STOCK_INICIAL = { '04': 238.97, '412': 373.99, '1220': 167.72, '2040': 19.32 };
     _stockData = {};
     for (const key of keys) {
+      const pk = keyProd[key];
       const meses = [];
+      let acum = (anyo === 2026 ? STOCK_INICIAL[key] : 0);
+      const hoy = new Date();
       for (let m = 0; m < 12; m++) {
-        const delMes = filtered.filter(d => d.fecha.getMonth() === m && d[key] != null);
-        if (delMes.length === 0) {
-          meses.push({ mes: STOCK_MESES[m], inicio: null, final: null, actual: null });
-          continue;
-        }
-        const inicio = delMes[0][key];
-        const final_ = delMes[delMes.length - 1][key];
-        // "actual" = último valor del mes actual, null para meses pasados
-        const hoy = new Date();
+        const prod = prodMes[m][pk] || 0;
+        const vent = ventMes[m][pk] || 0;
+        const inicio = acum;
+        acum += prod - vent;
         const esActual = (hoy.getFullYear() === anyo && hoy.getMonth() === m);
-        const actual = esActual ? final_ : null;
-        meses.push({ mes: STOCK_MESES[m], inicio, final: final_, actual });
+        meses.push({
+          mes: STOCK_MESES[m],
+          inicio: inicio || null,
+          final: acum,
+          actual: esActual ? acum : null
+        });
       }
       _stockData[key] = meses;
     }
+
+    // _stockRawDaily no aplica con este método — vaciar
+    _stockRawDaily = [];
 
     renderStockOverview();
   } catch (e) {
