@@ -93,10 +93,11 @@
     #ot-print-wrap { position: static !important; background: transparent !important; padding: 0 !important; width: auto !important; height: auto !important; }
     #ot-print-btns { display: none !important; }
     #ot-print-doc { box-shadow: none !important; height: auto !important; padding: 5mm !important; font-size: 7pt !important; }
-    #ot-print-doc * { page-break-inside: avoid; }
-    #ot-print-doc table { font-size: 7pt !important; }
+    #ot-print-doc { page-break-inside: auto; }
+    #ot-print-doc table { font-size: 7pt !important; page-break-inside: auto; }
+    #ot-print-doc tr { page-break-inside: avoid; page-break-after: auto; }
     #ot-print-doc td, #ot-print-doc th { padding: 2px 4px !important; font-size: 7pt !important; }
-    @page { size: A5 landscape; margin: 4mm; }
+    @page { size: A4 portrait; margin: 8mm; }
   }
 </style>
 
