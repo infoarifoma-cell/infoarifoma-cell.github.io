@@ -10064,8 +10064,7 @@ function _ensayosRenderControl() {
   // Fila 1
   html += '<tr>';
   html += '<th rowspan="4" colspan="2" style="' + TH_Y + 'font-size:.68rem;line-height:1.4;vertical-align:middle">CONTROL DE<br>ENSAYOS DE<br>ÁRIDO ' + _ensayosAnio + '<br><span style="font-weight:400;font-size:.6rem">(MENSUALES Y<br>SEMANALES)</span></th>';
-  html += '<th rowspan="4" style="' + TH_W + 'vertical-align:middle">TIPO<br>MAT.</th>';
-  html += '<th colspan="5" rowspan="2" style="' + TH_W + 'vertical-align:middle">PRODUCCI\u00d3N</th>';
+  html += '<th colspan="7" rowspan="2" style="' + TH_W + 'vertical-align:middle">PRODUCCI\u00d3N</th>';
   html += '<th rowspan="4" style="' + TH_W + 'vertical-align:middle">FECHA<br>ALBAR\u00c1N</th>';
   html += '<th colspan="4" style="' + TH_W + '">RECUENTO</th>';
   html += '<th colspan="4" style="' + TH_W + '">RECUENTO</th>';
@@ -10091,6 +10090,7 @@ function _ensayosRenderControl() {
   html += '<th style="' + TH_W + '">4/12</th>';
   html += '<th style="' + TH_W + '">12/20</th>';
   html += '<th style="' + TH_W + '">20/40</th>';
+  html += '<th style="' + TH_W + '">TIPO<br>MAT.</th>';
   html += '<th colspan="4" style="' + TH_Y + '">GRANULOMETRIA<br><span style="font-weight:400;font-size:.6rem">SEMANAL</span></th>';
   html += '<th colspan="4" style="' + TH_Y + '">CONTENIDO DE FINOS<br><span style="font-weight:400;font-size:.6rem">SEMANAL</span></th>';
   html += '<th style="' + TH_Y + '">EQUI. EN<br>ARENA<br><span style="font-weight:400;font-size:.6rem">SEMANAL</span></th>';
@@ -10108,6 +10108,7 @@ function _ensayosRenderControl() {
   html += '<th style="' + TH_W + '">4/12</th>';
   html += '<th style="' + TH_W + '">12/20</th>';
   html += '<th style="' + TH_W + '">20/40</th>';
+  html += '<th style="' + TH_W + '">TIPO<br>MAT.</th>';
   ['0/4','4/12','12/20','20/40'].forEach(function(f){ html += '<th style="' + TH_Y + '">' + f + '</th>'; });
   ['0/4','4/12','12/20','20/40'].forEach(function(f){ html += '<th style="' + TH_Y + '">' + f + '</th>'; });
   html += '<th style="' + TH_Y + '">0/4</th>';
@@ -10158,12 +10159,12 @@ function _ensayosRenderControl() {
     html += '<td style="' + TD_C + 'color:' + estadoColor + ';font-weight:700;font-size:.7rem">' + estadoGlobal + '</td>';
     html += '<td style="' + TD_C + 'font-weight:600;font-size:.7rem">' + num + '</td>';
     html += '<td style="' + TD + 'white-space:nowrap;font-size:.7rem">' + fecha + '</td>';
-    html += '<td style="' + TD_C + 'color:' + matColor + ';font-weight:600">' + mat + '</td>';
     html += '<td style="' + TD_R + '">' + (tnTotal ? Number(tnTotal).toLocaleString('es') : '\u2014') + '</td>';
     html += '<td style="' + TD_R + '">' + (sem.tn_04 ? Number(sem.tn_04).toLocaleString('es') : '\u2014') + '</td>';
     html += '<td style="' + TD_R + '">' + (sem.tn_412 ? Number(sem.tn_412).toLocaleString('es') : '\u2014') + '</td>';
     html += '<td style="' + TD_R + '">' + (sem.tn_1220 ? Number(sem.tn_1220).toLocaleString('es') : '\u2014') + '</td>';
     html += '<td style="' + TD_R + '">' + (sem.tn_2040 ? Number(sem.tn_2040).toLocaleString('es') : '\u2014') + '</td>';
+    html += '<td style="' + TD_C + 'color:' + matColor + ';font-weight:600">' + mat + '</td>';
     html += '<td style="' + TD_C + 'font-size:.68rem">' + fechaAlbaran + '</td>';
     html += '<td style="' + TD_C + BG_G + '">' + estadoReg('granulometria','0/4') + '</td>';
     html += '<td style="' + TD_C + BG_G + '">' + estadoReg('granulometria','4/12') + '</td>';

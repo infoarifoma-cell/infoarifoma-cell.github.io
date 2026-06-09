@@ -35,9 +35,10 @@ export default async function handler(req, res) {
     return res.status(401).json({ ok: false, error: 'Token inválido o expirado' });
   }
 
+  const userData = await userRes.json();
+
   // ── Bloquear escritura para rol lectura ──
   if (['insert', 'update', 'delete'].includes(action)) {
-    const userData = await userRes.json();
     const email = userData.email;
     if (email) {
       const rolRes = await fetch(`${SUPABASE_URL}/rest/v1/tblUsuarios?select=rol&email=eq.${encodeURIComponent(email)}&limit=1`, {
