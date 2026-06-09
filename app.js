@@ -10103,11 +10103,8 @@ function _ensayosRenderControl() {
   html += '<th colspan="3" style="' + TH_Y + '">PORCENTAJE CAPAS<br>FRAGTURADAS<br><span style="font-weight:400;font-size:.6rem">MENSUAL</span></th>';
   html += '</tr>';
 
-  // Fila 4: D S LUNES + fracciones
+  // Fila 4: fracciones de ensayos (D/S/LUNES cubiertos por rowspan=4 del título)
   html += '<tr>';
-  html += '<th style="' + TH_Y + '">D</th>';
-  html += '<th style="' + TH_Y + '">S</th>';
-  html += '<th style="' + TH_Y + '">LUNES</th>';
   html += '<th style="' + TH_W + '">TIPO<br>MAT.</th>';
   html += '<th style="' + TH_W + '">TN</th>';
   html += '<th style="' + TH_W + '">0/4</th>';
