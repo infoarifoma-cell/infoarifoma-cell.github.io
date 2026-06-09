@@ -10432,11 +10432,15 @@ var _COLS_REGISTROS = {
 
 function _ensayosRenderRegistros() {
   const fracciones = ['0/4','4/12','12/20','20/40'];
-  let html = '<div style="display:flex;gap:8px;margin-bottom:12px">';
+  const esAdmin = loginUser && loginUser.rol === 'admin';
+  let html = '<div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">';
   fracciones.forEach(function(f) {
     const active = _ensayosFraccion === f;
     html += '<button onclick="ensayosFraccionTab(\'' + f + '\')" style="padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:' + (active?'var(--accent)':'var(--surface)') + ';color:' + (active?'#fff':'var(--text)') + ';cursor:pointer;font-size:.82rem">' + f + '</button>';
   });
+  if (esAdmin) {
+    html += '<button onclick="ensayosRecalcularCNC()" style="margin-left:auto;padding:5px 12px;border-radius:20px;border:1px solid #7030a0;background:#7030a0;color:#fff;cursor:pointer;font-size:.75rem">⟳ Recalcular C/NC</button>';
+  }
   html += '</div>';
 
   const cfg = _COLS_REGISTROS[_ensayosFraccion] || _COLS_REGISTROS['0/4'];
@@ -10533,7 +10537,7 @@ function _ensayosRenderRegistros() {
   html += '<th colspan="' + nGranCols + '" style="' + TH_GRN + '">REQUISITOS GEOMÉTRICOS — Granulometría (% que pasa) — Tamiz</th>';
   extraCols.forEach(function(c){
     var span = c.cnc ? 2 : 1;
-    html += '<th colspan="' + span + '" rowspan="' + (c.cnc ? 1 : 2) + '" style="' + TH_PRP + 'vertical-align:bottom;padding:6px 2px"><div style="writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;font-size:.6rem;line-height:1.1">' + c.label + '</div></th>';
+    html += '<th colspan="' + span + '" rowspan="' + (c.cnc ? 1 : 2) + '" style="' + TH_PRP + 'vertical-align:bottom;padding:4px 2px"><div style="writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;font-size:.6rem;line-height:1.1;max-height:90px;overflow:hidden">' + c.label + '</div></th>';
   });
   html += '<th rowspan="2" style="' + TH_HDR + '"></th>';
   html += '</tr>';
@@ -10873,6 +10877,32 @@ function _ensayosRenderPrestaciones() {
   });
   html += '</tbody></table></div>';
   return html;
+}
+
+async function ensayosRecalcularCNC() {
+  if (!confirm('Recalcular C/NC automático en todos los registros existentes. ¿Continuar?')) return;
+  var updates = [];
+  _ensayosRegistros.forEach(function(r) {
+    var res = Object.assign({}, r.resultados || {});
+    var auto = _calcularCNC(r.fraccion, res);
+    // Inyectar C/NC calculados
+    var changed = false;
+    if (Object.keys(auto._gran_cnc).length) { res._gran_cnc = auto._gran_cnc; changed = true; }
+    if (Object.keys(auto._cnc).length) { res._cnc = auto._cnc; changed = true; }
+    if (!changed) return;
+    // Recalcular estado
+    var hayNC = Object.values(auto._gran_cnc).some(function(v){ return v==='NC'; })
+              || Object.values(auto._cnc).some(function(v){ return v==='NC'; });
+    var hayDatos = Object.keys(res).filter(function(k){ return k!=='_gran_cnc'&&k!=='_cnc'; }).length > 0;
+    var estado = hayDatos ? (hayNC ? 'no_conforme' : 'conforme') : r.estado;
+    updates.push(updateEnsayoRegistro(r.id, { resultados: res, estado: estado }));
+  });
+  if (!updates.length) { alert('Sin cambios que aplicar.'); return; }
+  await Promise.all(updates);
+  const rReg = await getEnsayosRegistros(_ensayosAnio);
+  _ensayosRegistros = rReg.ok ? rReg.data : [];
+  _ensayosRenderTab(_ensayosTab);
+  alert('✓ Recalculado en ' + updates.length + ' registros.');
 }
 
 function ensayosImprimirRegistros() {
