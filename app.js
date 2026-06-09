@@ -10316,7 +10316,7 @@ async function _ensayosGenerarPDF() {
   const { PDFDocument, rgb, StandardFonts } = PDFLib;
 
   // Cargar plantilla
-  const templateBytes = await fetch('/PLANTILLA ENSAYOS.pdf').then(r => r.arrayBuffer());
+  const templateBytes = await fetch('/PLANTILLA%20ENSAYOS.pdf').then(r => r.arrayBuffer());
 
   // Mapeo ensayo → fila (índice 0 = Granulometría)
   const FILA_ENSAYO = {
