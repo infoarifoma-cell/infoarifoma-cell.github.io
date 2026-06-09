@@ -5937,7 +5937,8 @@ function printOT(filled){
   // Build checks table
   const tbl=document.getElementById('otp-checks-table');
   let rows='';
-  selGama.checks.forEach((c,i)=>{
+  const checksImprimir = selGama._checksExpanded || selGama.checks;
+  checksImprimir.forEach((c,i)=>{
     const done=filled&&checkStates[i];
     rows+=`<tr style="background:${i%2===0?'#f9f9f9':'#fff'}">
       <td style="border:1px solid #ddd;padding:3px 6px;width:60%;font-size:7.5pt">${c}</td>
