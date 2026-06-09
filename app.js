@@ -9975,6 +9975,12 @@ async function insertEnsayoSemana(data) {
 async function updateEnsayoSemana(id, data) {
   return dbQuery({ action:'update', table:'ensayos_semanas', data, filters:[{column:'id',op:'eq',value:id}] });
 }
+async function insertEnsayoRegistro(data) {
+  return dbQuery({ action:'insert', table:'ensayos_registros', data });
+}
+async function updateEnsayoRegistro(id, data) {
+  return dbQuery({ action:'update', table:'ensayos_registros', data, filters:[{column:'id',op:'eq',value:id}] });
+}
 async function getEnsayosRegistros(anio) {
   const semanaIds = _ensayosSemanas.map(function(s){ return s.id; });
   if (!semanaIds.length) return { ok:true, data:[] };
@@ -10023,6 +10029,7 @@ async function _ensayosCargarTodo() {
 }
 
 function _ensayosRenderTab(tab) {
+  if (tab !== 'control') _ensayosSelCeldas = {};
   _ensayosTab = tab;
   ['control','registros','anuales','prestaciones'].forEach(function(t) {
     const btn = document.getElementById('ensayos-tab-' + t);
@@ -10128,10 +10135,17 @@ function _ensayosRenderControl() {
 
     function estadoReg(tipo, frac) {
       const r = regs.find(function(r){ return r.tipo_ensayo === tipo && r.fraccion === frac; });
-      if (!r) return '<span style="color:#ccc;font-size:.8rem">+</span>';
-      if (r.estado === 'conforme') return '<span style="color:#2e7d32;font-size:1rem;font-weight:700">\u2713\u2713</span>';
-      if (r.estado === 'no_conforme') return '<span style="color:#c62828;font-size:1rem;font-weight:700">\u2717</span>';
-      return '<span style="color:#e65100;font-size:1rem;font-weight:700">\u2713</span>';
+      const esAdmin = loginUser && loginUser.rol === 'admin';
+      const key = sem.id + '|' + tipo + '|' + frac;
+      const seleccionado = _ensayosSelCeldas[key];
+      const selStyle = seleccionado ? 'outline:2px solid var(--accent);outline-offset:-2px;' : '';
+      const clickAttr = esAdmin && (!r || r.estado === 'recogido')
+        ? ' onclick="event.stopPropagation();_ensayosToggleSelCelda(\'' + key + '\',\'' + sem.id + '\',\'' + tipo + '\',\'' + frac + '\')" style="cursor:pointer;' + selStyle + '"'
+        : '';
+      if (!r) return '<td' + clickAttr + '><span style="color:#ccc;font-size:.8rem">+</span></td>';
+      if (r.estado === 'conforme') return '<td><span style="color:#2e7d32;font-size:1rem;font-weight:700">\u2713\u2713</span></td>';
+      if (r.estado === 'no_conforme') return '<td><span style="color:#c62828;font-size:1rem;font-weight:700">\u2717</span></td>';
+      return '<td' + clickAttr + '><span style="color:#e65100;font-size:1rem;font-weight:700">\u2713</span></td>';
     }
 
     let estadoGlobal = 'NP', estadoColor = 'var(--muted)';
@@ -10168,27 +10182,45 @@ function _ensayosRenderControl() {
     html += '<td style="' + TD_R + '">' + (sem.tn_1220 ? Number(sem.tn_1220).toLocaleString('es') : '\u2014') + '</td>';
     html += '<td style="' + TD_R + '">' + (sem.tn_2040 ? Number(sem.tn_2040).toLocaleString('es') : '\u2014') + '</td>';
     html += '<td style="' + TD_C + 'font-size:.68rem">' + fechaAlbaran + '</td>';
-    html += '<td style="' + TD_C + BG_G + '">' + estadoReg('granulometria','0/4') + '</td>';
-    html += '<td style="' + TD_C + BG_G + '">' + estadoReg('granulometria','4/12') + '</td>';
-    html += '<td style="' + TD_C + BG_G + '">' + estadoReg('granulometria','12/20') + '</td>';
-    html += '<td style="' + TD_C + BG_G + '">' + estadoReg('granulometria','20/40') + '</td>';
-    html += '<td style="' + TD_C + BG_F + '">' + estadoReg('cont_finos','0/4') + '</td>';
-    html += '<td style="' + TD_C + BG_F + '">' + estadoReg('cont_finos','4/12') + '</td>';
-    html += '<td style="' + TD_C + BG_F + '">' + estadoReg('cont_finos','12/20') + '</td>';
-    html += '<td style="' + TD_C + BG_F + '">' + estadoReg('cont_finos','20/40') + '</td>';
-    html += '<td style="' + TD_C + BG_E + '">' + estadoReg('eq_arena','0/4') + '</td>';
-    html += '<td style="' + TD_C + BG_L + '">' + estadoReg('ind_lajas','4/12') + '</td>';
-    html += '<td style="' + TD_C + BG_L + '">' + estadoReg('ind_lajas','12/20') + '</td>';
-    html += '<td style="' + TD_C + BG_L + '">' + estadoReg('ind_lajas','20/40') + '</td>';
-    html += '<td style="' + TD_C + BG_Ca + '">' + estadoReg('caras_fractura','4/12') + '</td>';
-    html += '<td style="' + TD_C + BG_Ca + '">' + estadoReg('caras_fractura','12/20') + '</td>';
-    html += '<td style="' + TD_C + BG_Ca + '">' + estadoReg('caras_fractura','20/40') + '</td>';
+    var wrapG  = 'style="' + TD_C + BG_G + '"';
+    var wrapF  = 'style="' + TD_C + BG_F + '"';
+    var wrapE  = 'style="' + TD_C + BG_E + '"';
+    var wrapL  = 'style="' + TD_C + BG_L + '"';
+    var wrapCa = 'style="' + TD_C + BG_Ca + '"';
+    function tdReg(tipo, frac, wrap) {
+      var inner = estadoReg(tipo, frac);
+      // estadoReg returns a full <td> with onclick — inject the background style
+      return inner.replace('<td', '<td ' + wrap);
+    }
+    html += tdReg('granulometria','0/4',   wrapG);
+    html += tdReg('granulometria','4/12',  wrapG);
+    html += tdReg('granulometria','12/20', wrapG);
+    html += tdReg('granulometria','20/40', wrapG);
+    html += tdReg('cont_finos','0/4',   wrapF);
+    html += tdReg('cont_finos','4/12',  wrapF);
+    html += tdReg('cont_finos','12/20', wrapF);
+    html += tdReg('cont_finos','20/40', wrapF);
+    html += tdReg('eq_arena','0/4',    wrapE);
+    html += tdReg('ind_lajas','4/12',  wrapL);
+    html += tdReg('ind_lajas','12/20', wrapL);
+    html += tdReg('ind_lajas','20/40', wrapL);
+    html += tdReg('caras_fractura','4/12',  wrapCa);
+    html += tdReg('caras_fractura','12/20', wrapCa);
+    html += tdReg('caras_fractura','20/40', wrapCa);
     html += '<td style="' + TD + '"></td>'; // observaciones
     html += '</tr>';
   });
 
   if (!semanas.length) html += '<tr><td colspan="26" style="padding:24px;text-align:center;color:var(--muted)">Sin semanas para ' + _ensayosAnio + '</td></tr>';
   html += '</tbody></table></div>';
+  // Botón flotante aceptar (solo admin)
+  if (loginUser && loginUser.rol === 'admin') {
+    html += '<div id="ensayos-ctrl-aceptar-bar" style="display:none;position:sticky;bottom:16px;z-index:100;margin-top:10px">';
+    html += '<button onclick="_ensayosAceptarSeleccion()" style="padding:10px 24px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:.85rem;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2)">';
+    html += '\u2713 Marcar como recogido (<span id="ensayos-ctrl-sel-count">0</span>)</button>';
+    html += '<button onclick="_ensayosLimpiarSel()" style="margin-left:8px;padding:10px 16px;background:#fff;color:var(--muted);border:1px solid var(--border);border-radius:8px;cursor:pointer">Cancelar</button>';
+    html += '</div>';
+  }
   html += '<div style="display:flex;gap:16px;margin-top:10px;font-size:.72rem;color:var(--muted);flex-wrap:wrap">';
   html += '<span><span style="color:#2e7d32;font-weight:700">\u2713\u2713</span> Conforme</span>';
   html += '<span><span style="color:#c62828;font-weight:700">\u2717</span> No conforme</span>';
@@ -10198,6 +10230,57 @@ function _ensayosRenderControl() {
   return html;
 }
 
+
+// Selección múltiple celdas control
+var _ensayosSelCeldas = {}; // key: 'semanaId|tipo|frac' => {semana_id, tipo_ensayo, fraccion}
+
+function _ensayosToggleSelCelda(key, semanaId, tipo, frac) {
+  if (_ensayosSelCeldas[key]) {
+    delete _ensayosSelCeldas[key];
+  } else {
+    _ensayosSelCeldas[key] = { semana_id: semanaId, tipo_ensayo: tipo, fraccion: frac };
+  }
+  var count = Object.keys(_ensayosSelCeldas).length;
+  var bar = document.getElementById('ensayos-ctrl-aceptar-bar');
+  var cnt = document.getElementById('ensayos-ctrl-sel-count');
+  if (bar) bar.style.display = count > 0 ? 'block' : 'none';
+  if (cnt) cnt.textContent = count;
+  // Actualizar visual de la celda sin re-renderizar toda la tabla
+  _ensayosRenderTab('control');
+}
+
+function _ensayosLimpiarSel() {
+  _ensayosSelCeldas = {};
+  _ensayosRenderTab('control');
+}
+
+async function _ensayosAceptarSeleccion() {
+  var celdas = Object.values(_ensayosSelCeldas);
+  if (!celdas.length) return;
+  var btn = document.querySelector('#ensayos-ctrl-aceptar-bar button');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+  var errores = 0;
+  for (var i = 0; i < celdas.length; i++) {
+    var c = celdas[i];
+    // Buscar si ya existe registro recogido para no duplicar
+    var existing = _ensayosRegistros.find(function(r) {
+      return r.semana_id === c.semana_id && r.tipo_ensayo === c.tipo_ensayo && r.fraccion === c.fraccion;
+    });
+    var res;
+    if (existing) {
+      res = await updateEnsayoRegistro(existing.id, { estado: 'recogido' });
+    } else {
+      res = await insertEnsayoRegistro({ semana_id: c.semana_id, tipo_ensayo: c.tipo_ensayo, fraccion: c.fraccion, estado: 'recogido' });
+    }
+    if (!res.ok) errores++;
+  }
+  _ensayosSelCeldas = {};
+  // Recargar registros
+  const rReg = await getEnsayosRegistros(_ensayosAnio);
+  _ensayosRegistros = rReg.ok ? rReg.data : [];
+  _ensayosRenderTab('control');
+  if (errores) alert('Errores al guardar: ' + errores);
+}
 
 // TAB REGISTROS
 // Definición de columnas por fracción
