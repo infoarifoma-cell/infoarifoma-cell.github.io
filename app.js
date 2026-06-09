@@ -10317,6 +10317,12 @@ async function _ensayosGenerarPDF() {
 
   // Cargar plantilla
   const templateBytes = await fetch('/PLANTILLA%20ENSAYOS.pdf').then(r => r.arrayBuffer());
+  // DEBUG cuadrícula — eliminar tras calibrar
+  { const { PDFDocument: _D, rgb: _r, StandardFonts: _S } = PDFLib;
+    const _dbg = await _D.load(templateBytes); const _fp = await _dbg.embedFont(_S.Helvetica); const _pg = _dbg.getPages()[0];
+    for(let x=0;x<600;x+=25) { _pg.drawLine({start:{x,y:0},end:{x,y:842},thickness:0.3,color:_r(0.8,0.8,0.8)}); _pg.drawText(String(x),{x:x+1,y:4,size:4,font:_fp,color:_r(0.6,0,0)}); }
+    for(let y=0;y<850;y+=10) { _pg.drawLine({start:{x:0,y},end:{x:595,y},thickness:0.3,color:_r(0.8,0.8,0.8)}); _pg.drawText(String(y),{x:1,y:y+1,size:4,font:_fp,color:_r(0,0,0.6)}); }
+    const _b=await _dbg.save(); const _bl=new Blob([_b],{type:'application/pdf'}); const _u=URL.createObjectURL(_bl); const _a=document.createElement('a'); _a.href=_u; _a.download='debug.pdf'; _a.click(); return; }
 
   // Mapeo ensayo → fila (índice 0 = Granulometría)
   const FILA_ENSAYO = {
