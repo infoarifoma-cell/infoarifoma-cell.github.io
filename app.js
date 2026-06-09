@@ -10142,10 +10142,10 @@ function _ensayosRenderControl() {
       const clickAttr = esAdmin && (!r || r.estado === 'recogido')
         ? ' onclick="event.stopPropagation();_ensayosToggleSelCelda(\'' + key + '\',\'' + sem.id + '\',\'' + tipo + '\',\'' + frac + '\')" style="cursor:pointer;' + selStyle + '"'
         : '';
-      if (!r) return '<td' + clickAttr + '><span style="color:#ccc;font-size:.8rem">+</span></td>';
+      if (!r) return '<td' + clickAttr + '><span style="color:' + (seleccionado ? 'var(--accent)' : '#ccc') + ';font-size:.9rem;font-weight:700">' + (seleccionado ? '\u2713' : '+') + '</span></td>';
       if (r.estado === 'conforme') return '<td><span style="color:#2e7d32;font-size:1rem;font-weight:700">\u2713\u2713</span></td>';
       if (r.estado === 'no_conforme') return '<td><span style="color:#c62828;font-size:1rem;font-weight:700">\u2717</span></td>';
-      return '<td' + clickAttr + '><span style="color:#e65100;font-size:1rem;font-weight:700">\u2713</span></td>';
+      return '<td' + clickAttr + '><span style="color:' + (seleccionado ? 'var(--accent)' : '#e65100') + ';font-size:1rem;font-weight:700">\u2713</span></td>';
     }
 
     let estadoGlobal = 'NP', estadoColor = 'var(--muted)';
@@ -10217,7 +10217,7 @@ function _ensayosRenderControl() {
   if (loginUser && loginUser.rol === 'admin') {
     var selCount = Object.keys(_ensayosSelCeldas).length;
     var barDisplay = selCount > 0 ? 'flex' : 'none';
-    html += '<div id="ensayos-ctrl-aceptar-bar" style="display:' + barDisplay + ';align-items:center;gap:8px;position:sticky;bottom:16px;z-index:100;margin-top:10px">';
+    html += '<div id="ensayos-ctrl-aceptar-bar" style="display:' + barDisplay + ';align-items:center;gap:8px;position:sticky;top:8px;z-index:100;margin-bottom:8px;background:var(--surface);padding:6px 8px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.15)">';
     html += '<button onclick="_ensayosAceptarSeleccion()" style="padding:10px 24px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:.85rem;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2)">';
     html += '\u2713 Marcar como recogido (' + selCount + ')</button>';
     html += '<button onclick="_ensayosLimpiarSel()" style="padding:10px 16px;background:#fff;color:var(--muted);border:1px solid var(--border);border-radius:8px;cursor:pointer">Cancelar</button>';
