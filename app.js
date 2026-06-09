@@ -9320,7 +9320,8 @@ async function cargarStock() {
       const meses = [];
       let acum = (anyo === 2026 ? STOCK_INICIAL[key] : 0);
       const hoy = new Date();
-      for (let m = 0; m < 12; m++) {
+      const mesLimite = (hoy.getFullYear() === anyo) ? hoy.getMonth() : 11;
+      for (let m = 0; m <= mesLimite; m++) {
         const prod = prodMes[m][pk] || 0;
         const vent = ventMes[m][pk] || 0;
         const inicio = acum;
