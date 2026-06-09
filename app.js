@@ -9309,6 +9309,10 @@ async function cargarStock() {
       if (k) ventMes[m][k] += Number(r.pesoNeto || 0) / 1000;
     }
 
+    console.log('STOCK DEBUG — producción por mes (Tn):', prodMes.map((m,i)=>({mes:i,t04:m.t04.toFixed(1),t412:m.t412.toFixed(1)})));
+    console.log('STOCK DEBUG — ventas por mes (Tn):', ventMes.map((m,i)=>({mes:i,t04:m.t04.toFixed(1),t412:m.t412.toFixed(1)})));
+    console.log('STOCK DEBUG — pedidos totales:', pedRows.length, '— produccion filas:', prodRows.length);
+
     // Calcular stock acumulado mes a mes
     const keys = ['04', '412', '1220', '2040'];
     const keyProd = { '04':'t04', '412':'t412', '1220':'t1220', '2040':'t2040' };
