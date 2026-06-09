@@ -10180,9 +10180,9 @@ function _ensayosRenderControl() {
     const fechaAlbaran = primerReg ? (primerReg.num_albaran || '\u2014') : '\u2014';
 
     html += '<tr style="' + rowBg + '">';
-    html += '<td onclick="ensayosAbrirSemana(\'' + sem.id + '\')" style="' + TD_C + 'color:' + estadoColor + ';font-weight:700;font-size:.7rem;cursor:pointer">' + estadoGlobal + '</td>';
-    html += '<td onclick="ensayosAbrirSemana(\'' + sem.id + '\')" style="' + TD_C + 'font-weight:600;font-size:.7rem;cursor:pointer">' + num + '</td>';
-    html += '<td onclick="ensayosAbrirSemana(\'' + sem.id + '\')" style="' + TD + 'white-space:nowrap;font-size:.7rem;cursor:pointer">' + fecha + '</td>';
+    html += '<td style="' + TD_C + 'color:' + estadoColor + ';font-weight:700;font-size:.7rem">' + estadoGlobal + '</td>';
+    html += '<td style="' + TD_C + 'font-weight:600;font-size:.7rem">' + num + '</td>';
+    html += '<td style="' + TD + 'white-space:nowrap;font-size:.7rem">' + fecha + ' <span onclick="ensayosAbrirSemana(\'' + sem.id + '\')" style="cursor:pointer;color:var(--muted);font-size:.8rem" title="Editar">&#9998;</span></td>';
     html += '<td style="' + TD_C + 'color:' + matColor + ';font-weight:600">' + mat + '</td>';
     html += '<td style="' + TD_R + '">' + (tnTotal ? Number(tnTotal).toLocaleString('es') : '\u2014') + '</td>';
     html += '<td style="' + TD_R + '">' + (sem.tn_04 ? Number(sem.tn_04).toLocaleString('es') : '\u2014') + '</td>';
