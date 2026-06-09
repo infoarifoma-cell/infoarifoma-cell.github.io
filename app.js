@@ -10304,7 +10304,7 @@ function _ensayosEnviarLab() {
   const asunto = 'Solicitud de ensayos de áridos — ' + hoy;
   const outlookUrl = 'https://outlook.office.com/mail/deeplink/compose?to=' + encodeURIComponent('info@esocansl.com') +
     '&subject=' + encodeURIComponent(asunto) +
-    '&body=' + encodeURIComponent(cuerpo.replace(/\n/g, '<br>'));
+    '&body=' + encodeURIComponent(cuerpo);
   window.open(outlookUrl, '_blank');
 }
 
