@@ -10215,10 +10215,12 @@ function _ensayosRenderControl() {
   html += '</tbody></table></div>';
   // Botón flotante aceptar (solo admin)
   if (loginUser && loginUser.rol === 'admin') {
-    html += '<div id="ensayos-ctrl-aceptar-bar" style="display:none;position:sticky;bottom:16px;z-index:100;margin-top:10px">';
+    var selCount = Object.keys(_ensayosSelCeldas).length;
+    var barDisplay = selCount > 0 ? 'flex' : 'none';
+    html += '<div id="ensayos-ctrl-aceptar-bar" style="display:' + barDisplay + ';align-items:center;gap:8px;position:sticky;bottom:16px;z-index:100;margin-top:10px">';
     html += '<button onclick="_ensayosAceptarSeleccion()" style="padding:10px 24px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:.85rem;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2)">';
-    html += '\u2713 Marcar como recogido (<span id="ensayos-ctrl-sel-count">0</span>)</button>';
-    html += '<button onclick="_ensayosLimpiarSel()" style="margin-left:8px;padding:10px 16px;background:#fff;color:var(--muted);border:1px solid var(--border);border-radius:8px;cursor:pointer">Cancelar</button>';
+    html += '\u2713 Marcar como recogido (' + selCount + ')</button>';
+    html += '<button onclick="_ensayosLimpiarSel()" style="padding:10px 16px;background:#fff;color:var(--muted);border:1px solid var(--border);border-radius:8px;cursor:pointer">Cancelar</button>';
     html += '</div>';
   }
   html += '<div style="display:flex;gap:16px;margin-top:10px;font-size:.72rem;color:var(--muted);flex-wrap:wrap">';
@@ -10240,12 +10242,6 @@ function _ensayosToggleSelCelda(key, semanaId, tipo, frac) {
   } else {
     _ensayosSelCeldas[key] = { semana_id: semanaId, tipo_ensayo: tipo, fraccion: frac };
   }
-  var count = Object.keys(_ensayosSelCeldas).length;
-  var bar = document.getElementById('ensayos-ctrl-aceptar-bar');
-  var cnt = document.getElementById('ensayos-ctrl-sel-count');
-  if (bar) bar.style.display = count > 0 ? 'block' : 'none';
-  if (cnt) cnt.textContent = count;
-  // Actualizar visual de la celda sin re-renderizar toda la tabla
   _ensayosRenderTab('control');
 }
 
