@@ -3720,8 +3720,9 @@ function goStep4Real(){
     item.onclick=()=>{checkStates[i]=!checkStates[i];item.classList.toggle('checked',checkStates[i]);updateProg();};
     list.appendChild(item);
   });
-  // Guardar checks expandidos en selGama para que goStep5 los use
+  // Guardar checks expandidos en selGama para que goStep5 y printOT los usen
   selGama._checksExpanded = todosChecks.map(c=>c.text);
+  selGama._checksConGrupo = todosChecks; // [{text, grupo}]
   updateProg();showOT('screen4');setSteps(4);
 }
 function toggleAllChecks(){const allDone=checkStates.every(Boolean);checkStates.fill(!allDone);document.querySelectorAll('.check-item').forEach((item,i)=>{item.classList.toggle('checked',checkStates[i]);});updateProg();}
