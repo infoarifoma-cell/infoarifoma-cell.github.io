@@ -10355,21 +10355,21 @@ async function _ensayosGenerarPDF() {
 
     // Coordenadas exactas por ensayo+fracción
     const COORDS = {
-      'granulometria|0/4':    {x:300, y:620},
-      'granulometria|4/12':   {x:325, y:620},
-      'granulometria|12/20':  {x:350, y:620},
-      'granulometria|20/40':  {x:375, y:620},
-      'cont_finos|0/4':       {x:300, y:610},
-      'cont_finos|4/12':      {x:325, y:610},
-      'cont_finos|12/20':     {x:350, y:610},
-      'cont_finos|20/40':     {x:375, y:610},
-      'eq_arena|0/4':         {x:300, y:600},
-      'ind_lajas|4/12':       {x:325, y:590},
-      'ind_lajas|12/20':      {x:350, y:590},
-      'ind_lajas|20/40':      {x:375, y:590},
-      'caras_fractura|4/12':  {x:325, y:580},
-      'caras_fractura|12/20': {x:350, y:580},
-      'caras_fractura|20/40': {x:375, y:580},
+      'granulometria|0/4':    {x:310, y:620},
+      'granulometria|4/12':   {x:335, y:620},
+      'granulometria|12/20':  {x:360, y:620},
+      'granulometria|20/40':  {x:385, y:620},
+      'cont_finos|0/4':       {x:310, y:610},
+      'cont_finos|4/12':      {x:335, y:610},
+      'cont_finos|12/20':     {x:360, y:610},
+      'cont_finos|20/40':     {x:385, y:610},
+      'eq_arena|0/4':         {x:310, y:600},
+      'ind_lajas|4/12':       {x:335, y:590},
+      'ind_lajas|12/20':      {x:360, y:590},
+      'ind_lajas|20/40':      {x:385, y:590},
+      'caras_fractura|4/12':  {x:335, y:580},
+      'caras_fractura|12/20': {x:360, y:580},
+      'caras_fractura|20/40': {x:385, y:580},
     };
 
     // Dibujar X en cada celda marcada
