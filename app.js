@@ -5936,13 +5936,20 @@ function printOT(filled){
   document.getElementById('otp-fabricante').textContent=selMachine.fabricante;
   document.getElementById('otp-obs').textContent=filled?obs:'';
   // Build checks table
+  // Quitar fecha de la barra de cabecera
+  document.getElementById('otp-fecha').textContent='';
   const tbl=document.getElementById('otp-checks-table');
   let rows='';
-  const checksImprimir = selGama._checksExpanded || selGama.checks;
-  checksImprimir.forEach((c,i)=>{
+  const checksConGrupo = selGama._checksConGrupo || (selGama._checksExpanded||selGama.checks).map(c=>({text:c,grupo:selGama.nombre}));
+  let grupoActualPrint = null;
+  checksConGrupo.forEach((c,i)=>{
     const done=filled&&checkStates[i];
+    if(c.grupo !== grupoActualPrint) {
+      grupoActualPrint = c.grupo;
+      rows+=`<tr><td colspan="3" style="background:#e8ede4;padding:3px 6px;font-size:7pt;font-weight:700;color:#444;text-transform:uppercase;letter-spacing:.05em">${c.grupo}</td></tr>`;
+    }
     rows+=`<tr style="background:${i%2===0?'#f9f9f9':'#fff'}">
-      <td style="border:1px solid #ddd;padding:3px 6px;width:60%;font-size:7.5pt">${c}</td>
+      <td style="border:1px solid #ddd;padding:3px 6px;width:60%;font-size:7.5pt">${c.text}</td>
       <td style="border:1px solid #ddd;padding:3px 6px;width:20%;text-align:center;font-size:7.5pt;color:${done?'#2e7d32':'#999'}">${filled?(done?'✓ OK':'—'):'□'}</td>
       <td style="border:1px solid #ddd;padding:3px 6px;width:20%;font-size:7pt;color:#999">Obs.</td>
     </tr>`;
