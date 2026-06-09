@@ -10060,7 +10060,14 @@ function _ensayosRenderControl() {
   const BG_LAJ  = 'background:#4a3a2a;color:#fff;';
   const BG_CAR  = 'background:#4a2a3a;color:#fff;';
 
-  let html = '<div style="font-size:.8rem;color:var(--muted);margin-bottom:8px">' + semanas.length + ' semanas</div>';
+  var selCount0 = Object.keys(_ensayosSelCeldas).length;
+  let html = '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap">';
+  html += '<span style="font-size:.8rem;color:var(--muted)">' + semanas.length + ' semanas</span>';
+  if (loginUser && loginUser.rol === 'admin' && selCount0 > 0) {
+    html += '<button onclick="_ensayosAceptarSeleccion()" style="padding:7px 18px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:.8rem;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.2)">\u2713 Marcar recogido (' + selCount0 + ')</button>';
+    html += '<button onclick="_ensayosLimpiarSel()" style="padding:7px 14px;background:#fff;color:var(--muted);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:.8rem">Cancelar</button>';
+  }
+  html += '</div>';
   html += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:.7rem;min-width:1300px;background:#fff">';
 
   const TH_Y = 'padding:3px 5px;border:1px solid #7eb87e;text-align:center;font-weight:700;font-size:.65rem;background:#c6efce;color:#1a3a1a;line-height:1.2;';
@@ -10215,15 +10222,6 @@ function _ensayosRenderControl() {
   if (!semanas.length) html += '<tr><td colspan="26" style="padding:24px;text-align:center;color:var(--muted)">Sin semanas para ' + _ensayosAnio + '</td></tr>';
   html += '</tbody></table></div>';
   // Botón flotante aceptar (solo admin)
-  if (loginUser && loginUser.rol === 'admin') {
-    var selCount = Object.keys(_ensayosSelCeldas).length;
-    var barDisplay = selCount > 0 ? 'flex' : 'none';
-    html += '<div id="ensayos-ctrl-aceptar-bar" style="display:' + barDisplay + ';align-items:center;gap:8px;position:sticky;top:8px;z-index:100;margin-bottom:8px;background:var(--surface);padding:6px 8px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.15)">';
-    html += '<button onclick="_ensayosAceptarSeleccion()" style="padding:10px 24px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:.85rem;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2)">';
-    html += '\u2713 Marcar como recogido (' + selCount + ')</button>';
-    html += '<button onclick="_ensayosLimpiarSel()" style="padding:10px 16px;background:#fff;color:var(--muted);border:1px solid var(--border);border-radius:8px;cursor:pointer">Cancelar</button>';
-    html += '</div>';
-  }
   html += '<div style="display:flex;gap:16px;margin-top:10px;font-size:.72rem;color:var(--muted);flex-wrap:wrap">';
   html += '<span><span style="color:#2e7d32;font-weight:700">\u2713\u2713</span> Conforme</span>';
   html += '<span><span style="color:#c62828;font-weight:700">\u2717</span> No conforme</span>';
