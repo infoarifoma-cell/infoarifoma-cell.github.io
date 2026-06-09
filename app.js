@@ -10355,10 +10355,10 @@ async function _ensayosGenerarPDF() {
 
     // Coordenadas exactas por ensayo+fracción
     const COORDS = {
-      'granulometria|0/4':    {x:310, y:653},
-      'granulometria|4/12':   {x:335, y:653},
-      'granulometria|12/20':  {x:360, y:653},
-      'granulometria|20/40':  {x:385, y:653},
+      'granulometria|0/4':    {x:310, y:638},
+      'granulometria|4/12':   {x:335, y:638},
+      'granulometria|12/20':  {x:360, y:638},
+      'granulometria|20/40':  {x:385, y:638},
       'cont_finos|0/4':       {x:310, y:610},
       'cont_finos|4/12':      {x:335, y:610},
       'cont_finos|12/20':     {x:360, y:610},
