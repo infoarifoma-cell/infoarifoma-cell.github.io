@@ -24,6 +24,8 @@ yarn.lock
 *.xlsx
 *.xls
 *.pdf
+!PLANTILLA ENSAYOS.pdf
+!fichas/*.pdf
 *.doc
 *.docx
 *.csv
