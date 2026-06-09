@@ -9958,6 +9958,7 @@ let _ensayosSemanas = [];
 let _ensayosRegistros = [];
 let _ensayosPrestaciones = [];
 let _ensayosLimites = [];
+let _ensayosAnuales = [];
 let _ensayosFraccion = '0/4';
 
 // API
@@ -10004,6 +10005,23 @@ async function updateEnsayoPrestacion(id, data) {
 async function getEnsayosLimites() {
   return dbQuery({ action:'select', table:'ensayos_limites', options:{ select:'*' } });
 }
+async function getEnsayosAnuales(anio) {
+  return dbQuery({ action:'select', table:'ensayos_anuales', options:{ select:'*' }, filters:[{column:'anio',op:'eq',value:anio}] });
+}
+async function upsertEnsayoAnual(anio, tipo, fraccion, campo, valor) {
+  const existing = _ensayosAnuales.find(function(r){ return r.anio===anio && r.tipo===tipo && r.fraccion===fraccion; });
+  if (existing) {
+    const upd = {}; upd[campo] = valor;
+    const res = await dbQuery({ action:'update', table:'ensayos_anuales', data:upd, filters:[{column:'id',op:'eq',value:existing.id}] });
+    if (res && res.ok !== false) existing[campo] = valor;
+    return res;
+  } else {
+    const row = { anio:anio, tipo:tipo, fraccion:fraccion, estado:'pendiente' }; row[campo] = valor;
+    const res = await dbQuery({ action:'insert', table:'ensayos_anuales', data:row, options:{select:'*'} });
+    if (res && res.ok !== false && res.data && res.data[0]) _ensayosAnuales.push(res.data[0]);
+    return res;
+  }
+}
 
 // INIT
 async function initEnsayos() {
@@ -10018,14 +10036,16 @@ async function _ensayosCargarTodo() {
   // Semanas primero — registros dependen de los semana_id
   const rSem = await getEnsayosSemanas(_ensayosAnio);
   _ensayosSemanas = rSem.ok ? rSem.data : [];
-  const [rReg, rPrest, rLim] = await Promise.all([
+  const [rReg, rPrest, rLim, rAnu] = await Promise.all([
     getEnsayosRegistros(_ensayosAnio),
     getEnsayosPrestaciones(),
-    getEnsayosLimites()
+    getEnsayosLimites(),
+    getEnsayosAnuales(_ensayosAnio)
   ]);
   _ensayosRegistros = rReg.ok ? rReg.data : [];
   _ensayosPrestaciones = rPrest.ok ? rPrest.data : [];
   _ensayosLimites = rLim.ok ? rLim.data : [];
+  _ensayosAnuales = rAnu.ok ? rAnu.data : [];
 }
 
 function _ensayosRenderTab(tab) {
@@ -10531,37 +10551,182 @@ function _ensayosRenderRegistros() {
 
 // TAB ANUALES
 function _ensayosRenderAnuales() {
-  const BIANUALES = ['Contenido de Azufre','Sulfatos Solubles en \u00c1cido','CO. Ligeros','CO. H\u00famicos','CD. \u00c1cido F\u00falvico','CO. Mortero','Cloruros Solubles en Agua'];
+  const esAdmin = loginUser && loginUser.rol === 'admin';
+  const TH = 'padding:5px 8px;border:1px solid #c8d4c0;text-align:center;font-size:.68rem;font-weight:700;white-space:nowrap;';
+  const TD = 'padding:5px 8px;border:1px solid #e0e8d8;text-align:center;font-size:.72rem;';
+  const HDR1 = 'background:#2c3a2c;color:#fff;';
+  const HDR2 = 'background:#3a4a3a;color:#fff;';
+  const HDR3 = 'background:#4a6040;color:#fff;';
+
+  // Helper: celda de estado/valor clicable
+  function celdaAnual(tipo, frac) {
+    const r = _ensayosAnuales.find(function(x){ return x.tipo===tipo && x.fraccion===frac; });
+    const estado = r ? r.estado : 'pendiente';
+    const fecha  = r && r.fecha ? r.fecha.slice(0,10) : '';
+    const valor  = r && r.valor ? r.valor : '';
+    const click  = esAdmin ? ' onclick="_ensayosEditAnual(\'' + tipo.replace(/'/g,"\\'") + '\',\'' + frac + '\')" style="' + TD + 'cursor:pointer"' : ' style="' + TD + '"';
+    let badge = '';
+    if (estado === 'conforme')    badge = '<span style="color:#2e7d32;font-weight:700">\u2713\u2713</span>';
+    else if (estado === 'no_conforme') badge = '<span style="color:#c62828;font-weight:700">\u2717</span>';
+    else if (r)                   badge = '<span style="color:#e65100;font-weight:700">\u2713</span>';
+    else                          badge = '<span style="color:#ccc">' + (esAdmin ? '+' : '\u2014') + '</span>';
+    const sub = fecha ? '<br><span style="font-size:.6rem;color:var(--muted)">' + fecha + '</span>' : (valor ? '<br><span style="font-size:.6rem;color:var(--muted)">' + valor + '</span>' : '');
+    return '<td' + click + '>' + badge + sub + '</td>';
+  }
+
+  // ── LEYENDA ──
+  let html = '<div style="display:flex;gap:16px;align-items:center;margin-bottom:12px;flex-wrap:wrap;font-size:.72rem">';
+  html += '<span style="font-weight:700;font-size:.8rem;color:var(--text)">ENSAYOS DE \u00c1RIDO ' + _ensayosAnio + ' (BIANUALES Y ANUALES)</span>';
+  html += '<span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#4caf50;border-radius:2px;display:inline-block"></span>Conforme</span>';
+  html += '<span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#f44336;border-radius:2px;display:inline-block"></span>No conforme</span>';
+  html += '<span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#ff9800;border-radius:2px;display:inline-block"></span>Pendiente</span>';
+  html += '</div>';
+
+  // ── BIANUALES ──
+  const BIANUALES = [
+    'Contenido de Azufre','Sulfatos Solubles en \u00c1cido','CO. Ligeros','CO. H\u00famicos',
+    'CD. \u00c1cido F\u00falvico','CO. Mortero','Cloruros Solubles en Agua'
+  ];
+  html += '<div style="font-size:.75rem;font-weight:700;color:var(--muted);margin-bottom:6px;letter-spacing:.05em">BIANUALES \u2014 UNE-EN 1744-1</div>';
+  html += '<div style="overflow-x:auto;margin-bottom:28px"><table style="border-collapse:collapse;font-size:.72rem">';
+  html += '<thead>';
+  // fila norma
+  html += '<tr>';
+  html += '<th style="' + TH + HDR1 + 'min-width:60px">MAT.</th>';
+  BIANUALES.forEach(function(b){
+    html += '<th colspan="2" style="' + TH + HDR1 + '">UNE-EN 1744-1<br><span style="font-weight:400;font-size:.62rem">BIANUAL</span></th>';
+  });
+  html += '</tr>';
+  // fila nombre ensayo
+  html += '<tr>';
+  html += '<th style="' + TH + HDR2 + '"></th>';
+  BIANUALES.forEach(function(b){
+    html += '<th colspan="2" style="' + TH + HDR2 + '">' + b + '</th>';
+  });
+  html += '</tr>';
+  // fila 0/4 + FECHA
+  html += '<tr>';
+  html += '<th style="' + TH + HDR3 + '"></th>';
+  BIANUALES.forEach(function(){
+    html += '<th style="' + TH + HDR3 + '">0/4</th>';
+    html += '<th style="' + TH + HDR3 + '">FECHA</th>';
+  });
+  html += '</tr>';
+  html += '</thead><tbody>';
+  // fila AC
+  html += '<tr>';
+  html += '<td style="' + TD + 'font-weight:700">AC</td>';
+  BIANUALES.forEach(function(b){
+    html += celdaAnual(b, '0/4');
+    // celda fecha inline editable
+    const r = _ensayosAnuales.find(function(x){ return x.tipo===b && x.fraccion==='0/4'; });
+    const fecha = r && r.fecha ? r.fecha.slice(0,10) : '';
+    const click2 = esAdmin ? ' onclick="_ensayosEditAnualFecha(\'' + b.replace(/'/g,"\\'") + '\',\'0/4\')" style="' + TD + 'cursor:pointer;color:var(--muted);font-size:.68rem"' : ' style="' + TD + 'color:var(--muted);font-size:.68rem"';
+    html += '<td' + click2 + '>' + (fecha || (esAdmin ? '<span style="color:#ccc">+fecha</span>' : '\u2014')) + '</td>';
+  });
+  html += '</tr>';
+  html += '</tbody></table></div>';
+
+  // ── ANUALES en bloques ──
   const ANUALES = [
-    {norma:'UNE-EN 1097-6 \u00b7 ANUAL', label:'Absorci\u00f3n de Agua', fracciones:['0/4','4/12','12/20','20/40']},
-    {norma:'UNE-EN 1097-6 \u00b7 ANUAL', label:'Densidad de Part\u00edculas', fracciones:['0/4','4/12','12/20','20/40']},
-    {norma:'UNE-EN 1097-2 \u00b7 ANUAL', label:'Los \u00c1ngeles', fracciones:['4/12','12/20','20/40']},
-    {norma:'UNE-EN 1097B \u00b7 ANUAL', label:'Resistencia al Pulimento Acel.', fracciones:['4/12']},
-    {norma:'UNE-EN 1367-2 \u00b7 ANUAL', label:'Sulfatos de Magnesio', fracciones:['12/20']},
-    {norma:'UNE 146512 \u00b7 ANUAL', label:'\u00c1lcali-S\u00edlice', fracciones:['0/4']},
+    {norma:'UNE-EN 1097-6', periodo:'ANUAL',        label:'Densidad de Part\u00edculas',     fracciones:['0/4','4/12','12/20','20/40']},
+    {norma:'UNE-EN 1097-2', periodo:'ANUAL-BIANUAL', label:'Los \u00c1ngeles',                fracciones:['4/12']},
+    {norma:'UNE-EN 1097-8', periodo:'ANUAL',        label:'Resistencia al Pulimento Acelerado', fracciones:['4/12']},
+    {norma:'UNE-EN 1097-6', periodo:'ANUAL',        label:'Absorci\u00f3n de Agua',           fracciones:['0/4','4/12','12/20','20/40']},
+    {norma:'UNE 146512',    periodo:'ANUAL',        label:'\u00c1lcali-S\u00edlice',          fracciones:['0/4']},
+    {norma:'UNE-EN 1367-2', periodo:'ABRIL',        label:'Sulfatos de Magnesio',             fracciones:['12/20']},
   ];
 
-  let html = '<div style="font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:8px;letter-spacing:.05em">BIANUALES \u2014 UNE-EN 1744-1</div>';
-  html += '<div style="overflow-x:auto;margin-bottom:24px"><table style="border-collapse:collapse;font-size:.78rem"><thead><tr style="background:#1e2a1e;color:#fff"><th style="padding:7px 10px">MAT.</th>';
-  BIANUALES.forEach(function(b){ html += '<th style="padding:7px 10px;white-space:nowrap">' + b + '<br><span style="font-size:.7rem;opacity:.6">0/4<br>FECHA</span></th>'; });
-  html += '</tr></thead><tbody><tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;font-weight:600">AC</td>';
-  BIANUALES.forEach(function(){ html += '<td style="padding:6px 10px;text-align:center;cursor:pointer;color:var(--muted)">+</td>'; });
-  html += '</tr></tbody></table></div>';
+  html += '<div style="font-size:.75rem;font-weight:700;color:var(--muted);margin-bottom:10px;letter-spacing:.05em">ANUALES</div>';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:16px">';
 
-  html += '<div style="font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:8px;letter-spacing:.05em">ANUALES</div>';
-  html += '<div style="display:flex;flex-wrap:wrap;gap:12px">';
   ANUALES.forEach(function(a) {
-    html += '<div style="background:#1e2a1e;border-radius:8px;padding:12px;min-width:200px">';
-    html += '<div style="font-size:.68rem;color:var(--accent);margin-bottom:4px">' + a.norma + '</div>';
-    html += '<div style="font-weight:700;color:#fff;margin-bottom:10px">' + a.label + '</div>';
-    html += '<table style="border-collapse:collapse;font-size:.75rem;width:100%"><thead><tr><th style="padding:4px 8px;color:#aaa">MAT.</th>';
-    a.fracciones.forEach(function(f){ html += '<th style="padding:4px 8px;color:#aaa">' + f + '<br><span style="font-size:.65rem;opacity:.6">FECHA</span></th>'; });
-    html += '</tr></thead><tbody><tr><td style="padding:4px 8px;font-weight:600;color:#fff">AC</td>';
-    a.fracciones.forEach(function(){ html += '<td style="padding:4px 8px;text-align:center;cursor:pointer;color:var(--muted)">+</td>'; });
-    html += '</tr></tbody></table></div>';
+    html += '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;min-width:180px">';
+    html += '<table style="border-collapse:collapse;font-size:.72rem;width:100%">';
+    html += '<thead>';
+    html += '<tr><th colspan="' + (a.fracciones.length * 2 + 1) + '" style="' + TH + HDR1 + '">' + a.norma + '</th></tr>';
+    html += '<tr><th colspan="' + (a.fracciones.length * 2 + 1) + '" style="' + TH + HDR2 + '">' + a.periodo + '</th></tr>';
+    html += '<tr><th colspan="' + (a.fracciones.length * 2 + 1) + '" style="' + TH + HDR3 + '">' + a.label + '</th></tr>';
+    // cabecera fracciones
+    html += '<tr><th style="' + TH + 'background:#eef4ea;color:#2c3a2c"></th>';
+    a.fracciones.forEach(function(f){
+      html += '<th style="' + TH + 'background:#eef4ea;color:#2c3a2c">' + f + '</th>';
+      html += '<th style="' + TH + 'background:#eef4ea;color:#2c3a2c;font-weight:400">FECHA</th>';
+    });
+    html += '</tr>';
+    html += '</thead><tbody>';
+    // fila AC
+    html += '<tr><td style="' + TD + 'font-weight:700">AC</td>';
+    a.fracciones.forEach(function(f){
+      html += celdaAnual(a.label, f);
+      const r2 = _ensayosAnuales.find(function(x){ return x.tipo===a.label && x.fraccion===f; });
+      const fecha2 = r2 && r2.fecha ? r2.fecha.slice(0,10) : '';
+      const click3 = esAdmin ? ' onclick="_ensayosEditAnualFecha(\'' + a.label.replace(/'/g,"\\'") + '\',\'' + f + '\')" style="' + TD + 'cursor:pointer;color:var(--muted);font-size:.68rem"' : ' style="' + TD + 'color:var(--muted);font-size:.68rem"';
+      html += '<td' + click3 + '>' + (fecha2 || (esAdmin ? '<span style="color:#ccc">+fecha</span>' : '\u2014')) + '</td>';
+    });
+    html += '</tr>';
+    html += '</tbody></table></div>';
   });
+
   html += '</div>';
   return html;
+}
+
+// Editar estado de celda anual (modal inline)
+function _ensayosEditAnual(tipo, frac) {
+  const r = _ensayosAnuales.find(function(x){ return x.tipo===tipo && x.fraccion===frac; });
+  const estadoActual = r ? r.estado : 'pendiente';
+  const estados = ['pendiente','conforme','no_conforme'];
+  const labels  = ['Pendiente (recogido)','Conforme \u2713\u2713','No conforme \u2717'];
+  let modal = document.getElementById('anu-modal');
+  if (!modal) { modal = document.createElement('div'); modal.id = 'anu-modal'; document.body.appendChild(modal); }
+  modal.innerHTML = '';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  let inner = '<div style="background:#fff;border-radius:12px;padding:24px;min-width:260px;box-shadow:0 8px 32px rgba(0,0,0,.2)">';
+  inner += '<div style="font-weight:700;margin-bottom:4px;font-size:.85rem">' + tipo + '</div>';
+  inner += '<div style="color:var(--muted);font-size:.75rem;margin-bottom:16px">Fracci\u00f3n: ' + frac + '</div>';
+  estados.forEach(function(e, i){
+    const sel = e === estadoActual ? 'background:var(--accent);color:#fff;' : 'background:#f5f5f5;color:var(--text);';
+    inner += '<button onclick="_ensayosSetAnualEstado(\'' + tipo.replace(/'/g,"\\'") + '\',\'' + frac + '\',\'' + e + '\')" style="display:block;width:100%;margin-bottom:8px;padding:10px;border:none;border-radius:8px;cursor:pointer;font-size:.8rem;' + sel + '">' + labels[i] + '</button>';
+  });
+  inner += '<button onclick="document.getElementById(\'anu-modal\').style.display=\'none\'" style="display:block;width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-size:.8rem;color:var(--muted)">Cancelar</button>';
+  inner += '</div>';
+  modal.innerHTML = inner;
+  modal.onclick = function(e){ if(e.target===modal) modal.style.display='none'; };
+}
+
+async function _ensayosSetAnualEstado(tipo, frac, estado) {
+  document.getElementById('anu-modal').style.display = 'none';
+  await upsertEnsayoAnual(_ensayosAnio, tipo, frac, 'estado', estado);
+  _ensayosRenderTab('anuales');
+}
+
+function _ensayosEditAnualFecha(tipo, frac) {
+  const r = _ensayosAnuales.find(function(x){ return x.tipo===tipo && x.fraccion===frac; });
+  const fechaActual = r && r.fecha ? r.fecha.slice(0,10) : '';
+  let modal = document.getElementById('anu-modal');
+  if (!modal) { modal = document.createElement('div'); modal.id = 'anu-modal'; document.body.appendChild(modal); }
+  modal.innerHTML = '';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  let inner = '<div style="background:#fff;border-radius:12px;padding:24px;min-width:280px;box-shadow:0 8px 32px rgba(0,0,0,.2)">';
+  inner += '<div style="font-weight:700;margin-bottom:4px;font-size:.85rem">' + tipo + ' \u2014 ' + frac + '</div>';
+  inner += '<div style="color:var(--muted);font-size:.75rem;margin-bottom:12px">Fecha de ensayo</div>';
+  inner += '<input type="date" id="anu-fecha-input" value="' + fechaActual + '" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;margin-bottom:12px">';
+  inner += '<div style="display:flex;gap:8px">';
+  inner += '<button onclick="_ensayosGuardarAnualFecha(\'' + tipo.replace(/'/g,"\\'") + '\',\'' + frac + '\')" style="flex:1;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.8rem;font-weight:700">Guardar</button>';
+  inner += '<button onclick="document.getElementById(\'anu-modal\').style.display=\'none\'" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-size:.8rem;color:var(--muted)">Cancelar</button>';
+  inner += '</div></div>';
+  modal.innerHTML = inner;
+  modal.onclick = function(e){ if(e.target===modal) modal.style.display='none'; };
+}
+
+async function _ensayosGuardarAnualFecha(tipo, frac) {
+  const input = document.getElementById('anu-fecha-input');
+  const fecha = input ? input.value : '';
+  document.getElementById('anu-modal').style.display = 'none';
+  if (!fecha) return;
+  await upsertEnsayoAnual(_ensayosAnio, tipo, frac, 'fecha', fecha);
+  _ensayosRenderTab('anuales');
 }
 
 // TAB PRESTACIONES
