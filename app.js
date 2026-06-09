@@ -5925,7 +5925,7 @@ function printOT(filled){
   const fecha=fechaRaw?new Date(fechaRaw).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
   const tipos={preventivo:'Preventivo programado',correctivo:'Correctivo',revision:'Revisión rápida'};
   const tipo=tipos[document.getElementById('inputTipo').value]||'Preventivo';
-  document.getElementById('otp-ref').textContent='OT — '+new Date().toLocaleDateString('es-ES');
+  document.getElementById('otp-ref').textContent='OT';
   document.getElementById('otp-maquina').textContent=selMachine.name+' ('+selMachine.id+')';
   document.getElementById('otp-fecha').textContent=fecha;
   document.getElementById('otp-activo').textContent=selMachine.id;
