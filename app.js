@@ -8202,7 +8202,7 @@ async function eliminarNota(id) {
 const COMPRAS_CLIENT_ID='20d8ca37-34e7-4ad4-b379-97c5b22f15ad';
 const COMPRAS_TENANT_ID='5bd828f2-1899-48ba-a269-c37733f41806';
 const COMPRAS_REDIRECT=location.origin+location.pathname;
-const COMPRAS_SCOPES=['Files.ReadWrite.All'];
+const COMPRAS_SCOPES=['Files.ReadWrite.All','Mail.Send'];
 const COMPRAS_ONEDRIVE_BASE='06. ADMINISTRACION/06.01 PROVEEDORES';
 const COMPRAS_SHARE_URL='https://grpsite-my.sharepoint.com/:f:/g/personal/greyes_arifoma_com/IgD8XOuwUpjWQ4E17TuO5-PoAWbx8HnqElIXhD2fQerh_QM';
 const COMPRAS_MESES=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
@@ -9072,48 +9072,15 @@ function _renderInforme(d) {
 
 async function infEnviarEmail() {
   if (!_infData) { alert('Carga primero el informe'); return; }
-  if (typeof ExcelJS === 'undefined') { alert('Librería Excel no cargada'); return; }
-  const btn = document.querySelector('button[onclick="infEnviarEmail()"]');
-  if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
-  try {
-    const buf = await _infGenerarBuffer(_infData);
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
-    const fechaFmt = _infData.fecha.split('-').reverse().join('/');
-    const fileName = `Informe_Planta_${_infData.fecha}.xlsx`;
-    const token = await comprasGetToken();
-    const mail = {
-      message: {
-        subject: `ARIFOMA DATOS DIARIOS ${fechaFmt}`,
-        body: { contentType: 'Text', content: `Buenas tardes,\n\nAdjunto datos diarios del día ${fechaFmt}.\n\nSaludos,` },
-        toRecipients: [
-          { emailAddress: { address: 'jpereira@lopesan.com' } },
-          { emailAddress: { address: 'mleon@lopesan.com' } },
-          { emailAddress: { address: 'asarmiento@lopesan.com' } }
-        ],
-        attachments: [{
-          '@odata.type': '#microsoft.graph.fileAttachment',
-          name: fileName,
-          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          contentBytes: base64
-        }]
-      }
-    };
-    const res = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify(mail)
-    });
-    if (res.ok || res.status === 202) {
-      alert('Email enviado correctamente a jpereira@lopesan.com');
-    } else {
-      const err = await res.text();
-      alert('Error al enviar: ' + err);
-    }
-  } catch(e) {
-    alert('Error: ' + e.message);
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Enviar por Email'; }
-  }
+  const fechaFmt = _infData.fecha.split('-').reverse().join('/');
+  const asunto = `ARIFOMA DATOS DIARIOS ${fechaFmt}`;
+  const cuerpo = `Buenas tardes,\n\nAdjunto datos diarios del día ${fechaFmt}.\n\nSaludos,`;
+  const destinatarios = 'jpereira@lopesan.com;mleon@lopesan.com;asarmiento@lopesan.com';
+  const outlookUrl = 'https://outlook.office365.com/owa/?path=/mail/action/compose'
+    + '&to=' + encodeURIComponent(destinatarios)
+    + '&subject=' + encodeURIComponent(asunto)
+    + '&body=' + encodeURIComponent(cuerpo);
+  window.open(outlookUrl, '_blank');
 }
 
 async function _infGenerarBuffer(d) {
