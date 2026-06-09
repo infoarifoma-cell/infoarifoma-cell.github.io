@@ -10316,6 +10316,38 @@ async function _ensayosAceptarSeleccion() {
   if (errores) alert('Errores al guardar: ' + errores);
 }
 
+// ── Cálculo automático C/NC por fracción ──────────────────────
+// Devuelve { _gran_cnc: {tamiz: 'C'|'NC'}, _cnc: {key: 'C'|'NC'} }
+function _calcularCNC(fraccion, resultados) {
+  var gran_cnc = {};
+  var cnc = {};
+  if (fraccion === '0/4') {
+    if (resultados.gran_8  != null) gran_cnc['8']  = resultados.gran_8  >= 100 ? 'C' : 'NC';
+    if (resultados.gran_4  != null) gran_cnc['4']  = resultados.gran_4  >= 85  ? 'C' : 'NC';
+    if (resultados.eq_arena   != null) cnc['eq_arena']   = resultados.eq_arena   >= 75   ? 'C' : 'NC';
+    if (resultados.cont_finos != null) cnc['cont_finos'] = resultados.cont_finos <= 10   ? 'C' : 'NC';
+  } else if (fraccion === '4/12') {
+    if (resultados['gran_31.5'] != null) gran_cnc['31.5'] = resultados['gran_31.5'] >= 100 ? 'C' : 'NC';
+    if (resultados.gran_20      != null) gran_cnc['20']   = resultados.gran_20      >= 100 ? 'C' : 'NC';
+    if (resultados.gran_16      != null) gran_cnc['16']   = resultados.gran_16      >= 100 ? 'C' : 'NC';
+    if (resultados['gran_12.5'] != null) gran_cnc['12.5'] = resultados['gran_12.5'] <= 99  ? 'C' : 'NC';
+    if (resultados.gran_4       != null) gran_cnc['4']    = resultados.gran_4       >= 1   ? 'C' : 'NC';
+    if (resultados.cont_finos   != null) cnc['cont_finos'] = resultados.cont_finos  <= 0.99 ? 'C' : 'NC';
+  } else if (fraccion === '12/20') {
+    if (resultados.gran_63      != null) gran_cnc['63']   = resultados.gran_63      >= 100 ? 'C' : 'NC';
+    if (resultados.gran_40      != null) gran_cnc['40']   = resultados.gran_40      >= 100 ? 'C' : 'NC';
+    if (resultados['gran_31.5'] != null) gran_cnc['31.5'] = resultados['gran_31.5'] >= 100 ? 'C' : 'NC';
+    if (resultados.gran_20      != null) gran_cnc['20']   = resultados.gran_20      >= 85  ? 'C' : 'NC';
+    if (resultados.cont_finos   != null) cnc['cont_finos'] = resultados.cont_finos  <= 0.99 ? 'C' : 'NC';
+    if (resultados.ind_lajas    != null) cnc['ind_lajas']  = resultados.ind_lajas   <= 21  ? 'C' : 'NC';
+  } else if (fraccion === '20/40') {
+    if (resultados.gran_80      != null) gran_cnc['80']   = resultados.gran_80      >= 100 ? 'C' : 'NC';
+    if (resultados.gran_63      != null) gran_cnc['63']   = resultados.gran_63      >= 100 ? 'C' : 'NC';
+    if (resultados.gran_40      != null) gran_cnc['40']   = resultados.gran_40      <= 99  ? 'C' : 'NC';
+  }
+  return { _gran_cnc: gran_cnc, _cnc: cnc };
+}
+
 // TAB REGISTROS
 // Definición de columnas por fracción
 var _COLS_REGISTROS = {
@@ -10439,15 +10471,65 @@ function _ensayosRenderRegistros() {
   const nGranCols = granCols.reduce(function(acc, t){ return acc + 1 + (granCnc.indexOf(t) >= 0 ? 1 : 0); }, 0);
   const nTotal = 6 + nGranCols + extraCols.reduce(function(acc,c){ return acc + 1 + (c.cnc ? 1 : 0); }, 0) + 1;
 
+  // Calcular cuántas columnas son fijas (hasta densidad_p, sin incluirla)
+  // Cols fijas: 5 iniciales + 1 Decl.Prest + todos los tamices+CNC + extras antes de densidad_p
+  var nStickyExtras = 0;
+  for (var si = 0; si < extraCols.length; si++) {
+    if (extraCols[si].key === 'densidad_p') break;
+    nStickyExtras += 1 + (extraCols[si].cnc ? 1 : 0);
+  }
+  var nSticky = 6 + nGranCols + nStickyExtras; // número de columnas fijas
+
+  // Anchos aproximados para calcular left de sticky (px)
+  var colWidths = [];
+  // 5 cols iniciales
+  colWidths.push(75); // Fecha toma
+  colWidths.push(75); // Fecha ensayo
+  colWidths.push(65); // Nº muestra
+  colWidths.push(65); // Nº Albarán
+  colWidths.push(45); // Estado
+  // Decl. Prestaciones
+  colWidths.push(70);
+  // tamices
+  granCols.forEach(function(t){ colWidths.push(28); if(granCnc.indexOf(t)>=0) colWidths.push(22); });
+  // extras antes de densidad_p
+  for (var si2 = 0; si2 < extraCols.length; si2++) {
+    if (extraCols[si2].key === 'densidad_p') break;
+    colWidths.push(extraCols[si2].cnc ? 38 : 30);
+    if (extraCols[si2].cnc) colWidths.push(22);
+  }
+
+  // Calcular left acumulado para cada columna sticky
+  var stickyLefts = [];
+  var acc = 0;
+  for (var ci = 0; ci < nSticky; ci++) {
+    stickyLefts.push(acc);
+    acc += colWidths[ci] || 30;
+  }
+
+  function stickyTH(idx, base) {
+    if (idx >= nSticky) return base;
+    var isLast = (idx === nSticky - 1);
+    return base + 'position:sticky;left:' + stickyLefts[idx] + 'px;z-index:3;' + (isLast ? 'box-shadow:2px 0 4px rgba(0,0,0,.15);' : '');
+  }
+  function stickyTD(idx, base, bgOverride) {
+    if (idx >= nSticky) return base;
+    var bg = bgOverride || 'background:#fff;';
+    var isLast = (idx === nSticky - 1);
+    return base + bg + 'position:sticky;left:' + stickyLefts[idx] + 'px;z-index:2;' + (isLast ? 'box-shadow:2px 0 4px rgba(0,0,0,.15);' : '');
+  }
+
   // Título
   html += '<div style="text-align:center;font-weight:700;font-size:.9rem;background:#4472c4;color:#fff;padding:6px;border-radius:6px 6px 0 0;letter-spacing:.05em">' + cfg.titulo + '</div>';
   html += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:.7rem;background:#fff;width:100%">';
   html += '<thead>';
 
   // Fila 1: grupos grandes
+  // Las primeras 5 cols tienen colspan=5, luego Decl.Prest rowspan=2
+  // Para sticky en colspan no funciona bien — dejamos el grupo header sin sticky, sticky va en fila 2
   html += '<tr>';
-  html += '<th colspan="5" style="' + TH_HDR + '"></th>';
-  html += '<th rowspan="2" style="' + TH_HDR + 'vertical-align:middle;min-width:70px;font-size:.58rem">Decl.<br>Prestaciones</th>';
+  html += '<th colspan="5" style="' + TH_HDR + 'position:sticky;left:0;z-index:3"></th>';
+  html += '<th rowspan="2" style="' + stickyTH(5, TH_HDR) + 'vertical-align:middle;min-width:70px;font-size:.58rem">Decl.<br>Prestaciones</th>';
   html += '<th colspan="' + nGranCols + '" style="' + TH_GRN + '">REQUISITOS GEOMÉTRICOS — Granulometría (% que pasa) — Tamiz</th>';
   extraCols.forEach(function(c){
     var span = c.cnc ? 2 : 1;
@@ -10458,19 +10540,28 @@ function _ensayosRenderRegistros() {
 
   // Fila 2: columnas individuales
   html += '<tr>';
+  var colIdx = 0;
   ['Fecha toma','Fecha ensayo','Nº muestra','Nº Albarán','Estado'].forEach(function(h){
-    html += '<th style="' + TH_HDR + 'font-size:.58rem">' + h + '</th>';
+    html += '<th style="' + stickyTH(colIdx, TH_HDR) + 'font-size:.58rem">' + h + '</th>';
+    colIdx++;
   });
+  colIdx++; // Decl. prestaciones ya fue emitido con rowspan=2
   granCols.forEach(function(t){
-    html += '<th style="' + TH_GRN + '">' + t + '</th>';
+    html += '<th style="' + stickyTH(colIdx, TH_GRN) + '">' + t + '</th>';
+    colIdx++;
     if (granCnc.indexOf(t) >= 0) {
-      html += '<th style="' + TH_GRN2 + '">C/NC</th>';
+      html += '<th style="' + stickyTH(colIdx, TH_GRN2) + '">C/NC</th>';
+      colIdx++;
     }
   });
   extraCols.forEach(function(c){
     if (c.cnc) {
-      html += '<th style="' + TH_PRP + 'vertical-align:bottom;padding:4px 2px"><div style="writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;font-size:.6rem">Valor</div></th>';
-      html += '<th style="' + TH_PRP2 + 'vertical-align:middle">C/NC</th>';
+      html += '<th style="' + stickyTH(colIdx, TH_PRP) + 'vertical-align:bottom;padding:4px 2px"><div style="writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;font-size:.6rem">Valor</div></th>';
+      colIdx++;
+      html += '<th style="' + stickyTH(colIdx, TH_PRP2) + 'vertical-align:middle">C/NC</th>';
+      colIdx++;
+    } else {
+      colIdx++; // col no-CNC en fila 2 no se emite (rowspan=2 en fila 1)
     }
   });
   html += '</tr>';
@@ -10500,40 +10591,47 @@ function _ensayosRenderRegistros() {
       else if (r.estado === 'no_conforme' && estado !== 'conforme') estado = 'no_conforme';
     });
 
+    // Ocultar filas sin ningún dato
+    const tieneGran = Object.keys(gran).length > 0;
+    const tieneExtras = Object.keys(extras).length > 0;
+    const tieneDatos = fecha_toma || fecha_acta || num_albaran || num_acta || tieneGran || tieneExtras;
+    if (!tieneDatos) return;
+
     const estadoColor = estado === 'conforme' ? '#4caf50' : estado === 'no_conforme' ? '#c62828' : '#ff9800';
     const estadoBg = estado === 'conforme' ? '#e8f5e9' : estado === 'no_conforme' ? '#ffebee' : '#fff8e1';
     const rowBg = 'background:' + estadoBg + ';';
     const grupoKey = encodeURIComponent(g.key);
     const idsJson = encodeURIComponent(JSON.stringify(ids));
 
+    var tdIdx = 0;
     html += '<tr style="' + rowBg + 'border-bottom:1px solid #dde">';
-    html += '<td style="' + TD + 'white-space:nowrap">' + (fecha_toma||'\u2014') + '</td>';
-    html += '<td style="' + TD + 'white-space:nowrap">' + (fecha_acta||'\u2014') + '</td>';
-    html += '<td style="' + TD + '">' + (num_acta||'\u2014') + '</td>';
-    html += '<td style="' + TD + '">' + (num_albaran||'\u2014') + '</td>';
-    html += '<td style="' + TD + 'font-weight:700;color:' + estadoColor + '">' + (estado === 'conforme' ? 'C' : estado === 'no_conforme' ? 'NC' : 'P') + '</td>';
+    html += '<td style="' + stickyTD(tdIdx, TD+'white-space:nowrap;', estadoBg) + '">' + (fecha_toma||'\u2014') + '</td>'; tdIdx++;
+    html += '<td style="' + stickyTD(tdIdx, TD+'white-space:nowrap;', estadoBg) + '">' + (fecha_acta||'\u2014') + '</td>'; tdIdx++;
+    html += '<td style="' + stickyTD(tdIdx, TD, estadoBg) + '">' + (num_acta||'\u2014') + '</td>'; tdIdx++;
+    html += '<td style="' + stickyTD(tdIdx, TD, estadoBg) + '">' + (num_albaran||'\u2014') + '</td>'; tdIdx++;
+    html += '<td style="' + stickyTD(tdIdx, TD+'font-weight:700;color:' + estadoColor + ';', estadoBg) + '">' + (estado === 'conforme' ? 'C' : estado === 'no_conforme' ? 'NC' : 'P') + '</td>'; tdIdx++;
     // Declaración prestaciones
-    html += '<td style="' + TD + '"></td>';
+    html += '<td style="' + stickyTD(tdIdx, TD, estadoBg) + '"></td>'; tdIdx++;
 
     // Granulometría + C/NC
     granCols.forEach(function(t) {
       const v = gran['gran_'+t];
-      html += '<td style="' + TD + (v!=null?'':'color:#ccc') + '">' + (v!=null?v:'\u2014') + '</td>';
+      html += '<td style="' + stickyTD(tdIdx, TD+(v!=null?'':'color:#ccc;'), estadoBg) + '">' + (v!=null?v:'\u2014') + '</td>'; tdIdx++;
       if (granCnc.indexOf(t) >= 0) {
         const cv = granCncVals[t];
-        const cvBg = cv === 'C' ? 'background:#4caf50;color:#fff;' : cv === 'NC' ? 'background:#c62828;color:#fff;' : '';
-        html += '<td style="' + TD_CNC + cvBg + '">' + (cv||'') + '</td>';
+        const cvBg = cv === 'C' ? '#4caf50' : cv === 'NC' ? '#c62828' : null;
+        html += '<td style="' + stickyTD(tdIdx, TD_CNC, cvBg ? 'background:'+cvBg+';color:#fff;' : estadoBg) + '">' + (cv||'') + '</td>'; tdIdx++;
       }
     });
 
     // Extras + C/NC
     extraCols.forEach(function(c) {
       const v = extras[c.key];
-      html += '<td style="' + TD + (v!=null?'':'color:#ccc') + '">' + (v!=null?v:'\u2014') + '</td>';
+      html += '<td style="' + stickyTD(tdIdx, TD+(v!=null?'':'color:#ccc;'), estadoBg) + '">' + (v!=null?v:'\u2014') + '</td>'; tdIdx++;
       if (c.cnc) {
         const cv = extraCncVals[c.key];
-        const cvBg = cv === 'C' ? 'background:#4caf50;color:#fff;' : cv === 'NC' ? 'background:#c62828;color:#fff;' : '';
-        html += '<td style="' + TD_CNC + cvBg + '">' + (cv||'') + '</td>';
+        const cvBg = cv === 'C' ? '#4caf50' : cv === 'NC' ? '#c62828' : null;
+        html += '<td style="' + stickyTD(tdIdx, TD_CNC, cvBg ? 'background:'+cvBg+';color:#fff;' : estadoBg) + '">' + (cv||'') + '</td>'; tdIdx++;
       }
     });
 
@@ -11272,6 +11370,17 @@ async function ensayosConfirmarGuardar() {
     if (el && el.value !== '') resultados.eq_arena = parseFloat(el.value);
   }
 
+  // Calcular C/NC automático e inyectar en resultados
+  var autoCnc = _calcularCNC(fraccion, resultados);
+  if (Object.keys(autoCnc._gran_cnc).length) resultados._gran_cnc = autoCnc._gran_cnc;
+  if (Object.keys(autoCnc._cnc).length) resultados._cnc = autoCnc._cnc;
+
+  // Determinar estado: NC si algún C/NC calculado es 'NC', conforme si hay datos
+  var hayNC = Object.values(autoCnc._gran_cnc).some(function(v){ return v==='NC'; })
+            || Object.values(autoCnc._cnc).some(function(v){ return v==='NC'; });
+  var estadoAuto = Object.keys(resultados).filter(function(k){ return k!=='_gran_cnc'&&k!=='_cnc'; }).length > 0
+    ? (hayNC ? 'no_conforme' : 'conforme') : 'recogido';
+
   const payload = {
     semana_id: semanaId,
     tipo_ensayo: tipo,
@@ -11281,7 +11390,7 @@ async function ensayosConfirmarGuardar() {
     num_acta: document.getElementById('ecf-num-acta').value || null,
     num_albaran: document.getElementById('ecf-num-albaran').value || null,
     resultados: resultados,
-    estado: Object.keys(resultados).length > 0 ? 'conforme' : 'recogido'
+    estado: estadoAuto
   };
 
   // Modo edición — actualizar todos los registros del grupo
@@ -11318,10 +11427,18 @@ async function ensayosConfirmarGuardar() {
         const el = document.getElementById('ecf-ind-lajas');
         if (el && el.value !== '') regResultados.ind_lajas = parseFloat(el.value);
       }
+      // C/NC automático para este registro
+      var rAutoCnc = _calcularCNC(fraccion, regResultados);
+      if (Object.keys(rAutoCnc._gran_cnc).length) regResultados._gran_cnc = rAutoCnc._gran_cnc;
+      if (Object.keys(rAutoCnc._cnc).length) regResultados._cnc = rAutoCnc._cnc;
+      var rHayNC = Object.values(rAutoCnc._gran_cnc).some(function(v){ return v==='NC'; })
+                 || Object.values(rAutoCnc._cnc).some(function(v){ return v==='NC'; });
+      var rEstado = Object.keys(regResultados).filter(function(k){ return k!=='_gran_cnc'&&k!=='_cnc'; }).length > 0
+        ? (rHayNC ? 'no_conforme' : 'conforme') : 'recogido';
       return updateEnsayoRegistro(id, Object.assign({}, camposComunes, {
         tipo_ensayo: reg.tipo_ensayo,
         resultados: regResultados,
-        estado: Object.keys(regResultados).length > 0 ? 'conforme' : 'recogido'
+        estado: rEstado
       }));
     });
     const results = await Promise.all(updates);
