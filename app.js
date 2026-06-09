@@ -10070,7 +10070,7 @@ function _ensayosRenderControl() {
   html += '<th colspan="4" style="' + TH_W + '">RECUENTO</th>';
   html += '<th colspan="4" style="' + TH_W + '">RECUENTO</th>';
   html += '<th style="' + TH_W + '">RECUENTO</th>';
-  html += '<th colspan="4" style="' + TH_W + '">RECUENTO</th>';
+  html += '<th colspan="3" style="' + TH_W + '">RECUENTO</th>';
   html += '<th colspan="3" style="' + TH_W + '">RECUENTO</th>';
   html += '<th rowspan="4" style="' + TH_W + 'vertical-align:middle">OBSERVACIONES</th>';
   html += '</tr>';
@@ -10080,7 +10080,7 @@ function _ensayosRenderControl() {
   html += '<th colspan="4" style="' + TH_W + '">UNE-EN 933-1</th>';
   html += '<th colspan="4" style="' + TH_W + '">UNE-EN 933-1</th>';
   html += '<th style="' + TH_W + '">UNE-EN 933-8</th>';
-  html += '<th colspan="4" style="' + TH_W + '">UNE-EN 933-3</th>';
+  html += '<th colspan="3" style="' + TH_W + '">UNE-EN 933-3</th>';
   html += '<th colspan="3" style="' + TH_W + '">UNE-EN 933-5</th>';
   html += '</tr>';
 
@@ -10094,7 +10094,7 @@ function _ensayosRenderControl() {
   html += '<th colspan="4" style="' + TH_Y + '">GRANULOMETRIA<br><span style="font-weight:400;font-size:.6rem">SEMANAL</span></th>';
   html += '<th colspan="4" style="' + TH_Y + '">CONTENIDO DE FINOS<br><span style="font-weight:400;font-size:.6rem">SEMANAL</span></th>';
   html += '<th style="' + TH_Y + '">EQUI. EN<br>ARENA<br><span style="font-weight:400;font-size:.6rem">SEMANAL</span></th>';
-  html += '<th colspan="4" style="' + TH_Y + '">INDICE LAJAS<br><span style="font-weight:400;font-size:.6rem">MENSUAL</span></th>';
+  html += '<th colspan="3" style="' + TH_Y + '">INDICE LAJAS<br><span style="font-weight:400;font-size:.6rem">MENSUAL</span></th>';
   html += '<th colspan="3" style="' + TH_Y + '">PORCENTAJE CAPAS<br>FRAGTURADAS<br><span style="font-weight:400;font-size:.6rem">MENSUAL</span></th>';
   html += '</tr>';
 
@@ -10111,7 +10111,7 @@ function _ensayosRenderControl() {
   ['0/4','4/12','12/20','20/40'].forEach(function(f){ html += '<th style="' + TH_Y + '">' + f + '</th>'; });
   ['0/4','4/12','12/20','20/40'].forEach(function(f){ html += '<th style="' + TH_Y + '">' + f + '</th>'; });
   html += '<th style="' + TH_Y + '">0/4</th>';
-  ['4/12','12/20','20/40','ZA25'].forEach(function(f){ html += '<th style="' + TH_Y + '">' + f + '</th>'; });
+  ['4/12','12/20','20/40'].forEach(function(f){ html += '<th style="' + TH_Y + '">' + f + '</th>'; });
   ['4/12','12/20','20/40'].forEach(function(f){ html += '<th style="' + TH_Y + '">' + f + '</th>'; });
   html += '</tr>';
 
@@ -10174,11 +10174,9 @@ function _ensayosRenderControl() {
     html += '<td style="' + TD_C + BG_F + '">' + estadoReg('cont_finos','12/20') + '</td>';
     html += '<td style="' + TD_C + BG_F + '">' + estadoReg('cont_finos','20/40') + '</td>';
     html += '<td style="' + TD_C + BG_E + '">' + estadoReg('eq_arena','0/4') + '</td>';
-    html += '<td style="' + TD_C + BG_E + '">' + estadoReg('eq_arena','ZA25') + '</td>';
     html += '<td style="' + TD_C + BG_L + '">' + estadoReg('ind_lajas','4/12') + '</td>';
     html += '<td style="' + TD_C + BG_L + '">' + estadoReg('ind_lajas','12/20') + '</td>';
     html += '<td style="' + TD_C + BG_L + '">' + estadoReg('ind_lajas','20/40') + '</td>';
-    html += '<td style="' + TD_C + BG_L + '">' + estadoReg('ind_lajas','ZA25') + '</td>';
     html += '<td style="' + TD_C + BG_Ca + '">' + estadoReg('caras_fractura','4/12') + '</td>';
     html += '<td style="' + TD_C + BG_Ca + '">' + estadoReg('caras_fractura','12/20') + '</td>';
     html += '<td style="' + TD_C + BG_Ca + '">' + estadoReg('caras_fractura','20/40') + '</td>';
@@ -10186,7 +10184,7 @@ function _ensayosRenderControl() {
     html += '</tr>';
   });
 
-  if (!semanas.length) html += '<tr><td colspan="28" style="padding:24px;text-align:center;color:var(--muted)">Sin semanas para ' + _ensayosAnio + '</td></tr>';
+  if (!semanas.length) html += '<tr><td colspan="26" style="padding:24px;text-align:center;color:var(--muted)">Sin semanas para ' + _ensayosAnio + '</td></tr>';
   html += '</tbody></table></div>';
   html += '<div style="display:flex;gap:16px;margin-top:10px;font-size:.72rem;color:var(--muted);flex-wrap:wrap">';
   html += '<span><span style="color:#2e7d32;font-weight:700">\u2713\u2713</span> Conforme</span>';
