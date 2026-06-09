@@ -78,7 +78,9 @@ export default async function handler(req, res) {
     'apikey': SUPABASE_SERVICE_KEY,
     'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
     'Content-Type': 'application/json',
-    'Prefer': action === 'insert' ? 'return=representation' : 'return=minimal'
+    'Prefer': action === 'insert' ? 'return=representation' : 'return=minimal',
+    'Range-Unit': 'items',
+    'Range': '0-9999'
   };
 
   try {
