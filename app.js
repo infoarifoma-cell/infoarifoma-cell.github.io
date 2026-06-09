@@ -10147,7 +10147,7 @@ function _ensayosRenderControl() {
       const seleccionado = _ensayosSelCeldas[key];
       const selStyle = seleccionado ? 'outline:2px solid var(--accent);outline-offset:-2px;' : '';
       const spanClick = esAdmin && (!r || r.estado === 'recogido')
-        ? ' onclick="event.stopPropagation();_ensayosToggleSelCelda(\'' + key + '\',\'' + sem.id + '\',\'' + tipo + '\',\'' + frac + '\')"'
+        ? ' onclick="_ensayosToggleSelCelda(\'' + key + '\',\'' + sem.id + '\',\'' + tipo + '\',\'' + frac + '\')"'
         : '';
       const spanSel = seleccionado ? 'background:var(--accent);color:#fff;border-radius:3px;padding:1px 3px;' : '';
       if (!r) return '<td><span' + spanClick + ' style="' + spanSel + 'color:' + (seleccionado ? '#fff' : '#ccc') + ';font-size:.9rem;font-weight:700;cursor:' + (esAdmin?'pointer':'default') + '">' + (seleccionado ? '\u2713' : '+') + '</span></td>';
@@ -10179,10 +10179,10 @@ function _ensayosRenderControl() {
     const primerReg = regs.find(function(r){ return r.num_albaran; });
     const fechaAlbaran = primerReg ? (primerReg.num_albaran || '\u2014') : '\u2014';
 
-    html += '<tr style="' + rowBg + 'cursor:pointer" onclick="ensayosAbrirSemana(\'' + sem.id + '\')">';
-    html += '<td style="' + TD_C + 'color:' + estadoColor + ';font-weight:700;font-size:.7rem">' + estadoGlobal + '</td>';
-    html += '<td style="' + TD_C + 'font-weight:600;font-size:.7rem">' + num + '</td>';
-    html += '<td style="' + TD + 'white-space:nowrap;font-size:.7rem">' + fecha + '</td>';
+    html += '<tr style="' + rowBg + '">';
+    html += '<td onclick="ensayosAbrirSemana(\'' + sem.id + '\')" style="' + TD_C + 'color:' + estadoColor + ';font-weight:700;font-size:.7rem;cursor:pointer">' + estadoGlobal + '</td>';
+    html += '<td onclick="ensayosAbrirSemana(\'' + sem.id + '\')" style="' + TD_C + 'font-weight:600;font-size:.7rem;cursor:pointer">' + num + '</td>';
+    html += '<td onclick="ensayosAbrirSemana(\'' + sem.id + '\')" style="' + TD + 'white-space:nowrap;font-size:.7rem;cursor:pointer">' + fecha + '</td>';
     html += '<td style="' + TD_C + 'color:' + matColor + ';font-weight:600">' + mat + '</td>';
     html += '<td style="' + TD_R + '">' + (tnTotal ? Number(tnTotal).toLocaleString('es') : '\u2014') + '</td>';
     html += '<td style="' + TD_R + '">' + (sem.tn_04 ? Number(sem.tn_04).toLocaleString('es') : '\u2014') + '</td>';
