@@ -9281,7 +9281,7 @@ async function cargarStock() {
       }),
       dbQuery({ action: 'select', table: 'tblpedidos',
         filters: [{ column: 'fechaHora', op: 'gte', value: iniAnyo + 'T00:00:00Z' }, { column: 'fechaHora', op: 'lte', value: finAnyo + 'T23:59:59Z' }],
-        options: { select: 'fechaHora,productoNombre,pesoNeto', order: 'fechaHora' }
+        options: { select: 'fechaHora,productoNombre,pesoNeto', order: 'fechaHora', limit: 10000 }
       })
     ]);
 
