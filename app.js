@@ -10317,12 +10317,6 @@ async function _ensayosGenerarPDF() {
 
   // Cargar plantilla
   const templateBytes = await fetch('/PLANTILLA%20ENSAYOS.pdf').then(r => r.arrayBuffer());
-  // DEBUG cuadrícula — eliminar tras calibrar
-  { const { PDFDocument: _D, rgb: _r, StandardFonts: _S } = PDFLib;
-    const _dbg = await _D.load(templateBytes); const _fp = await _dbg.embedFont(_S.Helvetica); const _pg = _dbg.getPages()[0];
-    for(let x=0;x<600;x+=25) { _pg.drawLine({start:{x,y:0},end:{x,y:842},thickness:0.3,color:_r(0.8,0.8,0.8)}); _pg.drawText(String(x),{x:x+1,y:4,size:4,font:_fp,color:_r(0.6,0,0)}); }
-    for(let y=0;y<850;y+=10) { _pg.drawLine({start:{x:0,y},end:{x:595,y},thickness:0.3,color:_r(0.8,0.8,0.8)}); _pg.drawText(String(y),{x:1,y:y+1,size:4,font:_fp,color:_r(0,0,0.6)}); }
-    const _b=await _dbg.save(); const _bl=new Blob([_b],{type:'application/pdf'}); const _u=URL.createObjectURL(_bl); const _a=document.createElement('a'); _a.href=_u; _a.download='debug.pdf'; _a.click(); return; }
 
   // Mapeo ensayo → fila (índice 0 = Granulometría)
   const FILA_ENSAYO = {
@@ -10332,40 +10326,62 @@ async function _ensayosGenerarPDF() {
     'ind_lajas':     3,
     'caras_fractura':4
   };
-  // Columnas ÁRIDO CANTERA (x centers aproximados en pts, origen abajo-izq)
-  const COL_FRAC = { '0/4': 312, '4/12': 339, '12/20': 366, '20/40': 393 };
-  // Y de la primera fila de ensayos (Granulometría), cada fila ~18.5pt hacia abajo
-  const Y_PRIMERA_FILA = 618;
-  const ALTO_FILA = 18.5;
+  // Columnas ÁRIDO CANTERA — formato debug es Y:X
+  const COL_FRAC = { '0/4': 300, '4/12': 325, '12/20': 350, '20/40': 375 };
+  // Y primera fila (Granulometría) = 620, cada fila -18pts
+  const Y_PRIMERA_FILA = 620;
+  const ALTO_FILA = 10;
 
   for (const sem of sems) {
     const pdfDoc = await PDFDocument.load(templateBytes);
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const page = pdfDoc.getPages()[0];
 
-    // Fecha de recogida
-    const fecha = sem.fecha_lunes ? new Date(sem.fecha_lunes).toLocaleDateString('es-ES') : '';
-    page.drawText(fecha, { x: 105, y: 728, size: 9, font, color: rgb(0,0,0) });
+    // Fecha de recogida — día/mes/año separados
+    const fechaObj = sem.fecha_lunes ? new Date(sem.fecha_lunes) : null;
+    if (fechaObj) {
+      const dia  = String(fechaObj.getDate()).padStart(2,'0');
+      const mes  = String(fechaObj.getMonth()+1).padStart(2,'0');
+      const anyo = String(fechaObj.getFullYear());
+      page.drawText(dia,  { x: 100, y: 660, size: 9, font, color: rgb(0,0,0) });
+      page.drawText(mes,  { x: 125, y: 660, size: 9, font, color: rgb(0,0,0) });
+      page.drawText(anyo, { x: 150, y: 660, size: 9, font, color: rgb(0,0,0) });
+    }
 
     // Muestras seleccionadas de esta semana
     const regs = _ensayosRegistros.filter(function(r){ return r.semana_id === sem.id && r.estado === 'recogido'; });
     const marcados = {}; // 'tipo|frac' => true
     regs.forEach(function(r){ marcados[r.tipo_ensayo + '|' + r.fraccion] = true; });
 
+    // Coordenadas exactas por ensayo+fracción
+    const COORDS = {
+      'granulometria|0/4':    {x:300, y:620},
+      'granulometria|4/12':   {x:325, y:620},
+      'granulometria|12/20':  {x:350, y:620},
+      'granulometria|20/40':  {x:375, y:620},
+      'cont_finos|0/4':       {x:300, y:610},
+      'cont_finos|4/12':      {x:325, y:610},
+      'cont_finos|12/20':     {x:350, y:610},
+      'cont_finos|20/40':     {x:375, y:610},
+      'eq_arena|0/4':         {x:300, y:600},
+      'ind_lajas|4/12':       {x:325, y:590},
+      'ind_lajas|12/20':      {x:350, y:590},
+      'ind_lajas|20/40':      {x:375, y:590},
+      'caras_fractura|4/12':  {x:325, y:580},
+      'caras_fractura|12/20': {x:350, y:580},
+      'caras_fractura|20/40': {x:375, y:580},
+    };
+
     // Dibujar X en cada celda marcada
     Object.keys(marcados).forEach(function(key) {
-      const parts = key.split('|');
-      const tipo = parts[0], frac = parts[1];
-      const filaIdx = FILA_ENSAYO[tipo];
-      const colX = COL_FRAC[frac];
-      if (filaIdx === undefined || colX === undefined) return;
-      const y = Y_PRIMERA_FILA - filaIdx * ALTO_FILA;
-      page.drawText('X', { x: colX - 3, y: y, size: 8, font, color: rgb(0,0,0) });
+      const c = COORDS[key];
+      if (!c) return;
+      page.drawText('X', { x: c.x, y: c.y, size: 8, font, color: rgb(0,0,0) });
     });
 
     // Nº muestras = fracciones distintas
     const fracs = [...new Set(regs.map(function(r){ return r.fraccion; }))];
-    page.drawText(String(fracs.length), { x: 105, y: 68, size: 9, font, color: rgb(0,0,0) });
+    page.drawText(String(fracs.length), { x: 220, y: 270, size: 9, font, color: rgb(0,0,0) });
 
     // Solicitante
     page.drawText('Áridos Fonseca', { x: 480, y: 115, size: 9, font, color: rgb(0,0,0) });
