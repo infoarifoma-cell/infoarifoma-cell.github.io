@@ -10182,7 +10182,9 @@ function _ensayosRenderControl() {
     html += '<tr style="' + rowBg + '">';
     html += '<td style="' + TD_C + 'color:' + estadoColor + ';font-weight:700;font-size:.7rem">' + estadoGlobal + '</td>';
     html += '<td style="' + TD_C + 'font-weight:600;font-size:.7rem">' + num + '</td>';
-    html += '<td style="' + TD + 'white-space:nowrap;font-size:.7rem">' + fecha + ' <span onclick="ensayosAbrirSemana(\'' + sem.id + '\')" style="cursor:pointer;color:var(--muted);font-size:.8rem" title="Editar">&#9998;</span></td>';
+    var iconEdit = '<span onclick="ensayosAbrirSemana(\'' + sem.id + '\')" style="cursor:pointer;color:var(--muted);font-size:.8rem;margin-left:4px" title="Editar">&#9998;</span>';
+    var iconDel  = loginUser && loginUser.rol === 'admin' ? '<span onclick="ensayosEliminarSemana(\'' + sem.id + '\',\'' + fecha + '\')" style="cursor:pointer;color:#c62828;font-size:.8rem;margin-left:4px" title="Eliminar semana">&#128465;</span>' : '';
+    html += '<td style="' + TD + 'white-space:nowrap;font-size:.7rem">' + fecha + iconEdit + iconDel + '</td>';
     html += '<td style="' + TD_C + 'color:' + matColor + ';font-weight:600">' + mat + '</td>';
     html += '<td style="' + TD_R + '">' + (tnTotal ? Number(tnTotal).toLocaleString('es') : '\u2014') + '</td>';
     html += '<td style="' + TD_R + '">' + (sem.tn_04 ? Number(sem.tn_04).toLocaleString('es') : '\u2014') + '</td>';
@@ -10247,6 +10249,23 @@ function _ensayosToggleSelCelda(key, semanaId, tipo, frac) {
 function _ensayosLimpiarSel() {
   _ensayosSelCeldas = {};
   _ensayosRenderTab('control');
+}
+
+async function ensayosEliminarSemana(semanaId, fecha) {
+  if (!confirm('¿Eliminar la semana del ' + fecha + ' y todos sus registros de ensayo? Esta acción no se puede deshacer.')) return;
+  try {
+    // Borrar registros de ensayo primero
+    await dbQuery({ action: 'delete', table: 'ensayos_registros', filters: [{ column: 'semana_id', op: 'eq', value: semanaId }] });
+    // Borrar la semana
+    var res = await dbQuery({ action: 'delete', table: 'ensayos_semanas', filters: [{ column: 'id', op: 'eq', value: semanaId }] });
+    if (res && res.ok === false) throw new Error(res.error || 'Error al eliminar');
+    // Refrescar datos
+    _ensayosSemanas = _ensayosSemanas.filter(function(s){ return s.id !== semanaId; });
+    _ensayosRegistros = _ensayosRegistros.filter(function(r){ return r.semana_id !== semanaId; });
+    _ensayosRenderTab('control');
+  } catch(e) {
+    alert('Error al eliminar: ' + e.message);
+  }
 }
 
 async function _ensayosAceptarSeleccion() {
