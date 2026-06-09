@@ -10302,8 +10302,10 @@ function _ensayosEnviarLab() {
   cuerpo += 'Gracias,\nÁridos Fonseca';
 
   const asunto = 'Solicitud de ensayos de áridos — ' + hoy;
-  const mailto = 'mailto:info@esocansl.com?subject=' + encodeURIComponent(asunto) + '&body=' + encodeURIComponent(cuerpo);
-  window.open(mailto, '_blank');
+  const outlookUrl = 'https://outlook.office.com/mail/deeplink/compose?to=' + encodeURIComponent('info@esocansl.com') +
+    '&subject=' + encodeURIComponent(asunto) +
+    '&body=' + encodeURIComponent(cuerpo.replace(/\n/g, '<br>'));
+  window.open(outlookUrl, '_blank');
 }
 
 function _ensayosToggleSelCelda(key, semanaId, tipo, frac) {
