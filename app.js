@@ -5392,20 +5392,19 @@ async function cargarFacturasCompra() {
     const CAJA_SHEET_TAB = 'LISTADO FACTS.CAJAS';
     const [cajaRes, sheetRes] = await Promise.all([
       dbQuery({ action: 'select', table: 'tblcaja', options: { select: 'facturabc' } }),
-      fetch(`https://docs.google.com/spreadsheets/d/${CAJA_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(CAJA_SHEET_TAB)}&tq=${encodeURIComponent('select C')}`)
-        .then(r => r.text()).catch(() => '')
+      fetch('/api/google-sheet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spreadsheetId: CAJA_SHEET_ID, sheet: CAJA_SHEET_TAB, range: `${CAJA_SHEET_TAB}!C:C` })
+      }).then(r => r.json()).catch(() => ({ ok: false }))
     ]);
     const registradasSet = new Set((cajaRes.data || []).map(r => r.facturabc.trim()));
     // Añadir facturas del Google Sheet (columna C)
-    if (sheetRes) {
-      try {
-        const jsonStr = sheetRes.replace(/^[^(]*\(/, '').replace(/\);?\s*$/, '');
-        const gviz = JSON.parse(jsonStr);
-        (gviz.table.rows || []).forEach(row => {
-          const v = row.c && row.c[0] && row.c[0].v;
-          if (v) registradasSet.add(String(v).trim());
-        });
-      } catch(_) {}
+    if (sheetRes && sheetRes.ok && sheetRes.values) {
+      sheetRes.values.forEach(row => {
+        const v = row[0];
+        if (v) registradasSet.add(String(v).trim());
+      });
     }
 
     cajaRegistradas = registradasSet;
