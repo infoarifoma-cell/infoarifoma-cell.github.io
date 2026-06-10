@@ -16,8 +16,7 @@ export default async function handler(req, res) {
   const BC_COMPANY = process.env.BC_COMPANY;
 
   const companyEncoded = encodeURIComponent(BC_COMPANY);
-  const filter = encodeURIComponent("Remaining_Amount gt 0");
-  const url = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/ODataV4/Company('${companyEncoded}')/Histórico_facturas_compra_Excel?$filter=${filter}&$top=500`;
+  const url = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/ODataV4/Company('${companyEncoded}')/Histórico_facturas_compra_Excel?$top=1`;
   const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
 
   try {
@@ -28,20 +27,8 @@ export default async function handler(req, res) {
     }
     const invJson = await invRes.json();
 
-    const data = (invJson.value || []).map(inv => ({
-      number: inv.No_ ?? inv.No ?? inv['No_'] ?? '',
-      postingDate: inv.Posting_Date ?? inv.Document_Date ?? '',
-      invoiceDate: inv.Document_Date ?? inv.Posting_Date ?? '',
-      vendorInvoiceNumber: inv.Vendor_Invoice_No_ ?? inv.External_Document_No_ ?? '',
-      vendorNumber: inv.Buy_from_Vendor_No_ ?? '',
-      vendorName: inv.Buy_from_Vendor_Name ?? '',
-      totalAmountExcludingTax: inv.Amount ?? 0,
-      totalAmountIncludingTax: inv.Amount_Including_VAT ?? 0,
-      remainingAmount: inv.Remaining_Amount ?? inv.Amount_Including_VAT ?? 0,
-      dueDate: inv.Due_Date ?? ''
-    }));
-
-    return res.status(200).json({ ok: true, data });
+    // DEBUG: devolver primer registro completo para ver nombres de campos
+    return res.status(200).json({ ok: true, debug: true, fields: Object.keys((invJson.value||[{}])[0]), sample: (invJson.value||[])[0] });
   } catch (error) {
     console.error('BC facturas-pendientes-compra error:', error.message);
     return res.status(500).json({ ok: false, error: error.message });
