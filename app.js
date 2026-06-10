@@ -7922,8 +7922,8 @@ async function cargarFacturasPendientes() {
   try {
     const token = await getBCToken();
     const [rVenta, rCompra] = await Promise.all([
-      fetch('/api/bc/facturas-pendientes-venta', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})}).then(r=>r.json()),
-      fetch('/api/bc/facturas-pendientes-compra', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})}).then(r=>r.json())
+      fetch('/api/bc/facturas-pendientes', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,type:'venta'})}).then(r=>r.json()),
+      fetch('/api/bc/facturas-pendientes', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,type:'compra'})}).then(r=>r.json())
     ]);
     if (!rVenta.ok) throw new Error('Ventas: ' + rVenta.error);
     if (!rCompra.ok) throw new Error('Compras: ' + rCompra.error);
