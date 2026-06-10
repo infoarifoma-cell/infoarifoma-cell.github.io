@@ -7137,6 +7137,177 @@ function renderCostes(){
   renderCostesCharts(catData, mesesActivos, prodMes, prodAcum, totalProd);
 }
 
+// ── COSTES EXPORT EXCEL ──────────────────────────────────────────────────────
+async function exportarCostesExcel() {
+  if (!costesRawData.length) { alert('Primero carga los datos de BC.'); return; }
+  if (typeof ExcelJS === 'undefined') { alert('Librería Excel no cargada, recarga la página.'); return; }
+
+  const anyo = costesAnyoCargado || '';
+  const mesDesde = parseInt(document.getElementById('costes-mes-desde').value);
+  const mesHasta = parseInt(document.getElementById('costes-mes-hasta').value);
+  const mesesActivos = [];
+  for (let m = mesDesde; m <= mesHasta; m++) mesesActivos.push(m);
+
+  const fmtN = v => parseFloat(v) || 0;
+
+  // Producción por mes
+  const prodMes = {};
+  for (const p of costesProduccion) {
+    const m = parseInt(p.fecha.split('-')[1]);
+    if (m >= mesDesde && m <= mesHasta) prodMes[m] = (prodMes[m] || 0) + (parseFloat(p.tnDia) || 0);
+  }
+  const totalProd = Object.values(prodMes).reduce((a, b) => a + b, 0);
+
+  // Agrupación por categoría
+  const data = {};
+  for (const e of costesRawData) {
+    if (costesExcludedAccounts.has(e.account || '?')) continue;
+    const m = parseInt(e.date.split('-')[1]);
+    if (m < mesDesde || m > mesHasta) continue;
+    const ca = e.ca || '#N/D';
+    if (!data[ca]) data[ca] = {};
+    const importe = (e.debit || 0) - (e.credit || 0);
+    data[ca][m] = (data[ca][m] || 0) + importe;
+  }
+  const catData = {};
+  for (const [ca, meses] of Object.entries(data)) {
+    const info = COSTES_CA_MAP[ca] || { cat: '#N/D', name: ca };
+    const cat = info.cat;
+    if (!catData[cat]) catData[cat] = { subcats: {}, totals: {} };
+    catData[cat].subcats[ca] = { name: info.name, meses };
+    for (const [m, v] of Object.entries(meses)) catData[cat].totals[m] = (catData[cat].totals[m] || 0) + v;
+  }
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'ARIFOMA';
+
+  // ── HOJA 1: RESUMEN ──────────────────────────────────────────────────────
+  const ws1 = wb.addWorksheet('Resumen');
+  const numCols = mesesActivos.length + 2; // Concepto + meses + Total
+
+  // Estilos reutilizables
+  const stCat = { font:{bold:true,color:{argb:'FFFFFFFF'}}, fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FF444444'}}, alignment:{horizontal:'left'} };
+  const stSub = { font:{bold:false}, fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFF5F5F5'}}, alignment:{indent:2} };
+  const stGrand = { font:{bold:true,color:{argb:'FFFFFFFF'}}, fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FF1a5faa'}} };
+  const stProd = { font:{bold:true}, fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFe8f5e9'}} };
+  const stNum = { numFmt:'#,##0.00', alignment:{horizontal:'right'} };
+  const stNumBold = { numFmt:'#,##0.00', alignment:{horizontal:'right'}, font:{bold:true} };
+
+  const applyRow = (row, style, numStyle) => {
+    row.getCell(1).style = style;
+    for (let c = 2; c <= numCols; c++) {
+      row.getCell(c).style = { ...style, ...(numStyle||{}) };
+    }
+  };
+
+  // Título
+  ws1.mergeCells(1, 1, 1, numCols);
+  const titleRow = ws1.getRow(1);
+  titleRow.getCell(1).value = `Análisis de Costes ${anyo}`;
+  titleRow.getCell(1).style = { font:{bold:true,size:14}, alignment:{horizontal:'center'} };
+  titleRow.height = 24;
+
+  // Cabecera columnas
+  const cabRow = ws1.addRow(['Concepto', ...mesesActivos.map(m => MESES_NOMBRE[m]), 'Total']);
+  cabRow.eachCell(c => { c.style = { font:{bold:true,color:{argb:'FFFFFFFF'}}, fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FF2c2c2c'}}, alignment:{horizontal:'center'} }; });
+  cabRow.height = 18;
+
+  // Producción
+  const prodRow = ws1.addRow(['Producción (Tn)', ...mesesActivos.map(m => fmtN(prodMes[m]||0)), fmtN(totalProd)]);
+  applyRow(prodRow, stProd, stNum);
+
+  ws1.addRow([]);
+
+  // Categorías
+  const grandTotals = {};
+  for (const cat of COSTES_CAT_ORDER) {
+    const cd = catData[cat];
+    if (!cd) continue;
+    let catTotal = 0;
+    for (const m of mesesActivos) catTotal += (cd.totals[m] || 0);
+    const catRow = ws1.addRow([cat, ...mesesActivos.map(m => fmtN(cd.totals[m]||0)), fmtN(catTotal)]);
+    applyRow(catRow, stCat, stNumBold);
+    catRow.height = 16;
+
+    const subcats = Object.entries(cd.subcats).sort((a, b) => a[0].localeCompare(b[0]));
+    for (const [, sub] of subcats) {
+      let subTotal = 0;
+      for (const m of mesesActivos) subTotal += (sub.meses[m] || 0);
+      const subRow = ws1.addRow(['  ' + sub.name, ...mesesActivos.map(m => fmtN(sub.meses[m]||0)), fmtN(subTotal)]);
+      applyRow(subRow, stSub, stNum);
+    }
+    for (const m of mesesActivos) grandTotals[m] = (grandTotals[m] || 0) + (cd.totals[m] || 0);
+    ws1.addRow([]);
+  }
+
+  let grandTotal = 0;
+  for (const m of mesesActivos) grandTotal += (grandTotals[m] || 0);
+  const gtRow = ws1.addRow(['TOTAL GENERAL', ...mesesActivos.map(m => fmtN(grandTotals[m]||0)), fmtN(grandTotal)]);
+  applyRow(gtRow, stGrand, stNumBold);
+  gtRow.height = 18;
+
+  // Anchos columnas
+  ws1.getColumn(1).width = 38;
+  for (let c = 2; c <= numCols; c++) ws1.getColumn(c).width = 14;
+
+  // Bordes en todas las celdas con datos
+  ws1.eachRow((row, ri) => {
+    if (ri < 2) return;
+    row.eachCell(cell => {
+      if (!cell.style.border) cell.style = { ...cell.style, border:{top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}} };
+    });
+  });
+
+  // ── HOJA 2: MOVIMIENTOS CONTABLES ────────────────────────────────────────
+  const ws2 = wb.addWorksheet('Movimientos');
+  ws2.addRow(['Fecha','Cuenta','Nombre cuenta','CA','Descripción','Debe','Haber','Importe']);
+  ws2.getRow(1).eachCell(c => {
+    c.style = { font:{bold:true,color:{argb:'FFFFFFFF'}}, fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FF2c2c2c'}}, alignment:{horizontal:'center'} };
+  });
+
+  const movs = costesRawData.filter(e => {
+    const m = parseInt(e.date.split('-')[1]);
+    return m >= mesDesde && m <= mesHasta && !costesExcludedAccounts.has(e.account || '?');
+  }).sort((a, b) => a.date.localeCompare(b.date));
+
+  for (const [i, e] of movs.entries()) {
+    const importe = (e.debit || 0) - (e.credit || 0);
+    const row = ws2.addRow([
+      e.date ? new Date(e.date) : '',
+      e.account || '',
+      e.accountName || '',
+      e.ca || '',
+      e.description || '',
+      fmtN(e.debit || 0),
+      fmtN(e.credit || 0),
+      fmtN(importe)
+    ]);
+    row.getCell(1).numFmt = 'dd/mm/yyyy';
+    for (const c of [6,7,8]) row.getCell(c).numFmt = '#,##0.00';
+    if (i % 2 === 1) {
+      row.eachCell(cell => { cell.style = { ...cell.style, fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFF5F5F5'}} }; });
+    }
+  }
+
+  ws2.getColumn(1).width = 12;
+  ws2.getColumn(2).width = 10;
+  ws2.getColumn(3).width = 30;
+  ws2.getColumn(4).width = 10;
+  ws2.getColumn(5).width = 40;
+  ws2.getColumn(6).width = 14;
+  ws2.getColumn(7).width = 14;
+  ws2.getColumn(8).width = 14;
+
+  // Descargar
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `costes-${anyo}-${new Date().toISOString().slice(0,10)}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 // ── COSTES COLLAPSE/EXPAND ───────────────────────────────────────────────────
 function toggleCostesCat(catId){
   const rows = document.querySelectorAll(`.costes-sub-row[data-parent="${catId}"]`);
