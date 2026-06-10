@@ -7677,11 +7677,11 @@ function renderFacturasPendientes() {
   } else {
     const data = _fpCompraData;
     if (!data.length) { wrap.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Sin facturas de compra pendientes.</div>'; return; }
-    const totalPend = data.reduce((a,r)=>a+(parseFloat(r.remainingAmount)||0),0);
-    let html = `<div style="font-size:.78rem;color:var(--accent2);font-weight:700;margin-bottom:.5rem">Total pendiente: ${totalPend.toLocaleString('es-ES',{minimumFractionDigits:2})} €</div>`;
+    const totalIVA = data.reduce((a,r)=>a+(parseFloat(r.totalAmountIncludingTax)||0),0);
+    let html = `<div style="font-size:.78rem;color:var(--accent2);font-weight:700;margin-bottom:.5rem">Total IVA incl.: ${totalIVA.toLocaleString('es-ES',{minimumFractionDigits:2})} €</div>`;
     html += '<table style="width:100%;border-collapse:collapse;font-size:.78rem">';
     html += '<thead><tr style="background:var(--surface2)">';
-    ['Nº','Fecha emisión','Nº factura proveedor','Proveedor','Importe','Importe IVA incl.','Importe pendiente','Fecha vencimiento'].forEach(h=>{
+    ['Nº','Fecha emisión','Nº factura proveedor','Proveedor','Importe','Importe IVA incl.','Fecha vencimiento'].forEach(h=>{
       html += `<th style="padding:6px 8px;border:1px solid var(--border);text-align:left;white-space:nowrap">${h}</th>`;
     });
     html += '</tr></thead><tbody>';
@@ -7697,7 +7697,6 @@ function renderFacturasPendientes() {
         <td style="padding:5px 8px;border:1px solid var(--border)">${r.vendorName||'—'}</td>
         <td style="padding:5px 8px;border:1px solid var(--border);text-align:right">${_fpFmt(r.totalAmountExcludingTax)}</td>
         <td style="padding:5px 8px;border:1px solid var(--border);text-align:right">${_fpFmt(r.totalAmountIncludingTax)}</td>
-        <td style="padding:5px 8px;border:1px solid var(--border);text-align:right;font-weight:700;color:var(--accent2)">${_fpFmt(r.remainingAmount)}</td>
         <td style="padding:5px 8px;border:1px solid var(--border);${vencColor}">${_fpFmtFecha(r.dueDate)}</td>
       </tr>`;
     });
