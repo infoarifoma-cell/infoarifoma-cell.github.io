@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   const companyEncoded = encodeURIComponent(BC_COMPANY);
 
   try {
-    const url = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/ODataV4/Company('${companyEncoded}')/Hist_rico_facturas_compra_Excel?$top=500`;
+    const url = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/ODataV4/Company('${companyEncoded}')/Hist%C3%B3rico_facturas_compra_Excel?$top=500`;
 
     const invRes = await fetch(url, { headers });
     if (!invRes.ok) {
