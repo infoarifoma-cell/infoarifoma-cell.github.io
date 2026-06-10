@@ -7728,7 +7728,7 @@ function exportarFacturasPendientesExcel() {
   } else {
     const sep = '\t';
     const bom = '\uFEFF';
-    const cab = ['Nº','Fecha emisión','Nº factura proveedor','Proveedor','Importe','Importe IVA incl.','Importe pendiente','Fecha vencimiento'].join(sep);
+    const cab = ['Nº','Fecha emisión','Nº factura proveedor','Proveedor','Importe','Importe IVA incl.','Fecha vencimiento'].join(sep);
     const filas = data.map(r => [
       r.number||'',
       r.invoiceDate ? new Date(r.invoiceDate).toLocaleDateString('es-ES') : '',
@@ -7736,7 +7736,6 @@ function exportarFacturasPendientesExcel() {
       r.vendorName||'',
       (parseFloat(r.totalAmountExcludingTax)||0).toFixed(2),
       (parseFloat(r.totalAmountIncludingTax)||0).toFixed(2),
-      (parseFloat(r.remainingAmount)||0).toFixed(2),
       r.dueDate ? new Date(r.dueDate).toLocaleDateString('es-ES') : ''
     ].join(sep));
     csv = bom + cab + '\n' + filas.join('\n');
