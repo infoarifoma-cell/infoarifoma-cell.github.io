@@ -10458,10 +10458,13 @@ async function guardarTarea(){
       const base = data.fecha_limite ? data.fecha_limite.slice(0,7) : null;
       const baseMonth = base ? parseInt(base.split('-')[1]) : 1;
       const rows = [];
+      // Día base: si fecha_limite tiene día específico úsalo, si no día 15
+      const baseDay = data.fecha_limite ? parseInt(data.fecha_limite.slice(8,10)) : 15;
       for(let m=1; m<=12; m++){
         const mm = String(m).padStart(2,'0');
-        const lastDay = new Date(anyo, m, 0).getDate();
-        rows.push({...data, fecha_limite:`${anyo}-${mm}-${String(lastDay).padStart(2,'0')}`, titulo:`${data.titulo} (${mm}/${anyo})`});
+        const maxDay = new Date(anyo, m, 0).getDate();
+        const dia = String(Math.min(baseDay, maxDay)).padStart(2,'0');
+        rows.push({...data, fecha_limite:`${anyo}-${mm}-${dia}`, titulo:`${data.titulo} (${mm}/${anyo})`});
       }
       // Insert one by one (proxy doesn't support batch easily)
       for(const row of rows){
