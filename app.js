@@ -510,7 +510,7 @@ const DIAS_LAB_2026=[18,18,22,20,20,21,23,21,22,21,21,18];
 const HORAS_DIA_STD=8; // Jornada estándar convenio
 const PRODS=['ARIDO AF-T-0/4-I','ARIDO AG-T-4/12-I','ARIDO AG-T-12/20-I','ARIDO AG-T-20/40-I','ARIDO AG-T-40/70-I','REVUELTO 0/20','REVUELTO 0/10','PIEDRA PARA MURO (UD)','MATERIAL DE RELLENO 0/4'];
 const PROD_CAT={'ARIDO AF-T-0/4-I':'0/4','ARIDO AG-T-4/12-I':'4/12','ARIDO AG-T-12/20-I':'12/20','ARIDO AG-T-20/40-I':'20/40'};
-const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas','historico-ventas':'Histórico de Ventas',caja:'Caja',costes:'Análisis de Costes',produccion:'Producción Planta',informes:'Informes Planta',stock:'Stock Áridos',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',tareas:'Tareas',preventivo:'Mantenimiento Preventivo',compras:'Escanear Factura',choferes:'Conductores',ensayos:'Control de Ensayos'};
+const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas','historico-ventas':'Histórico de Ventas',caja:'Caja',costes:'Análisis de Costes',produccion:'Producción Planta',informes:'Informes Planta',stock:'Stock Áridos',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',tareas:'Tareas',preventivo:'Mantenimiento Preventivo',compras:'Escanear Factura',choferes:'Conductores',ensayos:'Control de Ensayos',kpis:'KPIs — Planta de Árido'};
 
 // Login via Google OAuth — ver funciones.js: googleLogin() y checkGoogleSession()
 
@@ -577,6 +577,7 @@ function goPage(id){
   if(id==='costes')initCostes();
   if(id==='facturas-pendientes'){if(!_fpLoaded)cargarFacturasPendientes();else renderFacturasPendientes();}
   if(id==='historico-ventas')initHistoricoVentas();
+  if(id==='kpis')cargarKPIs();
   if(id==='tareas')initTareasPanel();
   if(id==='ensayos')initEnsayos();
 }
@@ -10433,9 +10434,10 @@ async function guardarTarea(){
   const selPer = document.getElementById('tm-persona');
   const asignados = [...selPer.selectedOptions].map(o=>o.value).filter(Boolean).join(',');
   if(!asignados){ alert('Selecciona al menos una persona'); return; }
+  const activoVal = document.getElementById('tm-activo')?.value||null;
   const data = {
     seccion:     document.getElementById('tm-seccion').value,
-    activo:      document.getElementById('tm-activo')?.value||null,
+    ...(activoVal ? {activo: activoVal} : {}),
     titulo,
     descripcion: document.getElementById('tm-desc').value.trim() || null,
     asignado:    asignados,
@@ -12289,4 +12291,145 @@ async function ensayosEliminarGrupo(idsJson) {
   const rReg = await getEnsayosRegistros(_ensayosAnio);
   _ensayosRegistros = rReg.ok ? rReg.data : [];
   _ensayosRenderTab(_ensayosTab);
+}
+
+// ── KPIs ─────────────────────────────────────────────────────
+async function cargarKPIs() {
+  const wrap = document.getElementById('kpis-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Cargando datos...</div>';
+
+  const hoy = new Date();
+  const anyo = hoy.getFullYear();
+  const mes = hoy.getMonth() + 1;
+  const iniMes = `${anyo}-${String(mes).padStart(2,'0')}-01`;
+  const finMes = `${anyo}-${String(mes).padStart(2,'0')}-${String(new Date(anyo,mes,0).getDate()).padStart(2,'0')}`;
+  const iniAnyo = `${anyo}-01-01`;
+  const finAnyo = `${anyo}-12-31`;
+  const mesNombre = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][mes-1];
+
+  try {
+    const bcTok = typeof getBCTokenSilent==='function' ? await getBCTokenSilent().catch(()=>null) : null;
+
+    const [prodMesRes, prodAnyoRes, otRes, prevRes, ensayosRes, gasoilRes, fpVentaRes, fpCompraRes] = await Promise.all([
+      dbQuery({ action:'select', table:'PRODUCCION',
+        filters:[{column:'fecha',op:'gte',value:iniMes},{column:'fecha',op:'lte',value:finMes}],
+        options:{select:'fecha,tnDia,t04,t412,t1220,t2040,horasPlanta,tipoDia'} }),
+      dbQuery({ action:'select', table:'PRODUCCION',
+        filters:[{column:'fecha',op:'gte',value:iniAnyo},{column:'fecha',op:'lte',value:finAnyo}],
+        options:{select:'tnDia'} }),
+      dbQuery({ action:'select', table:'tblGamasOT', options:{select:'id,estado,Fecha', limit:2000} }),
+      dbQuery({ action:'select', table:'tblGamasListadoPreventivo', options:{select:'activo,falta,medidor', limit:500} }),
+      dbQuery({ action:'select', table:'ensayos_registros', options:{select:'estado,fraccion', limit:5000} }),
+      dbQuery({ action:'select', table:'GASOIL_STOCK', options:{select:'deposito,stock'} }),
+      bcTok
+        ? fetch('/api/bc/facturas-pendientes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:bcTok,type:'venta'})}).then(r=>r.json()).catch(()=>({ok:false}))
+        : Promise.resolve({ok:false}),
+      bcTok
+        ? fetch('/api/bc/facturas-pendientes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:bcTok,type:'compra'})}).then(r=>r.json()).catch(()=>({ok:false}))
+        : Promise.resolve({ok:false})
+    ]);
+
+    // PRODUCCION
+    const prodMes = (prodMesRes.ok ? prodMesRes.data : []) || [];
+    const prodAnyo = (prodAnyoRes.ok ? prodAnyoRes.data : []) || [];
+    const tnMes = prodMes.reduce((s,r)=>s+(Number(r.tnDia)||0),0);
+    const tnAnyo = prodAnyo.reduce((s,r)=>s+(Number(r.tnDia)||0),0);
+    const horasPlantaMes = prodMes.reduce((s,r)=>s+(Number(r.horasPlanta)||0),0);
+    const diasProd = prodMes.filter(r=>(Number(r.tnDia)||0)>0).length;
+    const rendMedio = horasPlantaMes>0 ? tnMes/horasPlantaMes : 0;
+    const fracMes = {t04:0,t412:0,t1220:0,t2040:0};
+    prodMes.forEach(r=>{fracMes.t04+=Number(r.t04||0);fracMes.t412+=Number(r.t412||0);fracMes.t1220+=Number(r.t1220||0);fracMes.t2040+=Number(r.t2040||0);});
+
+    // OTs
+    const ots = (otRes.ok ? otRes.data : []) || [];
+    const iniMesDate = new Date(iniMes), finMesDate = new Date(finMes+'T23:59:59');
+    const otsMes = ots.filter(o=>{const f=new Date(o.Fecha);return f>=iniMesDate&&f<=finMesDate;});
+    const estadoAbierto = e => !e||e==='abierta'||e==='pendiente';
+    const otsAbiertas = ots.filter(o=>estadoAbierto(o.estado)).length;
+    const otsCerradasMes = otsMes.filter(o=>!estadoAbierto(o.estado)).length;
+
+    // Preventivo
+    const prev = (prevRes.ok ? prevRes.data : []) || [];
+    const prevCriticos = prev.filter(p=>Number(p.falta||0)<=50&&Number(p.falta||0)>=0).length;
+
+    // Ensayos
+    const ensayos = (ensayosRes.ok ? ensayosRes.data : []) || [];
+    const ensTotal = ensayos.length;
+    const ensConformes = ensayos.filter(e=>e.estado==='conforme').length;
+    const ensNoConformes = ensayos.filter(e=>e.estado==='no_conforme').length;
+    const ensPct = ensTotal>0 ? Math.round(ensConformes/ensTotal*100) : null;
+
+    // Gasoil
+    const gasoil = (gasoilRes.ok ? gasoilRes.data : []) || [];
+    const gasoilTotal = gasoil.reduce((s,g)=>s+(Number(g.stock)||0),0);
+
+    // Facturas pendientes
+    const fpVenta = (fpVentaRes.ok ? fpVentaRes.data : []) || [];
+    const fpCompra = (fpCompraRes.ok ? fpCompraRes.data : []) || [];
+    const fpVentaImporte = fpVenta.reduce((s,f)=>s+(Number(f.remainingAmount)||Number(f.totalAmountIncludingTax)||0),0);
+    const fpCompraImporte = fpCompra.reduce((s,f)=>s+(Number(f.totalAmountIncludingTax)||0),0);
+    const fpVencidas = fpVenta.filter(f=>f.dueDate&&new Date(f.dueDate)<hoy).length;
+
+    // Helpers render
+    const fmt = (n,d=0)=>n==null?'—':Number(n).toLocaleString('es-ES',{minimumFractionDigits:d,maximumFractionDigits:d});
+    const fmtE = n=>n==null?'—':Number(n).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+    const card = (icon,label,value,sub,color='var(--text)')=>`
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 10px;text-align:center;display:flex;flex-direction:column;gap:5px">
+        <div style="font-size:1.4rem">${icon}</div>
+        <div style="font-size:1.05rem;font-weight:700;color:${color}">${value}</div>
+        <div style="font-size:.74rem;font-weight:600;color:var(--text);line-height:1.3">${label}</div>
+        ${sub?`<div style="font-size:.67rem;color:var(--muted)">${sub}</div>`:''}
+      </div>`;
+    const sec = t=>`<div style="font-weight:700;font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--accent2);margin:22px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--accent2)">${t}</div>`;
+    const grid = cards=>`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px">${cards.join('')}</div>`;
+
+    let html = `<div style="font-size:.72rem;color:var(--muted);text-align:right;margin-bottom:12px">
+      ${new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})}
+      &nbsp;·&nbsp;<a href="#" onclick="cargarKPIs();return false" style="color:var(--accent2)">↺ Actualizar</a>
+    </div>`;
+
+    html += sec('Producción — '+mesNombre+' '+anyo);
+    html += grid([
+      card('⛏️','Tn producidas mes', fmt(tnMes)+' Tn', diasProd+' días con producción'),
+      card('📦','Tn acumuladas año', fmt(tnAnyo)+' Tn', 'Acumulado '+anyo),
+      card('⚡','Rendimiento medio', rendMedio>0?fmt(rendMedio,1)+' Tn/h':'—', horasPlantaMes>0?fmt(horasPlantaMes,0)+' h planta en el mes':'Sin horas registradas'),
+      card('🔵','Por fracción mes',
+        `0/4: ${fmt(fracMes.t04)} · 4/12: ${fmt(fracMes.t412)}`,
+        `12/20: ${fmt(fracMes.t1220)} · 20/40: ${fmt(fracMes.t2040)}`),
+      card('⛽','Gasoil en stock', fmt(gasoilTotal)+' L',
+        gasoil.length ? gasoil.map(g=>g.deposito+': '+fmt(Number(g.stock))+'L').join(' / ') : 'Sin datos'),
+    ]);
+
+    html += sec('Ventas y Cobros');
+    if(!bcTok){
+      html += `<div style="color:var(--muted);font-size:.78rem;padding:12px 0">Inicia sesión en Business Central para ver datos de facturación.</div>`;
+    } else {
+      html += grid([
+        card('📋','Facturas pendientes cobro', fpVenta.length?fpVenta.length+' fact.':'—', fmtE(fpVentaImporte), fpVentaImporte>0?'var(--accent2)':'var(--text)'),
+        card('🔴','Facturas vencidas venta', fpVencidas?fpVencidas+' fact.':'0', 'Cobro vencido', fpVencidas>0?'#e53935':'#4caf50'),
+        card('🛒','Fact. compra pendientes', fpCompra.length?fpCompra.length+' fact.':'—', fmtE(fpCompraImporte)),
+      ]);
+    }
+
+    html += sec('Maquinaria');
+    html += grid([
+      card('📝','OTs abiertas (total)', otsAbiertas?otsAbiertas+' OTs':'0 OTs', 'Pendientes de cierre', otsAbiertas>5?'#e53935':'var(--text)'),
+      card('✅','OTs cerradas este mes', otsCerradasMes?otsCerradasMes+' OTs':'0', 'Del mes de '+mesNombre),
+      card('⚠️','Equipos próx. revisión', prevCriticos?prevCriticos+' equipos':'0',
+        prevCriticos?'Con ≤50h para intervención':'Todo al día', prevCriticos>0?'#f5a623':'#4caf50'),
+    ]);
+
+    html += sec('Calidad — Ensayos');
+    html += grid([
+      card('🧪','Total ensayos', fmt(ensTotal), 'Histórico completo'),
+      card('✅','Conformes', fmt(ensConformes), ensPct!=null?ensPct+'% conformidad':'', '#4caf50'),
+      card('❌','No conformes', fmt(ensNoConformes), ensNoConformes>0?'Revisar resultados':'Sin no conformidades', ensNoConformes>0?'#e53935':'var(--text)'),
+    ]);
+
+    wrap.innerHTML = html;
+  } catch(e) {
+    console.error('cargarKPIs error:', e);
+    wrap.innerHTML = `<div style="color:#e53935;text-align:center;padding:40px;font-size:.82rem">Error: ${e.message}</div>`;
+  }
 }
