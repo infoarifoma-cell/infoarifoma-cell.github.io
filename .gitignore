@@ -36,3 +36,5 @@ funciones_original.js
 
 # Scripts con referencias a keys (solo para copiar a Apps Script)
 apps-script-ventas-sync.js
+
+.vercel

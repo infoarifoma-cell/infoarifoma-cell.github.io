@@ -5238,10 +5238,13 @@ async function cargarResumenCaja() {
     const CAJA_SHEET_TAB = 'LISTADO FACTS.CAJAS';
 
     // Cargar Supabase y Google Sheet en paralelo
-    const [supRes, sheetText] = await Promise.all([
+    const [supRes, sheetRes] = await Promise.all([
       dbQuery({ action: 'select', table: 'tblcaja', options: { select: 'codcaja,numcaja,facturabc,fechafactura,fecharegistro,proveedor,importe,factproveedor' } }),
-      fetch(`https://docs.google.com/spreadsheets/d/${CAJA_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(CAJA_SHEET_TAB)}&tq=${encodeURIComponent('select A,B,C,D,E,F,G,H')}`)
-        .then(r => r.text()).catch(() => '')
+      fetch('/api/google-sheet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spreadsheetId: CAJA_SHEET_ID, sheet: CAJA_SHEET_TAB, range: `${CAJA_SHEET_TAB}!A:H` })
+      }).then(r => r.json()).catch(() => ({ ok: false }))
     ]);
 
     if (!supRes.ok) throw new Error(supRes.error);
@@ -5251,28 +5254,25 @@ async function cargarResumenCaja() {
       importe: parseFloat(r.importe) || 0, factproveedor: r.factproveedor
     }));
 
-    // Parsear Sheet — A=COD.CAJA, B=NUM.CAJA, C=FACTURA BC, D=FECHA FACTURA, E=FECHA REGISTRO, F=PROVEEDOR, G=IMPORTE, H=NUM.FACT.PROVEEDOR
+    // Parsear Sheet — fila 0 = cabecera, A=COD.CAJA, B=NUM.CAJA, C=FACTURA BC, D=FECHA FACTURA, E=FECHA REGISTRO, F=PROVEEDOR, G=IMPORTE, H=NUM.FACT.PROVEEDOR
     const sheetRows = [];
     const supFacturas = new Set(supRows.map(r => (r.facturabc||'').trim()));
-    if (sheetText) {
-      try {
-        const json = JSON.parse(sheetText.replace(/^[^(]*\(/, '').replace(/\);?\s*$/, ''));
-        for (const row of (json.table.rows || [])) {
-          const c = row.c || [];
-          const facturabc = c[2]?.v ? String(c[2].v).trim() : '';
-          if (!facturabc) continue;
-          if (supFacturas.has(facturabc)) continue; // ya está en Supabase
-          sheetRows.push({
-            codcaja: c[0]?.v ? String(c[0].v).trim() : '',
-            numcaja: c[1]?.v ? String(c[1].v).trim() : '',
-            facturabc,
-            fechafactura: c[3]?.v ? String(c[3].v) : '',
-            proveedor: c[5]?.v ? String(c[5].v).trim() : '',
-            importe: parseFloat(c[6]?.v) || 0,
-            factproveedor: c[7]?.v ? String(c[7].v).trim() : ''
-          });
-        }
-      } catch(_) {}
+    if (sheetRes.ok && sheetRes.values) {
+      const filas = sheetRes.values.slice(1); // saltar cabecera
+      for (const c of filas) {
+        const facturabc = (c[2] || '').trim();
+        if (!facturabc) continue;
+        if (supFacturas.has(facturabc)) continue;
+        sheetRows.push({
+          codcaja: (c[0] || '').trim(),
+          numcaja: (c[1] || '').trim(),
+          facturabc,
+          fechafactura: (c[3] || ''),
+          proveedor: (c[5] || '').trim(),
+          importe: parseFloat((c[6] || '').replace(',', '.')) || 0,
+          factproveedor: (c[7] || '').trim()
+        });
+      }
     }
 
     const rows = [...supRows, ...sheetRows];
