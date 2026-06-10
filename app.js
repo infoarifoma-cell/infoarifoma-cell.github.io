@@ -5234,7 +5234,7 @@ async function cargarResumenCaja() {
   const wrap = document.getElementById('caja-resumen-wrap');
   wrap.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Cargando...</div>';
   try {
-    const res = await dbQuery({ action: 'select', table: 'tblcaja', options: { select: 'codcaja,numcaja,facturabc,fechafactura,fecharegistro,proveedor,importe,factproveedor', order: { column: 'fechafactura', ascending: false } } });
+    const res = await dbQuery({ action: 'select', table: 'tblcaja', options: { select: 'codcaja,numcaja,facturabc,fechafactura,fecharegistro,proveedor,importe,factproveedor' } });
     if (!res.ok) throw new Error(res.error);
     const rows = res.data || [];
     if (!rows.length) { wrap.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Sin movimientos en caja.</div>'; return; }
