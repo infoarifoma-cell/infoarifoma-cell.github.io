@@ -12311,7 +12311,7 @@ async function cargarKPIs() {
   try {
     const bcTok = typeof getBCTokenSilent==='function' ? await getBCTokenSilent().catch(()=>null) : null;
 
-    const [prodMesRes, prodAnyoRes, otRes, prevRes, ensayosRes, gasoilRes, fpVentaRes, fpCompraRes] = await Promise.all([
+    const [prodMesRes, prodAnyoRes, otRes, prevRes, ensayosRes, gasoilRes, fpVentaRes, fpCompraRes, pedMesRes, pedAnyoRes] = await Promise.all([
       dbQuery({ action:'select', table:'PRODUCCION',
         filters:[{column:'fecha',op:'gte',value:iniMes},{column:'fecha',op:'lte',value:finMes}],
         options:{select:'fecha,tnDia,t04,t412,t1220,t2040,horasPlanta,tipoDia'} }),
@@ -12327,7 +12327,15 @@ async function cargarKPIs() {
         : Promise.resolve({ok:false}),
       bcTok
         ? fetch('/api/bc/facturas-pendientes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:bcTok,type:'compra'})}).then(r=>r.json()).catch(()=>({ok:false}))
-        : Promise.resolve({ok:false})
+        : Promise.resolve({ok:false}),
+      // Báscula mes
+      dbQuery({ action:'select', table:'tblpedidos',
+        filters:[{column:'fechaHora',op:'gte',value:iniMes+'T00:00:00Z'},{column:'fechaHora',op:'lte',value:finMes+'T23:59:59Z'}],
+        options:{select:'pesoNeto,productoNombre', limit:5000} }),
+      // Báscula año
+      dbQuery({ action:'select', table:'tblpedidos',
+        filters:[{column:'fechaHora',op:'gte',value:iniAnyo+'T00:00:00Z'},{column:'fechaHora',op:'lte',value:finAnyo+'T23:59:59Z'}],
+        options:{select:'pesoNeto,productoNombre', limit:20000} })
     ]);
 
     // PRODUCCION
@@ -12371,6 +12379,19 @@ async function cargarKPIs() {
     const fpCompraImporte = fpCompra.reduce((s,f)=>s+(Number(f.totalAmountIncludingTax)||0),0);
     const fpVencidas = fpVenta.filter(f=>f.dueDate&&new Date(f.dueDate)<hoy).length;
 
+    // Báscula — Tn vendidas y mejor material
+    const pedMes = (pedMesRes.ok ? pedMesRes.data : []) || [];
+    const pedAnyo = (pedAnyoRes.ok ? pedAnyoRes.data : []) || [];
+    const tnVentaMes = pedMes.reduce((s,r)=>s+(Number(r.pesoNeto)||0),0)/1000;
+    const tnVentaAnyo = pedAnyo.reduce((s,r)=>s+(Number(r.pesoNeto)||0),0)/1000;
+    // Mejor material año (por Tn)
+    const porMaterial = {};
+    pedAnyo.forEach(r=>{
+      const nom = (r.productoNombre||'Sin nombre').trim();
+      porMaterial[nom] = (porMaterial[nom]||0) + (Number(r.pesoNeto)||0)/1000;
+    });
+    const mejorMat = Object.entries(porMaterial).sort((a,b)=>b[1]-a[1])[0];
+
     // Helpers render
     const fmt = (n,d=0)=>n==null?'—':Number(n).toLocaleString('es-ES',{minimumFractionDigits:d,maximumFractionDigits:d});
     const fmtE = n=>n==null?'—':Number(n).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
@@ -12402,15 +12423,19 @@ async function cargarKPIs() {
     ]);
 
     html += sec('Ventas y Cobros');
-    if(!bcTok){
-      html += `<div style="color:var(--muted);font-size:.78rem;padding:12px 0">Inicia sesión en Business Central para ver datos de facturación.</div>`;
-    } else {
-      html += grid([
+    const ventasCards = [
+      card('🚚','Tn vendidas este mes', fmt(tnVentaMes,0)+' Tn', mesNombre+' '+anyo),
+      card('📈','Tn vendidas este año', fmt(tnVentaAnyo,0)+' Tn', 'Acumulado '+anyo),
+      card('🏆','Mejor material año', mejorMat?mejorMat[0]:'—', mejorMat?fmt(mejorMat[1],0)+' Tn':'', 'var(--accent2)'),
+    ];
+    if(bcTok){
+      ventasCards.push(
         card('📋','Facturas pendientes cobro', fpVenta.length?fpVenta.length+' fact.':'—', fmtE(fpVentaImporte), fpVentaImporte>0?'var(--accent2)':'var(--text)'),
         card('🔴','Facturas vencidas venta', fpVencidas?fpVencidas+' fact.':'0', 'Cobro vencido', fpVencidas>0?'#e53935':'#4caf50'),
-        card('🛒','Fact. compra pendientes', fpCompra.length?fpCompra.length+' fact.':'—', fmtE(fpCompraImporte)),
-      ]);
+        card('🛒','Fact. compra pendientes', fpCompra.length?fpCompra.length+' fact.':'—', fmtE(fpCompraImporte))
+      );
     }
+    html += grid(ventasCards);
 
     html += sec('Maquinaria');
     html += grid([
