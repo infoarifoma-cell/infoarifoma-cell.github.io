@@ -5234,9 +5234,48 @@ async function cargarResumenCaja() {
   const wrap = document.getElementById('caja-resumen-wrap');
   wrap.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Cargando...</div>';
   try {
-    const res = await dbQuery({ action: 'select', table: 'tblcaja', options: { select: 'codcaja,numcaja,facturabc,fechafactura,fecharegistro,proveedor,importe,factproveedor' } });
-    if (!res.ok) throw new Error(res.error);
-    const rows = res.data || [];
+    const CAJA_SHEET_ID = '1fxHwVEgcIrRdyPh-TJ-k84QFBHXX-P3mNRCiWYaeDTQ';
+    const CAJA_SHEET_TAB = 'LISTADO FACTS.CAJAS';
+
+    // Cargar Supabase y Google Sheet en paralelo
+    const [supRes, sheetText] = await Promise.all([
+      dbQuery({ action: 'select', table: 'tblcaja', options: { select: 'codcaja,numcaja,facturabc,fechafactura,fecharegistro,proveedor,importe,factproveedor' } }),
+      fetch(`https://docs.google.com/spreadsheets/d/${CAJA_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(CAJA_SHEET_TAB)}&tq=${encodeURIComponent('select A,B,C,D,E,F,G,H')}`)
+        .then(r => r.text()).catch(() => '')
+    ]);
+
+    if (!supRes.ok) throw new Error(supRes.error);
+    const supRows = (supRes.data || []).map(r => ({
+      codcaja: r.codcaja, numcaja: r.numcaja, facturabc: r.facturabc,
+      fechafactura: r.fechafactura, proveedor: r.proveedor,
+      importe: parseFloat(r.importe) || 0, factproveedor: r.factproveedor
+    }));
+
+    // Parsear Sheet — A=COD.CAJA, B=NUM.CAJA, C=FACTURA BC, D=FECHA FACTURA, E=FECHA REGISTRO, F=PROVEEDOR, G=IMPORTE, H=NUM.FACT.PROVEEDOR
+    const sheetRows = [];
+    const supFacturas = new Set(supRows.map(r => (r.facturabc||'').trim()));
+    if (sheetText) {
+      try {
+        const json = JSON.parse(sheetText.replace(/^[^(]*\(/, '').replace(/\);?\s*$/, ''));
+        for (const row of (json.table.rows || [])) {
+          const c = row.c || [];
+          const facturabc = c[2]?.v ? String(c[2].v).trim() : '';
+          if (!facturabc) continue;
+          if (supFacturas.has(facturabc)) continue; // ya está en Supabase
+          sheetRows.push({
+            codcaja: c[0]?.v ? String(c[0].v).trim() : '',
+            numcaja: c[1]?.v ? String(c[1].v).trim() : '',
+            facturabc,
+            fechafactura: c[3]?.v ? String(c[3].v) : '',
+            proveedor: c[5]?.v ? String(c[5].v).trim() : '',
+            importe: parseFloat(c[6]?.v) || 0,
+            factproveedor: c[7]?.v ? String(c[7].v).trim() : ''
+          });
+        }
+      } catch(_) {}
+    }
+
+    const rows = [...supRows, ...sheetRows];
     if (!rows.length) { wrap.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Sin movimientos en caja.</div>'; return; }
 
     // Agrupar por codcaja
