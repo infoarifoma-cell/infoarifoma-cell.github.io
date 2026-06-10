@@ -5297,7 +5297,7 @@ async function cargarResumenCaja() {
       const gid = 'caja-g-' + g.codcaja.replace(/[^a-zA-Z0-9]/g,'_');
       html += `<div style="border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;overflow:hidden">
         <div onclick="cajaToggleGrupo('${gid}')" style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);cursor:pointer;user-select:none">
-          <div style="font-weight:700;font-size:.88rem">${g.codcaja}${g.numcaja ? `<span style="font-size:.8rem;color:var(--muted);font-weight:500;margin-left:8px">${g.numcaja}</span>` : ''}<span style="font-size:.72rem;color:var(--muted);font-weight:400;margin-left:8px">${g.rows.length} factura${g.rows.length!==1?'s':''}</span></div>
+          <div style="font-weight:700;font-size:.88rem">${g.codcaja}<span style="font-size:.8rem;color:var(--muted);font-weight:500;margin-left:8px">${(()=>{const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];const s=String(g.codcaja);if(s.length===4){const m=parseInt(s.slice(2),10);const a=parseInt(s.slice(0,2),10)+2000;return m>=1&&m<=12?`${meses[m-1]} ${a}`:''}return '';})()}</span><span style="font-size:.72rem;color:var(--muted);font-weight:400;margin-left:8px">${g.rows.length} factura${g.rows.length!==1?'s':''}</span></div>
           <div style="display:flex;align-items:center;gap:12px">
             <div style="font-weight:700;color:var(--accent2)">${g.total.toLocaleString('es-ES',{minimumFractionDigits:2})} €</div>
             <span id="${gid}-arrow" style="font-size:.75rem;color:var(--muted)">▶</span>
