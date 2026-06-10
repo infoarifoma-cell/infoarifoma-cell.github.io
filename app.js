@@ -1762,7 +1762,7 @@ async function mostrarAlbaran(id,p){
     aw.classList.add('print-active');
     const notasBtn=document.getElementById('btn-notas-float');
     if(notasBtn)notasBtn.style.display='none';
-    setTimeout(()=>window.print(),100);
+    setTimeout(()=>{const s=document.createElement('style');s.id='_pgsz';s.textContent='@page{size:A5 landscape;margin:4mm}';document.head.appendChild(s);window.print();setTimeout(()=>s.remove(),500);},100);
   }
   // Cargar datos fiscales BC en segundo plano (deshabilitado por error MSAL)
   /*if(p.codigoCliente){
@@ -5959,7 +5959,7 @@ function printOT(filled){
   wrap.style.display='flex';
   wrap.style.position='fixed';
   wrap.classList.add('print-active');
-  setTimeout(()=>window.print(),100);
+  setTimeout(()=>{const s=document.createElement('style');s.id='_pgsz';s.textContent='@page{size:A4 portrait;margin:8mm}';document.head.appendChild(s);window.print();setTimeout(()=>s.remove(),500);},100);
 }
 function cerrarOTPrint(){
   const wrap=document.getElementById('ot-print-wrap');
@@ -6755,7 +6755,7 @@ function printOTHistorial(id){
   const wrap=document.getElementById('ot-print-wrap');
   wrap.style.display='flex';
   wrap.style.position='fixed';
-  setTimeout(()=>window.print(),100);
+  setTimeout(()=>{const s=document.createElement('style');s.id='_pgsz';s.textContent='@page{size:A4 portrait;margin:8mm}';document.head.appendChild(s);window.print();setTimeout(()=>s.remove(),500);},100);
 }
 
 // ── COSTES — Análisis cuentas 600/700 desde BC ──────────────────────────────
