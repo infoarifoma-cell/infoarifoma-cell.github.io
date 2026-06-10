@@ -27,7 +27,7 @@ export default async function handler(req, res) {
 
     // Obtener facturas de compra pendientes (status=open)
     const filter = encodeURIComponent("status eq 'open'");
-    const select = '$select=number,invoiceDate,vendorInvoiceNumber,vendorName,totalAmountExcludingTax,totalAmountIncludingTax,remainingAmount,dueDate';
+    const select = '$select=number,invoiceDate,vendorInvoiceNumber,vendorName,totalAmountExcludingTax,totalAmountIncludingTax,dueDate';
     const url = `${base}(${cid})/purchaseInvoices?$filter=${filter}&${select}&$top=500`;
 
     const invRes = await fetch(url, { headers });
@@ -44,7 +44,6 @@ export default async function handler(req, res) {
       vendorName: inv.vendorName,
       totalAmountExcludingTax: inv.totalAmountExcludingTax,
       totalAmountIncludingTax: inv.totalAmountIncludingTax,
-      remainingAmount: inv.remainingAmount,
       dueDate: inv.dueDate
     }));
 
