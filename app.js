@@ -575,6 +575,7 @@ function goPage(id){
   if(id==='facturacion')initFacturacion();
   if(id==='caja')initCaja();
   if(id==='costes')initCostes();
+  if(id==='facturas-pendientes'){if(!_fpLoaded)cargarFacturasPendientes();else renderFacturasPendientes();}
   if(id==='historico-ventas')initHistoricoVentas();
   if(id==='tareas')initTareasPanel();
   if(id==='ensayos')initEnsayos();
@@ -7590,6 +7591,168 @@ function cerrarImprimirCostes(){
 }
 
 // ── HISTÓRICO DE VENTAS — Facturas registradas + estado pago desde BC ────────
+// ── FACTURAS PENDIENTES BC ────────────────────────────────────────────────────
+let _fpVentaData = [];
+let _fpCompraData = [];
+let _fpTab = 'venta';
+let _fpLoaded = false;
+
+function fpSetTab(tab) {
+  _fpTab = tab;
+  document.getElementById('fpTab-venta').style.color = tab==='venta' ? 'var(--accent)' : 'var(--muted)';
+  document.getElementById('fpTab-venta').style.borderBottomColor = tab==='venta' ? 'var(--accent)' : 'transparent';
+  document.getElementById('fpTab-venta').style.fontWeight = tab==='venta' ? '700' : '600';
+  document.getElementById('fpTab-compra').style.color = tab==='compra' ? 'var(--accent)' : 'var(--muted)';
+  document.getElementById('fpTab-compra').style.borderBottomColor = tab==='compra' ? 'var(--accent)' : 'transparent';
+  document.getElementById('fpTab-compra').style.fontWeight = tab==='compra' ? '700' : '600';
+  renderFacturasPendientes();
+}
+
+async function cargarFacturasPendientes() {
+  const info = document.getElementById('fp-info');
+  const wrap = document.getElementById('fp-table-wrap');
+  wrap.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Cargando...</div>';
+  info.textContent = 'Conectando con Business Central...';
+  try {
+    const token = await getBCToken();
+    const [rVenta, rCompra] = await Promise.all([
+      fetch('/api/bc/facturas-pendientes-venta', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})}).then(r=>r.json()),
+      fetch('/api/bc/facturas-pendientes-compra', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})}).then(r=>r.json())
+    ]);
+    if (!rVenta.ok) throw new Error('Ventas: ' + rVenta.error);
+    if (!rCompra.ok) throw new Error('Compras: ' + rCompra.error);
+    _fpVentaData = rVenta.data || [];
+    _fpCompraData = rCompra.data || [];
+    _fpLoaded = true;
+    info.textContent = `Ventas: ${_fpVentaData.length} facturas · Compras: ${_fpCompraData.length} facturas`;
+    renderFacturasPendientes();
+  } catch(e) {
+    info.textContent = 'Error: ' + e.message;
+    wrap.innerHTML = '';
+  }
+}
+
+function _fpFmt(v) {
+  if (v == null || v === '') return '—';
+  const n = parseFloat(v);
+  if (isNaN(n)) return v;
+  return n.toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €';
+}
+function _fpFmtFecha(s) {
+  if (!s) return '—';
+  try { return new Date(s).toLocaleDateString('es-ES'); } catch(e) { return s; }
+}
+
+function renderFacturasPendientes() {
+  const wrap = document.getElementById('fp-table-wrap');
+  if (!_fpLoaded) return;
+
+  if (_fpTab === 'venta') {
+    const data = _fpVentaData;
+    if (!data.length) { wrap.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Sin facturas de venta pendientes.</div>'; return; }
+    const totalPend = data.reduce((a,r)=>a+(parseFloat(r.remainingAmount)||0),0);
+    let html = `<div style="font-size:.78rem;color:var(--accent2);font-weight:700;margin-bottom:.5rem">Total pendiente: ${totalPend.toLocaleString('es-ES',{minimumFractionDigits:2})} €</div>`;
+    html += '<table style="width:100%;border-collapse:collapse;font-size:.78rem">';
+    html += '<thead><tr style="background:var(--surface2)">';
+    ['Nº','Fecha registro','Cliente','Fecha vencimiento','Importe IVA incl.','Importe pendiente'].forEach(h=>{
+      html += `<th style="padding:6px 8px;border:1px solid var(--border);text-align:left;white-space:nowrap">${h}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+    data.forEach((r,i) => {
+      const bg = i%2===0 ? '' : 'background:var(--surface2)';
+      const venc = r.dueDate ? new Date(r.dueDate) : null;
+      const hoy = new Date(); hoy.setHours(0,0,0,0);
+      const vencColor = venc && venc < hoy ? 'color:#c0392b;font-weight:700' : '';
+      html += `<tr style="${bg}">
+        <td style="padding:5px 8px;border:1px solid var(--border);font-family:'DM Mono',monospace">${r.number||'—'}</td>
+        <td style="padding:5px 8px;border:1px solid var(--border)">${_fpFmtFecha(r.invoiceDate)}</td>
+        <td style="padding:5px 8px;border:1px solid var(--border)">${r.customerName||'—'}</td>
+        <td style="padding:5px 8px;border:1px solid var(--border);${vencColor}">${_fpFmtFecha(r.dueDate)}</td>
+        <td style="padding:5px 8px;border:1px solid var(--border);text-align:right">${_fpFmt(r.totalAmountIncludingTax)}</td>
+        <td style="padding:5px 8px;border:1px solid var(--border);text-align:right;font-weight:700;color:var(--accent2)">${_fpFmt(r.remainingAmount)}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+  } else {
+    const data = _fpCompraData;
+    if (!data.length) { wrap.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Sin facturas de compra pendientes.</div>'; return; }
+    const totalPend = data.reduce((a,r)=>a+(parseFloat(r.remainingAmount)||0),0);
+    let html = `<div style="font-size:.78rem;color:var(--accent2);font-weight:700;margin-bottom:.5rem">Total pendiente: ${totalPend.toLocaleString('es-ES',{minimumFractionDigits:2})} €</div>`;
+    html += '<table style="width:100%;border-collapse:collapse;font-size:.78rem">';
+    html += '<thead><tr style="background:var(--surface2)">';
+    ['Nº','Fecha emisión','Nº factura proveedor','Proveedor','Importe','Importe IVA incl.','Importe pendiente','Fecha vencimiento'].forEach(h=>{
+      html += `<th style="padding:6px 8px;border:1px solid var(--border);text-align:left;white-space:nowrap">${h}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+    data.forEach((r,i) => {
+      const bg = i%2===0 ? '' : 'background:var(--surface2)';
+      const venc = r.dueDate ? new Date(r.dueDate) : null;
+      const hoy = new Date(); hoy.setHours(0,0,0,0);
+      const vencColor = venc && venc < hoy ? 'color:#c0392b;font-weight:700' : '';
+      html += `<tr style="${bg}">
+        <td style="padding:5px 8px;border:1px solid var(--border);font-family:'DM Mono',monospace">${r.number||'—'}</td>
+        <td style="padding:5px 8px;border:1px solid var(--border)">${_fpFmtFecha(r.invoiceDate)}</td>
+        <td style="padding:5px 8px;border:1px solid var(--border);font-family:'DM Mono',monospace">${r.vendorInvoiceNumber||'—'}</td>
+        <td style="padding:5px 8px;border:1px solid var(--border)">${r.vendorName||'—'}</td>
+        <td style="padding:5px 8px;border:1px solid var(--border);text-align:right">${_fpFmt(r.totalAmountExcludingTax)}</td>
+        <td style="padding:5px 8px;border:1px solid var(--border);text-align:right">${_fpFmt(r.totalAmountIncludingTax)}</td>
+        <td style="padding:5px 8px;border:1px solid var(--border);text-align:right;font-weight:700;color:var(--accent2)">${_fpFmt(r.remainingAmount)}</td>
+        <td style="padding:5px 8px;border:1px solid var(--border);${vencColor}">${_fpFmtFecha(r.dueDate)}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+  }
+}
+
+function exportarFacturasPendientesExcel() {
+  if (!_fpLoaded) { alert('Primero carga los datos de BC.'); return; }
+  const esVenta = _fpTab === 'venta';
+  const data = esVenta ? _fpVentaData : _fpCompraData;
+  if (!data.length) { alert('Sin datos para exportar.'); return; }
+
+  let csv;
+  if (esVenta) {
+    const sep = '\t';
+    const bom = '\uFEFF';
+    const cab = ['Nº','Fecha registro','Cliente','Fecha vencimiento','Importe IVA incl.','Importe pendiente'].join(sep);
+    const filas = data.map(r => [
+      r.number||'',
+      r.invoiceDate ? new Date(r.invoiceDate).toLocaleDateString('es-ES') : '',
+      r.customerName||'',
+      r.dueDate ? new Date(r.dueDate).toLocaleDateString('es-ES') : '',
+      (parseFloat(r.totalAmountIncludingTax)||0).toFixed(2),
+      (parseFloat(r.remainingAmount)||0).toFixed(2)
+    ].join(sep));
+    csv = bom + cab + '\n' + filas.join('\n');
+  } else {
+    const sep = '\t';
+    const bom = '\uFEFF';
+    const cab = ['Nº','Fecha emisión','Nº factura proveedor','Proveedor','Importe','Importe IVA incl.','Importe pendiente','Fecha vencimiento'].join(sep);
+    const filas = data.map(r => [
+      r.number||'',
+      r.invoiceDate ? new Date(r.invoiceDate).toLocaleDateString('es-ES') : '',
+      r.vendorInvoiceNumber||'',
+      r.vendorName||'',
+      (parseFloat(r.totalAmountExcludingTax)||0).toFixed(2),
+      (parseFloat(r.totalAmountIncludingTax)||0).toFixed(2),
+      (parseFloat(r.remainingAmount)||0).toFixed(2),
+      r.dueDate ? new Date(r.dueDate).toLocaleDateString('es-ES') : ''
+    ].join(sep));
+    csv = bom + cab + '\n' + filas.join('\n');
+  }
+
+  const blob = new Blob([csv], {type:'text/tab-separated-values;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `facturas-pendientes-${esVenta?'venta':'compra'}-${new Date().toISOString().slice(0,10)}.xls`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ── FIN FACTURAS PENDIENTES ────────────────────────────────────────────────────
+
 let hvData = [];
 let hvLoaded = false;
 let hvSelectedClientes = new Set(); // vacío = todos

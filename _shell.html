@@ -528,6 +528,9 @@
         <button class="snav-btn" onclick="goPage('costes')" id="snav-costes">
           <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 15V5l4 3 4-5 6 4"/><path d="M2 15h14"/><path d="M6 15v-3"/><path d="M10 15v-5"/><path d="M14 15v-4"/></svg>Costes
         </button>
+        <button class="snav-btn" onclick="goPage('facturas-pendientes')" id="snav-facturas-pendientes">
+          <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 2h10a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M6 6h6M6 9h4"/><circle cx="13" cy="13" r="3"/><path d="M13 12v1.5l1 1"/></svg>Fact. Pendientes
+        </button>
         <div class="snav-divider"></div>
         <div class="sidebar-section">Planta</div>
         <button class="snav-btn" onclick="goPage('produccion')" id="snav-produccion">
@@ -1236,6 +1239,26 @@
           <!-- Listado -->
           <div id="caja-list">
             <div style="color:var(--muted);text-align:center;padding:30px;font-size:.82rem">Pulsa "Cargar de BC" para traer facturas de compra</div>
+          </div>
+        </div>
+
+        <!-- ══ FACTURAS PENDIENTES BC ══ -->
+        <div class="page" id="pg-facturas-pendientes">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
+            <div class="sec-title" style="margin:0">Facturas Pendientes</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn-sec" onclick="exportarFacturasPendientesExcel()" style="font-size:.75rem;padding:7px 14px">⬇ Excel</button>
+              <button class="btn-sec" onclick="cargarFacturasPendientes()" style="font-size:.75rem;padding:7px 14px">↻ Cargar de BC</button>
+            </div>
+          </div>
+          <!-- Pestañas -->
+          <div style="display:flex;gap:0;margin-bottom:1rem;border-bottom:2px solid var(--border)">
+            <button id="fpTab-venta" onclick="fpSetTab('venta')" style="padding:8px 20px;border:none;background:none;cursor:pointer;font-size:.82rem;font-weight:700;color:var(--accent);border-bottom:2px solid var(--accent);margin-bottom:-2px">Ventas</button>
+            <button id="fpTab-compra" onclick="fpSetTab('compra')" style="padding:8px 20px;border:none;background:none;cursor:pointer;font-size:.82rem;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px">Compras</button>
+          </div>
+          <div id="fp-info" style="font-size:.75rem;color:var(--muted);margin-bottom:.6rem;min-height:1.2em"></div>
+          <div id="fp-table-wrap" style="overflow-x:auto">
+            <div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Pulsa "Cargar de BC" para obtener las facturas pendientes.</div>
           </div>
         </div>
 
