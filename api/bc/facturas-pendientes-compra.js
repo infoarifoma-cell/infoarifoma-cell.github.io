@@ -1,6 +1,7 @@
 // POST /api/bc/facturas-pendientes-compra
-// Obtiene purchaseInvoices con status=open desde BC API v2.0
-// Campos: number, invoiceDate, vendorInvoiceNumber, vendorName, totalAmountExcludingTax, totalAmountIncludingTax, remainingAmount, dueDate
+// Obtiene facturas de compra con importe pendiente desde OData BC (página 138 Histórico_facturas_compra_Excel)
+// Campos: No_, Posting_Date, Vendor_Invoice_No_, Buy_from_Vendor_No_, Buy_from_Vendor_Name,
+//         Amount, Amount_Including_VAT, Remaining_Amount, Due_Date
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -13,38 +14,31 @@ export default async function handler(req, res) {
   const BC_TENANT = process.env.BC_TENANT;
   const BC_ENV = process.env.BC_ENV;
   const BC_COMPANY = process.env.BC_COMPANY;
-  const base = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/api/v2.0/companies`;
+
+  const companyEncoded = encodeURIComponent(BC_COMPANY);
+  const filter = encodeURIComponent("Remaining_Amount gt 0");
+  const url = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/ODataV4/Company('${companyEncoded}')/Histórico_facturas_compra_Excel?$filter=${filter}&$top=500`;
   const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
 
   try {
-    // Obtener company ID
-    const cRes = await fetch(base, { headers });
-    if (!cRes.ok) throw new Error('No se pudo obtener company: ' + cRes.statusText);
-    const cJson = await cRes.json();
-    const company = cJson.value.find(c => c.name === BC_COMPANY);
-    if (!company) throw new Error('Company no encontrada: ' + BC_COMPANY);
-    const cid = company.id;
-
-    // Obtener facturas de compra pendientes (status=open)
-    const filter = encodeURIComponent("status eq 'open'");
-    const select = '$select=number,invoiceDate,vendorInvoiceNumber,vendorName,totalAmountExcludingTax,totalAmountIncludingTax,dueDate';
-    const url = `${base}(${cid})/purchaseInvoices?$filter=${filter}&${select}&$top=500`;
-
     const invRes = await fetch(url, { headers });
     if (!invRes.ok) {
       const errText = await invRes.text().catch(() => invRes.statusText);
-      throw new Error('Error purchaseInvoices: ' + errText);
+      throw new Error('Error Factura_compra_Excel: ' + errText);
     }
     const invJson = await invRes.json();
 
     const data = (invJson.value || []).map(inv => ({
-      number: inv.number,
-      invoiceDate: inv.invoiceDate,
-      vendorInvoiceNumber: inv.vendorInvoiceNumber,
-      vendorName: inv.vendorName,
-      totalAmountExcludingTax: inv.totalAmountExcludingTax,
-      totalAmountIncludingTax: inv.totalAmountIncludingTax,
-      dueDate: inv.dueDate
+      number: inv.No_ ?? inv.No ?? inv['No_'] ?? '',
+      postingDate: inv.Posting_Date ?? inv.Document_Date ?? '',
+      invoiceDate: inv.Document_Date ?? inv.Posting_Date ?? '',
+      vendorInvoiceNumber: inv.Vendor_Invoice_No_ ?? inv.External_Document_No_ ?? '',
+      vendorNumber: inv.Buy_from_Vendor_No_ ?? '',
+      vendorName: inv.Buy_from_Vendor_Name ?? '',
+      totalAmountExcludingTax: inv.Amount ?? 0,
+      totalAmountIncludingTax: inv.Amount_Including_VAT ?? 0,
+      remainingAmount: inv.Remaining_Amount ?? inv.Amount_Including_VAT ?? 0,
+      dueDate: inv.Due_Date ?? ''
     }));
 
     return res.status(200).json({ ok: true, data });

@@ -7597,8 +7597,14 @@ let _fpCompraData = [];
 let _fpTab = 'venta';
 let _fpLoaded = false;
 
+let _fpSortCol = null;
+let _fpSortDir = 1; // 1 asc, -1 desc
+let _fpFiltro = '';
+
 function fpSetTab(tab) {
   _fpTab = tab;
+  _fpSortCol = null; _fpFiltro = '';
+  const fi = document.getElementById('fp-filtro'); if(fi) fi.value='';
   document.getElementById('fpTab-venta').style.color = tab==='venta' ? 'var(--accent)' : 'var(--muted)';
   document.getElementById('fpTab-venta').style.borderBottomColor = tab==='venta' ? 'var(--accent)' : 'transparent';
   document.getElementById('fpTab-venta').style.fontWeight = tab==='venta' ? '700' : '600';
@@ -7643,25 +7649,71 @@ function _fpFmtFecha(s) {
   try { return new Date(s).toLocaleDateString('es-ES'); } catch(e) { return s; }
 }
 
+function _fpSort(col) {
+  if (_fpSortCol === col) _fpSortDir *= -1;
+  else { _fpSortCol = col; _fpSortDir = 1; }
+  renderFacturasPendientes();
+}
+
+function _fpFiltrar() {
+  _fpFiltro = (document.getElementById('fp-filtro').value || '').toLowerCase();
+  renderFacturasPendientes();
+}
+
+function _fpTh(label, col) {
+  const arrow = _fpSortCol===col ? (_fpSortDir===1?' ▲':' ▼') : '';
+  return `<th onclick="_fpSort('${col}')" style="padding:6px 8px;border:1px solid var(--border);text-align:left;white-space:nowrap;cursor:pointer;user-select:none">${label}${arrow}</th>`;
+}
+
 function renderFacturasPendientes() {
   const wrap = document.getElementById('fp-table-wrap');
   if (!_fpLoaded) return;
 
-  if (_fpTab === 'venta') {
-    const data = _fpVentaData;
-    if (!data.length) { wrap.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Sin facturas de venta pendientes.</div>'; return; }
-    const totalPend = data.reduce((a,r)=>a+(parseFloat(r.remainingAmount)||0),0);
-    let html = `<div style="font-size:.78rem;color:var(--accent2);font-weight:700;margin-bottom:.5rem">Total pendiente: ${totalPend.toLocaleString('es-ES',{minimumFractionDigits:2})} €</div>`;
-    html += '<table style="width:100%;border-collapse:collapse;font-size:.78rem">';
-    html += '<thead><tr style="background:var(--surface2)">';
-    ['Nº','Fecha registro','Cliente','Fecha vencimiento','Importe IVA incl.','Importe pendiente'].forEach(h=>{
-      html += `<th style="padding:6px 8px;border:1px solid var(--border);text-align:left;white-space:nowrap">${h}</th>`;
+  const esVenta = _fpTab === 'venta';
+  let data = esVenta ? [..._fpVentaData] : [..._fpCompraData];
+
+  // Filtro texto
+  if (_fpFiltro) {
+    data = data.filter(r => {
+      const hay = esVenta
+        ? `${r.number} ${r.customerName} ${r.invoiceDate} ${r.dueDate}`
+        : `${r.number} ${r.vendorName} ${r.vendorInvoiceNumber} ${r.invoiceDate} ${r.dueDate}`;
+      return hay.toLowerCase().includes(_fpFiltro);
     });
+  }
+
+  // Ordenación
+  if (_fpSortCol) {
+    data.sort((a,b) => {
+      let va = a[_fpSortCol] ?? '', vb = b[_fpSortCol] ?? '';
+      const na = parseFloat(va), nb = parseFloat(vb);
+      if (!isNaN(na) && !isNaN(nb)) return (na-nb)*_fpSortDir;
+      return String(va).localeCompare(String(vb),'es')*_fpSortDir;
+    });
+  }
+
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+
+  let html = `<div style="margin-bottom:.6rem">
+    <input id="fp-filtro" type="text" placeholder="Filtrar por nombre, nº..." value="${_fpFiltro}"
+      oninput="_fpFiltrar()"
+      style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;width:260px;background:var(--surface);color:var(--text)">
+  </div>`;
+
+  if (!data.length) {
+    wrap.innerHTML = html + '<div style="color:var(--muted);text-align:center;padding:30px;font-size:.82rem">Sin resultados.</div>';
+    return;
+  }
+
+  if (esVenta) {
+    const totalPend = data.reduce((a,r)=>a+(parseFloat(r.remainingAmount)||0),0);
+    html += `<div style="font-size:.78rem;color:var(--accent2);font-weight:700;margin-bottom:.5rem">${data.length} facturas · Total pendiente: ${totalPend.toLocaleString('es-ES',{minimumFractionDigits:2})} €</div>`;
+    html += '<table style="width:100%;border-collapse:collapse;font-size:.78rem"><thead><tr style="background:var(--surface2)">';
+    html += _fpTh('Nº','number') + _fpTh('Fecha registro','invoiceDate') + _fpTh('Cliente','customerName') + _fpTh('Fecha vencimiento','dueDate') + _fpTh('Importe IVA incl.','totalAmountIncludingTax') + _fpTh('Importe pendiente','remainingAmount');
     html += '</tr></thead><tbody>';
     data.forEach((r,i) => {
       const bg = i%2===0 ? '' : 'background:var(--surface2)';
       const venc = r.dueDate ? new Date(r.dueDate) : null;
-      const hoy = new Date(); hoy.setHours(0,0,0,0);
       const vencColor = venc && venc < hoy ? 'color:#c0392b;font-weight:700' : '';
       html += `<tr style="${bg}">
         <td style="padding:5px 8px;border:1px solid var(--border);font-family:'DM Mono',monospace">${r.number||'—'}</td>
@@ -7672,23 +7724,15 @@ function renderFacturasPendientes() {
         <td style="padding:5px 8px;border:1px solid var(--border);text-align:right;font-weight:700;color:var(--accent2)">${_fpFmt(r.remainingAmount)}</td>
       </tr>`;
     });
-    html += '</tbody></table>';
-    wrap.innerHTML = html;
   } else {
-    const data = _fpCompraData;
-    if (!data.length) { wrap.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Sin facturas de compra pendientes.</div>'; return; }
-    const totalIVA = data.reduce((a,r)=>a+(parseFloat(r.totalAmountIncludingTax)||0),0);
-    let html = `<div style="font-size:.78rem;color:var(--accent2);font-weight:700;margin-bottom:.5rem">Total IVA incl.: ${totalIVA.toLocaleString('es-ES',{minimumFractionDigits:2})} €</div>`;
-    html += '<table style="width:100%;border-collapse:collapse;font-size:.78rem">';
-    html += '<thead><tr style="background:var(--surface2)">';
-    ['Nº','Fecha emisión','Nº factura proveedor','Proveedor','Importe','Importe IVA incl.','Fecha vencimiento'].forEach(h=>{
-      html += `<th style="padding:6px 8px;border:1px solid var(--border);text-align:left;white-space:nowrap">${h}</th>`;
-    });
+    const totalPend = data.reduce((a,r)=>a+(parseFloat(r.remainingAmount)||0),0);
+    html += `<div style="font-size:.78rem;color:var(--accent2);font-weight:700;margin-bottom:.5rem">${data.length} facturas · Total pendiente: ${totalPend.toLocaleString('es-ES',{minimumFractionDigits:2})} €</div>`;
+    html += '<table style="width:100%;border-collapse:collapse;font-size:.78rem"><thead><tr style="background:var(--surface2)">';
+    html += _fpTh('Nº','number') + _fpTh('Fecha emisión','invoiceDate') + _fpTh('Nº fact. proveedor','vendorInvoiceNumber') + _fpTh('Proveedor','vendorName') + _fpTh('Importe','totalAmountExcludingTax') + _fpTh('Importe IVA incl.','totalAmountIncludingTax') + _fpTh('Importe pendiente','remainingAmount') + _fpTh('Fecha vencimiento','dueDate');
     html += '</tr></thead><tbody>';
     data.forEach((r,i) => {
       const bg = i%2===0 ? '' : 'background:var(--surface2)';
       const venc = r.dueDate ? new Date(r.dueDate) : null;
-      const hoy = new Date(); hoy.setHours(0,0,0,0);
       const vencColor = venc && venc < hoy ? 'color:#c0392b;font-weight:700' : '';
       html += `<tr style="${bg}">
         <td style="padding:5px 8px;border:1px solid var(--border);font-family:'DM Mono',monospace">${r.number||'—'}</td>
@@ -7697,54 +7741,63 @@ function renderFacturasPendientes() {
         <td style="padding:5px 8px;border:1px solid var(--border)">${r.vendorName||'—'}</td>
         <td style="padding:5px 8px;border:1px solid var(--border);text-align:right">${_fpFmt(r.totalAmountExcludingTax)}</td>
         <td style="padding:5px 8px;border:1px solid var(--border);text-align:right">${_fpFmt(r.totalAmountIncludingTax)}</td>
+        <td style="padding:5px 8px;border:1px solid var(--border);text-align:right;font-weight:700;color:var(--accent2)">${_fpFmt(r.remainingAmount)}</td>
         <td style="padding:5px 8px;border:1px solid var(--border);${vencColor}">${_fpFmtFecha(r.dueDate)}</td>
       </tr>`;
     });
-    html += '</tbody></table>';
-    wrap.innerHTML = html;
   }
+
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
 }
 
 function exportarFacturasPendientesExcel() {
   if (!_fpLoaded) { alert('Primero carga los datos de BC.'); return; }
   const esVenta = _fpTab === 'venta';
-  const data = esVenta ? _fpVentaData : _fpCompraData;
+  let data = esVenta ? [..._fpVentaData] : [..._fpCompraData];
+  if (_fpFiltro) {
+    data = data.filter(r => {
+      const hay = esVenta
+        ? `${r.number} ${r.customerName} ${r.invoiceDate} ${r.dueDate}`
+        : `${r.number} ${r.vendorName} ${r.vendorInvoiceNumber} ${r.invoiceDate} ${r.dueDate}`;
+      return hay.toLowerCase().includes(_fpFiltro);
+    });
+  }
   if (!data.length) { alert('Sin datos para exportar.'); return; }
 
+  const sep = ';';
+  const bom = '\uFEFF';
   let csv;
   if (esVenta) {
-    const sep = '\t';
-    const bom = '\uFEFF';
     const cab = ['Nº','Fecha registro','Cliente','Fecha vencimiento','Importe IVA incl.','Importe pendiente'].join(sep);
     const filas = data.map(r => [
       r.number||'',
       r.invoiceDate ? new Date(r.invoiceDate).toLocaleDateString('es-ES') : '',
       r.customerName||'',
       r.dueDate ? new Date(r.dueDate).toLocaleDateString('es-ES') : '',
-      (parseFloat(r.totalAmountIncludingTax)||0).toFixed(2),
-      (parseFloat(r.remainingAmount)||0).toFixed(2)
+      (parseFloat(r.totalAmountIncludingTax)||0).toFixed(2).replace('.',','),
+      (parseFloat(r.remainingAmount)||0).toFixed(2).replace('.',',')
     ].join(sep));
     csv = bom + cab + '\n' + filas.join('\n');
   } else {
-    const sep = '\t';
-    const bom = '\uFEFF';
-    const cab = ['Nº','Fecha emisión','Nº factura proveedor','Proveedor','Importe','Importe IVA incl.','Fecha vencimiento'].join(sep);
+    const cab = ['Nº','Fecha emisión','Nº factura proveedor','Proveedor','Importe','Importe IVA incl.','Importe pendiente','Fecha vencimiento'].join(sep);
     const filas = data.map(r => [
       r.number||'',
       r.invoiceDate ? new Date(r.invoiceDate).toLocaleDateString('es-ES') : '',
       r.vendorInvoiceNumber||'',
       r.vendorName||'',
-      (parseFloat(r.totalAmountExcludingTax)||0).toFixed(2),
-      (parseFloat(r.totalAmountIncludingTax)||0).toFixed(2),
+      (parseFloat(r.totalAmountExcludingTax)||0).toFixed(2).replace('.',','),
+      (parseFloat(r.totalAmountIncludingTax)||0).toFixed(2).replace('.',','),
+      (parseFloat(r.remainingAmount)||0).toFixed(2).replace('.',','),
       r.dueDate ? new Date(r.dueDate).toLocaleDateString('es-ES') : ''
     ].join(sep));
     csv = bom + cab + '\n' + filas.join('\n');
   }
 
-  const blob = new Blob([csv], {type:'text/tab-separated-values;charset=utf-8'});
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `facturas-pendientes-${esVenta?'venta':'compra'}-${new Date().toISOString().slice(0,10)}.xls`;
+  a.download = `facturas-pendientes-${esVenta?'venta':'compra'}-${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
   URL.revokeObjectURL(a.href);
 }
