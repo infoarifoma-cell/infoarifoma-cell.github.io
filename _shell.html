@@ -1214,9 +1214,16 @@
         <!-- ══ CAJA (Facturas compra → Sheet) ══ -->
         <div class="page" id="pg-caja">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
-            <div class="sec-title" style="margin:0">Caja — Facturas de compra</div>
+            <div class="sec-title" style="margin:0">Caja</div>
             <button class="btn-sec" style="font-size:.72rem;padding:8px 14px" onclick="cargarFacturasCompra()">&#8635; Cargar de BC</button>
           </div>
+          <!-- Pestañas caja -->
+          <div style="display:flex;gap:0;margin-bottom:1rem;border-bottom:2px solid var(--border)">
+            <button id="cajaTab-registrar" onclick="cajaSetTab('registrar')" style="padding:8px 20px;border:none;background:none;cursor:pointer;font-size:.82rem;font-weight:700;color:var(--accent);border-bottom:2px solid var(--accent);margin-bottom:-2px">Registrar facturas</button>
+            <button id="cajaTab-resumen" onclick="cajaSetTab('resumen')" style="padding:8px 20px;border:none;background:none;cursor:pointer;font-size:.82rem;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px">Resumen mensual</button>
+          </div>
+          <!-- Panel registrar -->
+          <div id="caja-panel-registrar">
           <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:flex-end">
             <div style="min-width:150px">
               <div class="label">Desde</div>
@@ -1239,6 +1246,13 @@
           <!-- Listado -->
           <div id="caja-list">
             <div style="color:var(--muted);text-align:center;padding:30px;font-size:.82rem">Pulsa "Cargar de BC" para traer facturas de compra</div>
+          </div>
+          </div><!-- /caja-panel-registrar -->
+          <!-- Panel resumen mensual -->
+          <div id="caja-panel-resumen" style="display:none">
+            <div id="caja-resumen-wrap">
+              <div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Cargando resumen...</div>
+            </div>
           </div>
         </div>
 

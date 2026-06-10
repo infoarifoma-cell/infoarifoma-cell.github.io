@@ -5215,6 +5215,97 @@ let cajaSelected = new Set();
 let cajaRegistradas = new Set();
 let cajaInited = false;
 
+let _cajaTab = 'registrar';
+
+function cajaSetTab(tab) {
+  _cajaTab = tab;
+  ['registrar','resumen'].forEach(t => {
+    const btn = document.getElementById('cajaTab-'+t);
+    const active = t === tab;
+    btn.style.color = active ? 'var(--accent)' : 'var(--muted)';
+    btn.style.borderBottomColor = active ? 'var(--accent)' : 'transparent';
+    btn.style.fontWeight = active ? '700' : '600';
+    document.getElementById('caja-panel-'+t).style.display = active ? '' : 'none';
+  });
+  if (tab === 'resumen') cargarResumenCaja();
+}
+
+async function cargarResumenCaja() {
+  const wrap = document.getElementById('caja-resumen-wrap');
+  wrap.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Cargando...</div>';
+  try {
+    const res = await dbQuery({ action: 'select', table: 'tblcaja', options: { select: 'codcaja,numcaja,facturabc,fechafactura,fecharegistro,proveedor,importe,factproveedor', order: { column: 'fechafactura', ascending: false } } });
+    if (!res.ok) throw new Error(res.error);
+    const rows = res.data || [];
+    if (!rows.length) { wrap.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Sin movimientos en caja.</div>'; return; }
+
+    // Agrupar por codcaja
+    const grupos = {};
+    for (const r of rows) {
+      const key = r.codcaja || 'Sin caja';
+      if (!grupos[key]) grupos[key] = { codcaja: key, numcaja: r.numcaja, rows: [], total: 0 };
+      grupos[key].rows.push(r);
+      grupos[key].total += parseFloat(r.importe) || 0;
+    }
+
+    // Ordenar grupos por nombre desc
+    const gruposOrdenados = Object.values(grupos).sort((a,b) => b.codcaja.localeCompare(a.codcaja, 'es'));
+
+    const totalGlobal = gruposOrdenados.reduce((s,g) => s+g.total, 0);
+    let html = `<div style="font-size:.78rem;color:var(--accent2);font-weight:700;margin-bottom:1rem">Total global: ${totalGlobal.toLocaleString('es-ES',{minimumFractionDigits:2})} €</div>`;
+
+    for (const g of gruposOrdenados) {
+      const gid = 'caja-g-' + g.codcaja.replace(/[^a-zA-Z0-9]/g,'_');
+      html += `<div style="border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;overflow:hidden">
+        <div onclick="cajaToggleGrupo('${gid}')" style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);cursor:pointer;user-select:none">
+          <div style="font-weight:700;font-size:.88rem">${g.codcaja}<span style="font-size:.72rem;color:var(--muted);font-weight:400;margin-left:8px">${g.rows.length} factura${g.rows.length!==1?'s':''}</span></div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="font-weight:700;color:var(--accent2)">${g.total.toLocaleString('es-ES',{minimumFractionDigits:2})} €</div>
+            <span id="${gid}-arrow" style="font-size:.75rem;color:var(--muted)">▶</span>
+          </div>
+        </div>
+        <div id="${gid}" style="display:none;overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:.76rem">
+            <thead><tr style="background:var(--surface2)">
+              <th style="padding:5px 8px;border:1px solid var(--border);text-align:left">Factura BC</th>
+              <th style="padding:5px 8px;border:1px solid var(--border);text-align:left">F. Factura</th>
+              <th style="padding:5px 8px;border:1px solid var(--border);text-align:left">Proveedor</th>
+              <th style="padding:5px 8px;border:1px solid var(--border);text-align:left">Nº fact. prov.</th>
+              <th style="padding:5px 8px;border:1px solid var(--border);text-align:right">Importe</th>
+            </tr></thead>
+            <tbody>`;
+      g.rows.forEach((r,i) => {
+        const bg = i%2===0 ? '' : 'background:var(--surface2)';
+        html += `<tr style="${bg}">
+          <td style="padding:4px 8px;border:1px solid var(--border);font-family:'DM Mono',monospace">${r.facturabc||'—'}</td>
+          <td style="padding:4px 8px;border:1px solid var(--border)">${r.fechafactura||'—'}</td>
+          <td style="padding:4px 8px;border:1px solid var(--border)">${r.proveedor||'—'}</td>
+          <td style="padding:4px 8px;border:1px solid var(--border);font-family:'DM Mono',monospace">${r.factproveedor||'—'}</td>
+          <td style="padding:4px 8px;border:1px solid var(--border);text-align:right;font-weight:600">${(parseFloat(r.importe)||0).toLocaleString('es-ES',{minimumFractionDigits:2})} €</td>
+        </tr>`;
+      });
+      const subtotal = g.total;
+      html += `<tr style="background:var(--surface2);font-weight:700">
+          <td colspan="4" style="padding:5px 8px;border:1px solid var(--border);text-align:right">TOTAL ${g.codcaja}</td>
+          <td style="padding:5px 8px;border:1px solid var(--border);text-align:right;color:var(--accent2)">${subtotal.toLocaleString('es-ES',{minimumFractionDigits:2})} €</td>
+        </tr>`;
+      html += `</tbody></table></div></div>`;
+    }
+    wrap.innerHTML = html;
+  } catch(e) {
+    wrap.innerHTML = `<div style="color:var(--danger);text-align:center;padding:30px">Error: ${e.message}</div>`;
+  }
+}
+
+function cajaToggleGrupo(gid) {
+  const el = document.getElementById(gid);
+  const arrow = document.getElementById(gid+'-arrow');
+  if (!el) return;
+  const open = el.style.display === 'none';
+  el.style.display = open ? '' : 'none';
+  if (arrow) arrow.textContent = open ? '▼' : '▶';
+}
+
 function initCaja() {
   if (!cajaInited) {
     const hoy = new Date();
