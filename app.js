@@ -7899,7 +7899,7 @@ function renderFacturasPendientes() {
     const totalIVA = data.reduce((a,r)=>a+(parseFloat(r.totalAmountIncludingTax)||0),0);
     html += `<div style="font-size:.78rem;color:var(--accent2);font-weight:700;margin-bottom:.5rem">${data.length} facturas · Total IVA incl.: ${totalIVA.toLocaleString('es-ES',{minimumFractionDigits:2})} €</div>`;
     html += '<table style="width:100%;border-collapse:collapse;font-size:.78rem"><thead><tr style="background:var(--surface2)">';
-    html += _fpTh('Nº','number') + _fpTh('Fecha emisión','invoiceDate') + _fpTh('Nº fact. proveedor','vendorInvoiceNumber') + _fpTh('Proveedor','vendorName') + _fpTh('Importe','totalAmountExcludingTax') + _fpTh('Importe IVA incl.','totalAmountIncludingTax') + _fpTh('Fecha vencimiento','dueDate') + _fpTh('Términos pago','paymentTerms');
+    html += _fpTh('Nº','number') + _fpTh('Fecha emisión','invoiceDate') + _fpTh('Nº fact. proveedor','vendorInvoiceNumber') + _fpTh('Proveedor','vendorName') + _fpTh('Importe','totalAmountExcludingTax') + _fpTh('Importe IVA incl.','totalAmountIncludingTax') + _fpTh('Fecha vencimiento','dueDate');
     html += '</tr></thead><tbody>';
     data.forEach((r,i) => {
       const bg = i%2===0 ? '' : 'background:var(--surface2)';
@@ -7913,7 +7913,6 @@ function renderFacturasPendientes() {
         <td style="padding:5px 8px;border:1px solid var(--border);text-align:right">${_fpFmt(r.totalAmountExcludingTax)}</td>
         <td style="padding:5px 8px;border:1px solid var(--border);text-align:right;font-weight:700">${_fpFmt(r.totalAmountIncludingTax)}</td>
         <td style="padding:5px 8px;border:1px solid var(--border);${vencColor}">${_fpFmtFecha(r.dueDate)}</td>
-        <td style="padding:5px 8px;border:1px solid var(--border)">${r.paymentTerms||'—'}</td>
       </tr>`;
     });
   }
@@ -7951,7 +7950,7 @@ function exportarFacturasPendientesExcel() {
     ].join(sep));
     csv = bom + cab + '\n' + filas.join('\n');
   } else {
-    const cab = ['Nº','Fecha emisión','Nº factura proveedor','Proveedor','Importe','Importe IVA incl.','Fecha vencimiento','Términos pago'].join(sep);
+    const cab = ['Nº','Fecha emisión','Nº factura proveedor','Proveedor','Importe','Importe IVA incl.','Fecha vencimiento'].join(sep);
     const filas = data.map(r => [
       r.number||'',
       r.invoiceDate ? new Date(r.invoiceDate).toLocaleDateString('es-ES') : '',
@@ -7959,8 +7958,7 @@ function exportarFacturasPendientesExcel() {
       r.vendorName||'',
       (parseFloat(r.totalAmountExcludingTax)||0).toFixed(2).replace('.',','),
       (parseFloat(r.totalAmountIncludingTax)||0).toFixed(2).replace('.',','),
-      r.dueDate ? new Date(r.dueDate).toLocaleDateString('es-ES') : '',
-      r.paymentTerms||''
+      r.dueDate ? new Date(r.dueDate).toLocaleDateString('es-ES') : ''
     ].join(sep));
     csv = bom + cab + '\n' + filas.join('\n');
   }
