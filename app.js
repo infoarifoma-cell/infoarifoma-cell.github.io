@@ -8608,10 +8608,11 @@ async function comprasSubir(){
       const nameNorm=name.trim().toLowerCase().normalize('NFC').replace(/\s+/g,' ');
       const found=(listJson.value||[]).find(i=>i.folder&&i.name.trim().toLowerCase().normalize('NFC').replace(/\s+/g,' ')===nameNorm);
       if(found) return {id:found.id,items:listJson.value};
+      const safeName=name.replace(/[.]+$/,'').replace(/\s+$/,'').replace(/[\\/:*?"<>|]/g,'_')||name;
       const createRes=await fetch('https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+pid+'/children',{
         method:'POST',
         headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
-        body:JSON.stringify({name,folder:{}})
+        body:JSON.stringify({name:safeName,folder:{}})
       });
       if(!createRes.ok) throw new Error('Error creando carpeta "'+name+'": '+createRes.status+' '+await createRes.text());
       return {id:(await createRes.json()).id,items:listJson.value};
