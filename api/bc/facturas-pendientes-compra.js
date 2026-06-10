@@ -1,6 +1,6 @@
 // POST /api/bc/facturas-pendientes-compra
-// Obtiene facturas de compra pendientes desde vendorLedgerEntries (API v2.0)
-// Filtra documentType=Invoice y open=true → tiene remainingAmount real
+// Obtiene facturas de compra pendientes desde OData v4 — página Histórico facturas compra
+// usa vendorLedgerEntries OData con filtro open=true
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -13,40 +13,30 @@ export default async function handler(req, res) {
   const BC_TENANT = process.env.BC_TENANT;
   const BC_ENV = process.env.BC_ENV;
   const BC_COMPANY = process.env.BC_COMPANY;
-  const base = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/api/v2.0/companies`;
   const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+  const companyEncoded = encodeURIComponent(BC_COMPANY);
 
   try {
-    // Obtener company ID
-    const cRes = await fetch(base, { headers });
-    if (!cRes.ok) throw new Error('No se pudo obtener company: ' + cRes.statusText);
-    const cJson = await cRes.json();
-    const company = cJson.value.find(c => c.name === BC_COMPANY);
-    if (!company) throw new Error('Company no encontrada: ' + BC_COMPANY);
-    const cid = company.id;
-
-    // vendorLedgerEntries: documentType=Invoice, open=true
-    const filter = encodeURIComponent("documentType eq 'Invoice' and open eq true");
-    const select = '$select=documentNumber,postingDate,externalDocumentNumber,vendorNumber,vendorName,dueDate,amount,remainingAmount';
-    const url = `${base}(${cid})/vendorLedgerEntries?$filter=${filter}&${select}&$top=500`;
+    const filter = encodeURIComponent("Document_Type eq 'Invoice' and Open eq true");
+    const url = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/ODataV4/Company('${companyEncoded}')/Vendor_Ledger_Entry?$filter=${filter}&$top=500`;
 
     const invRes = await fetch(url, { headers });
     if (!invRes.ok) {
       const errText = await invRes.text().catch(() => invRes.statusText);
-      throw new Error('Error vendorLedgerEntries: ' + errText);
+      throw new Error('Error Vendor_Ledger_Entry: ' + errText);
     }
     const invJson = await invRes.json();
 
     const data = (invJson.value || []).map(e => ({
-      number: e.documentNumber,
-      invoiceDate: e.postingDate,
-      vendorInvoiceNumber: e.externalDocumentNumber,
-      vendorNumber: e.vendorNumber,
-      vendorName: e.vendorName,
-      dueDate: e.dueDate,
+      number: e.Document_No ?? e.Document_No_ ?? '',
+      invoiceDate: e.Posting_Date ?? '',
+      vendorInvoiceNumber: e.External_Document_No ?? e.External_Document_No_ ?? '',
+      vendorNumber: e.Vendor_No ?? e.Vendor_No_ ?? '',
+      vendorName: e.Vendor_Name ?? '',
+      dueDate: e.Due_Date ?? '',
       totalAmountExcludingTax: null,
-      totalAmountIncludingTax: Math.abs(e.amount || 0),
-      remainingAmount: Math.abs(e.remainingAmount || 0)
+      totalAmountIncludingTax: Math.abs(parseFloat(e.Original_Amount) || 0),
+      remainingAmount: Math.abs(parseFloat(e.Remaining_Amount) || 0)
     }));
 
     return res.status(200).json({ ok: true, data });
