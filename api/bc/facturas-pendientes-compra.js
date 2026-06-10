@@ -25,7 +25,7 @@ export default async function handler(req, res) {
 
     // Paginar para traer todas (no solo 500)
     let all = [];
-    let url = `${base}(${cid})/purchaseInvoices?$filter=status eq 'open'&$select=number,invoiceDate,vendorInvoiceNumber,vendorName,totalAmountExcludingTax,totalAmountIncludingTax,dueDate&$top=500`;
+    let url = `${base}(${cid})/purchaseInvoices?$filter=status eq 'open'&$select=number,invoiceDate,vendorInvoiceNumber,vendorName,totalAmountExcludingTax,totalAmountIncludingTax,dueDate&$orderby=invoiceDate desc&$top=500`;
 
     while (url) {
       const r = await fetch(url, { headers });
