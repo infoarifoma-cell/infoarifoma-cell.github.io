@@ -1,5 +1,5 @@
 // POST /api/bc/facturas-pendientes-compra
-// Obtiene facturas de compra desde OData BC (página 138 Histórico_facturas_compra_Excel)
+// Obtiene facturas de compra desde purchaseInvoices API v2.0 (status=open)
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -12,29 +12,42 @@ export default async function handler(req, res) {
   const BC_TENANT = process.env.BC_TENANT;
   const BC_ENV = process.env.BC_ENV;
   const BC_COMPANY = process.env.BC_COMPANY;
+  const base = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/api/v2.0/companies`;
   const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
-  const companyEncoded = encodeURIComponent(BC_COMPANY);
 
   try {
-    const url = `https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/ODataV4/Company('${companyEncoded}')/Hist%C3%B3rico_facturas_compra_Excel?$top=500`;
+    const cRes = await fetch(base, { headers });
+    if (!cRes.ok) throw new Error('No se pudo obtener company: ' + cRes.statusText);
+    const cJson = await cRes.json();
+    const company = cJson.value.find(c => c.name === BC_COMPANY);
+    if (!company) throw new Error('Company no encontrada: ' + BC_COMPANY);
+    const cid = company.id;
 
-    const invRes = await fetch(url, { headers });
-    if (!invRes.ok) {
-      const errText = await invRes.text().catch(() => invRes.statusText);
-      throw new Error('Error Histórico_facturas_compra_Excel: ' + errText);
+    // Paginar para traer todas (no solo 500)
+    let all = [];
+    let url = `${base}(${cid})/purchaseInvoices?$filter=status eq 'open'&$select=number,invoiceDate,vendorInvoiceNumber,vendorName,totalAmountExcludingTax,totalAmountIncludingTax,dueDate,paymentTermsCode&$top=500`;
+
+    while (url) {
+      const r = await fetch(url, { headers });
+      if (!r.ok) {
+        const errText = await r.text().catch(() => r.statusText);
+        throw new Error('Error purchaseInvoices: ' + errText);
+      }
+      const j = await r.json();
+      all = all.concat(j.value || []);
+      url = j['@odata.nextLink'] || null;
     }
-    const invJson = await invRes.json();
 
-    const data = (invJson.value || []).map(e => ({
-      number: e.No ?? '',
-      invoiceDate: e.Posting_Date ?? e.Document_Date ?? '',
-      vendorInvoiceNumber: e.Vendor_Invoice_No ?? '',
-      vendorNumber: e.Buy_from_Vendor_No ?? '',
-      vendorName: e.Buy_from_Vendor_Name ?? '',
-      dueDate: e.Due_Date ?? '',
-      paymentTerms: e.Payment_Terms_Code ?? '',
-      paymentMethod: e.Payment_Method_Code ?? '',
-      cancelled: e.Cancelled ?? false
+    const data = all.map(inv => ({
+      number: inv.number,
+      invoiceDate: inv.invoiceDate,
+      vendorInvoiceNumber: inv.vendorInvoiceNumber,
+      vendorName: inv.vendorName,
+      dueDate: inv.dueDate,
+      paymentTerms: inv.paymentTermsCode,
+      totalAmountExcludingTax: inv.totalAmountExcludingTax,
+      totalAmountIncludingTax: inv.totalAmountIncludingTax,
+      remainingAmount: null
     }));
 
     return res.status(200).json({ ok: true, data });
