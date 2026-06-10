@@ -585,6 +585,9 @@
         <button class="snav-btn" onclick="goPage('documentos')" id="snav-documentos">
           <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 2h7l4 4v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M11 2v4h4M6 9h6M6 12h4"/></svg>Control Documental
         </button>
+        <button class="snav-btn" onclick="goPage('kpis')" id="snav-kpis">
+          <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="2,13 6,8 10,11 16,4"/><line x1="2" y1="16" x2="16" y2="16"/></svg>KPIs
+        </button>
         <button class="snav-btn" onclick="goTareasSeccion('')" id="snav-tareas">
           <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 9l3 3 7-7"/><rect x="2" y="2" width="14" height="14" rx="2"/></svg>Tareas
         </button>
@@ -2161,6 +2164,162 @@
             <input class="fsel" type="text" id="filt-doc-texto" placeholder="Buscar..." oninput="renderDocumentos()" style="min-width:120px">
           </div>
           <div id="doc-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
+        </div>
+
+        <!-- ══ KPIs ══ -->
+        <div class="page" id="pg-kpis">
+          <div class="sec-title" style="margin-bottom:6px">KPIs — Planta de Árido</div>
+          <div style="color:var(--muted);font-size:.78rem;margin-bottom:24px">Indicadores clave para monitorear el rendimiento de la planta</div>
+
+          <!-- PRODUCCIÓN -->
+          <div style="font-weight:700;font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--accent2);margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid var(--accent2)">Producción</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:28px">
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">⛏️</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">Toneladas producidas</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">Diario / mensual / anual</div>
+            </div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">📦</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">Toneladas por producto</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">Árido grueso, fino, polvo…</div>
+            </div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">⚡</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">Rendimiento planta</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">Tn/hora vs capacidad nominal</div>
+            </div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">🏔️</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">Stock en cantera</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">Tn disponibles por fracción</div>
+            </div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">🎯</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">% Merma / rechazo</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">Tn rechazadas / total producido</div>
+            </div>
+          </div>
+
+          <!-- VENTAS Y CLIENTES -->
+          <div style="font-weight:700;font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--accent2);margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid var(--accent2)">Ventas y Clientes</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:28px">
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">💶</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">Facturación mensual</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">€ vendidos vs objetivo</div>
+            </div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">🚚</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">Tn vendidas por cliente</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">Ranking de clientes</div>
+            </div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">💰</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">Precio medio €/Tn</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">Por producto y canal</div>
+            </div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">📋</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">Facturas pendientes</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">Importe cobro pendiente</div>
+            </div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">📅</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">Días medios de cobro</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">DSO — plazo medio cobro</div>
+            </div>
+          </div>
+
+          <!-- COSTES Y MÁRGENES -->
+          <div style="font-weight:700;font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--accent2);margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid var(--accent2)">Costes y Márgenes</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:28px">
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">📊</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">Coste €/Tn producida</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">Total costes / Tn producidas</div>
+            </div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">⛽</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">Consumo combustible</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">L/Tn o €/Tn</div>
+            </div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">🔌</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">Consumo eléctrico</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">kWh/Tn producida</div>
+            </div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">📈</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">Margen bruto</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">% sobre ventas</div>
+            </div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">🔧</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">Coste mantenimiento</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">€/mes vs presupuesto</div>
+            </div>
+          </div>
+
+          <!-- MAQUINARIA -->
+          <div style="font-weight:700;font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--accent2);margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid var(--accent2)">Maquinaria</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:28px">
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">⏱️</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">Disponibilidad equipo</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">% horas disponibles vs planificadas</div>
+            </div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">🛑</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">Paradas no planificadas</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">Nº y horas perdidas</div>
+            </div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">🔩</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">OEE planta</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">Eficiencia global del equipo</div>
+            </div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">📝</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">OTs abiertas / cerradas</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">Ratio mantenimiento preventivo</div>
+            </div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">🕐</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">Horas equipo</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">Acumuladas vs límite revisión</div>
+            </div>
+          </div>
+
+          <!-- CALIDAD Y SEGURIDAD -->
+          <div style="font-weight:700;font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--accent2);margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid var(--accent2)">Calidad y Seguridad</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:8px">
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">🧪</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">Ensayos realizados</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">Nº vs frecuencia requerida</div>
+            </div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">❌</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">No conformidades</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">Nº abiertas / cerradas</div>
+            </div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">📄</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">Documentos vencidos</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">% documentación al día</div>
+            </div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">⛑️</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">Accidentes / incidentes</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">Nº mes / acumulado año</div>
+            </div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 12px;text-align:center">
+              <div style="font-size:1.6rem;margin-bottom:8px">📅</div>
+              <div style="font-size:.78rem;font-weight:600;color:var(--text)">Días sin accidente</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:4px">Contador seguridad</div>
+            </div>
+          </div>
         </div>
 
         <!-- ══ TAREAS ══ -->
