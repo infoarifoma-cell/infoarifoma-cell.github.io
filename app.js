@@ -7985,10 +7985,16 @@ function renderFacturasPendientes() {
 
   // Ordenación
   if (_fpSortCol) {
+    const parseFecha = v => {
+      const m = String(v).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      return m ? new Date(+m[3], +m[2]-1, +m[1]).getTime() : null;
+    };
     data.sort((a,b) => {
       let va = a[_fpSortCol] ?? '', vb = b[_fpSortCol] ?? '';
       const na = parseFloat(va), nb = parseFloat(vb);
       if (!isNaN(na) && !isNaN(nb)) return (na-nb)*_fpSortDir;
+      const da = parseFecha(va), db = parseFecha(vb);
+      if (da !== null && db !== null) return (da-db)*_fpSortDir;
       return String(va).localeCompare(String(vb),'es')*_fpSortDir;
     });
   }
