@@ -10717,14 +10717,17 @@ function _ensayosRenderControl() {
       const key = sem.id + '|' + tipo + '|' + frac;
       const seleccionado = _ensayosSelCeldas[key];
       const selStyle = seleccionado ? 'outline:2px solid var(--accent);outline-offset:-2px;' : '';
-      const spanClick = esAdmin && (!r || r.estado === 'recogido')
+      const spanClickVacio = esAdmin && !r
         ? ' onclick="_ensayosToggleSelCelda(\'' + key + '\',\'' + sem.id + '\',\'' + tipo + '\',\'' + frac + '\')"'
         : '';
+      const spanClickRecogido = esAdmin && r && r.estado === 'recogido'
+        ? ' onclick="_ensayosDesmarcarRegistro(\'' + r.id + '\')" title="Desmarcar recogido"'
+        : '';
       const spanSel = seleccionado ? 'background:var(--accent);color:#fff;border-radius:3px;padding:1px 3px;' : '';
-      if (!r) return '<td><span' + spanClick + ' style="' + spanSel + 'color:' + (seleccionado ? '#fff' : '#ccc') + ';font-size:.9rem;font-weight:700;cursor:' + (esAdmin?'pointer':'default') + '">' + (seleccionado ? '\u2713' : '+') + '</span></td>';
+      if (!r) return '<td><span' + spanClickVacio + ' style="' + spanSel + 'color:' + (seleccionado ? '#fff' : '#ccc') + ';font-size:.9rem;font-weight:700;cursor:' + (esAdmin?'pointer':'default') + '">' + (seleccionado ? '\u2713' : '+') + '</span></td>';
       if (r.estado === 'conforme') return '<td><span style="color:#2e7d32;font-size:1rem;font-weight:700">\u2713\u2713</span></td>';
       if (r.estado === 'no_conforme') return '<td><span style="color:#c62828;font-size:1rem;font-weight:700">\u2713\u2713</span><span style="color:#c62828;font-size:.6rem;font-weight:700;vertical-align:super"> NC</span></td>';
-      return '<td><span' + spanClick + ' style="' + spanSel + 'color:' + (seleccionado ? '#fff' : '#e65100') + ';font-size:1rem;font-weight:700;cursor:' + (esAdmin?'pointer':'default') + '">\u2713</span></td>';
+      return '<td><span' + spanClickRecogido + ' style="color:#e65100;font-size:1rem;font-weight:700;cursor:' + (esAdmin?'pointer':'default') + '">\u2713</span></td>';
     }
 
     let estadoGlobal = 'NP', estadoColor = 'var(--muted)';
@@ -11012,6 +11015,14 @@ async function _ensayosAceptarSeleccion() {
   _ensayosRegistros = rReg.ok ? rReg.data : [];
   _ensayosRenderTab('control');
   if (errores) alert('Errores al guardar: ' + errores);
+}
+
+async function _ensayosDesmarcarRegistro(registroId) {
+  if (!confirm('¿Desmarcar este ensayo como recogido? Se eliminará el registro.')) return;
+  const res = await deleteEnsayoRegistro(registroId);
+  if (res && res.ok === false) { alert('Error al desmarcar: ' + (res.error || '')); return; }
+  _ensayosRegistros = _ensayosRegistros.filter(function(r){ return r.id !== registroId; });
+  _ensayosRenderTab('control');
 }
 
 // ── Cálculo automático C/NC por fracción ──────────────────────
