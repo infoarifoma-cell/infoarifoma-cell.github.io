@@ -5551,17 +5551,18 @@ async function enviarCajaSheet() {
   btn.textContent = 'Enviando...';
 
   try {
-    const now = new Date();
-    const anyo2 = String(now.getFullYear()).slice(-2);
-    const mes2 = pad(now.getMonth() + 1);
-    const codCaja = anyo2 + mes2;
     const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-    const numCaja = 'Caja' + meses[now.getMonth()] + anyo2;
 
     const filas = [];
     cajaSelected.forEach(id => {
       const f = cajaFacturas.find(x => x.id === id);
       if (!f) return;
+      // Usar postingDate de la factura para asignar caja correcta
+      const fechaRef = f.postingDate ? new Date(f.postingDate + 'T00:00:00') : new Date();
+      const anyo2 = String(fechaRef.getFullYear()).slice(-2);
+      const mes2 = pad(fechaRef.getMonth() + 1);
+      const codCaja = anyo2 + mes2;
+      const numCaja = 'Caja' + meses[fechaRef.getMonth()] + anyo2;
       filas.push({
         codCaja,
         numCaja,
@@ -5589,7 +5590,8 @@ async function enviarCajaSheet() {
 
     btn.textContent = '✓ Enviado';
     btn.style.background = '#2e7d32';
-    alert(`${filas.length} factura${filas.length > 1 ? 's' : ''} registrada${filas.length > 1 ? 's' : ''} en caja (${numCaja})`);
+    const cajasUsadas = [...new Set(filas.map(f => f.numCaja))].join(', ');
+    alert(`${filas.length} factura${filas.length > 1 ? 's' : ''} registrada${filas.length > 1 ? 's' : ''} en caja (${cajasUsadas})`);
 
     // Limpiar selección
     cajaSelected.clear();
