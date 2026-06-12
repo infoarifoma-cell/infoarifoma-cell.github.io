@@ -9873,7 +9873,7 @@ async function cargarStock() {
       return all;
     }
 
-    const [prodRes, pedRows, topoRes, regRes] = await Promise.all([
+    const [prodRes, pedRows, topoRes] = await Promise.all([
       dbQuery({ action: 'select', table: 'PRODUCCION',
         filters: [{ column: 'fecha', op: 'gte', value: iniAnyo }, { column: 'fecha', op: 'lte', value: finAnyo }],
         options: { select: 'fecha,t04,t412,t1220,t2040', order: 'fecha' }
@@ -9882,31 +9882,17 @@ async function cargarStock() {
       dbQuery({ action: 'select', table: 'tblTopografia',
         filters: [{ column: 'fecha', op: 'gte', value: iniAnyo }, { column: 'fecha', op: 'lte', value: finAnyo }],
         options: { select: 'fecha,t04,t412,t1220,t2040', order: 'fecha' }
-      }),
-      dbQuery({ action: 'select', table: 'tblRegularizaciones',
-        filters: [{ column: 'fecha', op: 'gte', value: iniAnyo }, { column: 'fecha', op: 'lte', value: finAnyo }],
-        options: { select: 'fecha,t04,t412,t1220,t2040', order: 'fecha' }
       })
     ]);
 
     const prodRows = prodRes.ok ? (prodRes.data || []) : [];
     const topoRows = topoRes.ok ? (topoRes.data || []) : [];
-    const regRows  = regRes.ok  ? (regRes.data  || []) : [];
 
     // Indexar levantamientos por mes (último del mes si hubiera varios)
     const topoMes = {}; // mes(0-11) → {t04,t412,t1220,t2040,fecha}
     for (const r of topoRows) {
       const m = new Date(r.fecha + 'T12:00:00').getMonth();
       topoMes[m] = { t04: Number(r.t04||0), t412: Number(r.t412||0), t1220: Number(r.t1220||0), t2040: Number(r.t2040||0), fecha: r.fecha };
-    }
-    // Acumular regularizaciones por mes
-    const regMes = Array.from({length:12}, () => ({t04:0,t412:0,t1220:0,t2040:0}));
-    for (const r of regRows) {
-      const m = new Date(r.fecha + 'T12:00:00').getMonth();
-      regMes[m].t04   += Number(r.t04   || 0);
-      regMes[m].t412  += Number(r.t412  || 0);
-      regMes[m].t1220 += Number(r.t1220 || 0);
-      regMes[m].t2040 += Number(r.t2040 || 0);
     }
 
     // Acumular producción por mes
@@ -9949,18 +9935,17 @@ async function cargarStock() {
       for (let m = 0; m <= mesLimite; m++) {
         const prod = prodMes[m][pk] || 0;
         const vent = ventMes[m][pk] || 0;
-        const reg  = regMes[m][pk]  || 0;
         const inicio = acum;
         const topo = topoMes[m];
         let fuente = 'calculo';
         let fechaTopo = null;
         if (topo) {
           // Levantamiento topográfico → reemplaza el acumulado
-          acum = topo[pk] + reg;
+          acum = topo[pk];
           fuente = 'topografia';
           fechaTopo = topo.fecha;
         } else {
-          acum += prod - vent + reg;
+          acum += prod - vent;
         }
         const esActual = (hoy.getFullYear() === anyo && hoy.getMonth() === m);
         meses.push({
