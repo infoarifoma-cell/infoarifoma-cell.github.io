@@ -5,41 +5,15 @@
 // _supabase (solo auth), dbQuery (proxy backend), _initAuthClient definidos en funciones.js
 
 // ── GOOGLE SHEETS (para Producción y Gasoil) ────────────────
-const SHEETS_API = 'https://script.google.com/macros/s/AKfycbwPIIgZCg03i4aJN8HIxKf20P5IPc-j3HOkoHmt2Jx0-vqiWrmq4Gz2WZmZvyopYJlv/exec';
-
-function sheetsFetch(params) {
-  return new Promise((resolve, reject) => {
-    const cb = '_cb' + Date.now();
-    const script = document.createElement('script');
-    const timeout = setTimeout(() => {
-      reject(new Error('Timeout'));
-      delete window[cb];
-      if (script.parentNode) script.parentNode.removeChild(script);
-    }, 15000);
-    window[cb] = function(data) {
-      clearTimeout(timeout);
-      resolve(data);
-      delete window[cb];
-      if (script.parentNode) script.parentNode.removeChild(script);
-    };
-    script.onerror = () => { clearTimeout(timeout); reject(new Error('Script error')); };
-    script.src = SHEETS_API + params + '&callback=' + cb;
-    document.head.appendChild(script);
-  });
-}
-
 async function sheetsPost(payload) {
   try {
-    const res = await fetch(SHEETS_API, {
+    const res = await fetch('/api/google-sheet-post', {
       method: 'POST',
-      mode: 'cors',
-      redirect: 'follow',
-      headers: { 'Content-Type': 'text/plain' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
     if (!res.ok) return { ok: false, error: 'HTTP ' + res.status };
-    const json = await res.json();
-    return json;
+    return await res.json();
   } catch(e) {
     return { ok: false, error: e.message };
   }
@@ -837,19 +811,17 @@ async function cargarProductosBC(){
     }
   }catch(e){console.warn('No se pudo cargar productos de BC, usando mapa local:',e.message);}
 }
-const PRECIOS={
-  'ARIDO AF-T-0/4-I':16.10,'ARIDO AG-T-4/12-I':15.10,
-  'ARIDO AG-T-12/20-I':15.10,'ARIDO AG-T-20/40-I':15.10,
-  'ARIDO AG-T-40/70-I':16.00,'REVUELTO 0/20':15.60,
-  'REVUELTO 0/10':15.60,'ZAHORRA 0/40':15.60,
-  'MATERIAL DE RELLENO 0/4':2.00,'TIERRA VEGETAL':18.00,
-  'PIEDRA PARA MURO (UD)':19.80,'MATERIAL TODO UNO CANTERA':15.10,
-};
-const IGIC_PCT=3;
-const PRECIOS_ESP={
-  'CANARIAS BETON SL':{'ARIDO AF-T-0/4-I':12.30,'_default':11.00},
-  'PREFABRICADOS ARCHIPIELAGO SL':{'ARIDO AF-T-0/4-I':12.30,'_default':11.00},
-};
+let PRECIOS={};
+let IGIC_PCT=3;
+let PRECIOS_ESP={};
+async function _cargarPrecios(){
+  try{
+    const res=await fetch('/api/precios');
+    const data=await res.json();
+    if(data.ok){PRECIOS=data.precios;PRECIOS_ESP=data.preciosEsp;IGIC_PCT=data.igicPct;}
+  }catch(e){console.warn('No se pudieron cargar precios:',e.message);}
+}
+_cargarPrecios();
 function getPrecioTn(cliente,producto){
   const esp=PRECIOS_ESP[cliente];
   if(esp) return esp[producto]!==undefined?esp[producto]:(esp._default!==undefined?esp._default:(PRECIOS[producto]||0));
@@ -5610,14 +5582,25 @@ async function enviarCajaSheet() {
 }
 
 // ── BUSINESS CENTRAL ─────────────────────────────────────────
-const BC_TENANT   = '5bd828f2-1899-48ba-a269-c37733f41806';
-const BC_CLIENT   = 'e2a57ff0-8ea7-433d-a2af-7335d3f01847';
-const BC_ENV      = 'Production';
-const BC_COMPANY  = 'ARIFOMA 25P.V06';
+// Config cargada desde /api/config (env vars Vercel)
+let BC_TENANT='', BC_CLIENT='', BC_ENV='', BC_COMPANY='', BC_SCOPE='';
+let COMPRAS_CLIENT_ID='', COMPRAS_TENANT_ID='', COMPRAS_ONEDRIVE_BASE='', COMPRAS_SHARE_URL='';
+let _configLoaded=false;
+async function _cargarConfig(){
+  try{
+    const res=await fetch('/api/config');
+    const cfg=await res.json();
+    BC_TENANT=cfg.bc.tenant;BC_CLIENT=cfg.bc.client;
+    BC_ENV=cfg.bc.env;BC_COMPANY=cfg.bc.company;BC_SCOPE=cfg.bc.scope;
+    COMPRAS_CLIENT_ID=cfg.compras.clientId;COMPRAS_TENANT_ID=cfg.compras.tenantId;
+    COMPRAS_ONEDRIVE_BASE=cfg.compras.onedriveBase;COMPRAS_SHARE_URL=cfg.compras.shareUrl;
+    _configLoaded=true;
+  }catch(e){console.error('No se pudo cargar config:',e.message);}
+}
+_cargarConfig();
 // Resetear cache companyId y clientes BC al cargar
 window._bcCompanyId = null;
 window._bcClientesData = [];
-const BC_SCOPE    = `https://api.businesscentral.dynamics.com/.default`;
 
 let msalApp = null;
 async function getMsalApp() {
@@ -8783,12 +8766,10 @@ async function eliminarNota(id) {
 }
 
 // ── COMPRAS — ESCANEAR FACTURA Y SUBIR A ONEDRIVE ───────────
-const COMPRAS_CLIENT_ID='20d8ca37-34e7-4ad4-b379-97c5b22f15ad';
-const COMPRAS_TENANT_ID='5bd828f2-1899-48ba-a269-c37733f41806';
+// COMPRAS_CLIENT_ID, COMPRAS_TENANT_ID, COMPRAS_ONEDRIVE_BASE, COMPRAS_SHARE_URL
+// cargados desde /api/config (ver sección BUSINESS CENTRAL)
 const COMPRAS_REDIRECT=location.origin+location.pathname;
 const COMPRAS_SCOPES=['Files.ReadWrite.All','Mail.Send'];
-const COMPRAS_ONEDRIVE_BASE='06. ADMINISTRACION/06.01 PROVEEDORES';
-const COMPRAS_SHARE_URL='https://grpsite-my.sharepoint.com/:f:/g/personal/greyes_arifoma_com/IgD8XOuwUpjWQ4E17TuO5-PoAWbx8HnqElIXhD2fQerh_QM';
 const COMPRAS_MESES=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
 const COMPRAS_PROVEEDORES=[
   '(ANEFA) ASOCIACION NACIONAL DE EMPRESARIOS FABRICANTES DE ARIDO','AENOR','AGONEY LUJAN PEREZ','AGUAS DE GUAYADEQUE SL','ALIANZA ALEMAN BLAKER',
