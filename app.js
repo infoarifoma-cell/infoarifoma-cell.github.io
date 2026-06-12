@@ -3678,7 +3678,12 @@ async function goStep2(){if(!selMachine)return;const grid=document.getElementByI
   }catch(e){console.warn('Error cargando gamas dinámicas:',e);}
   // Hardcoded solo como fallback si no hay nada en Supabase para este modelo
   if(!gamas.length){
-    gamas=(MODEL_TO_GAMAS[selMachine.modelo]||[]).map(g=>({...g,_src:'local'}));
+    // Fallback por modelo; si modelo es null, intentar por tipo de activo
+    let localGamas=MODEL_TO_GAMAS[selMachine.modelo]||[];
+    if(!localGamas.length && (selMachine.tipo||'').toUpperCase().includes('CINTA')){
+      localGamas=MODEL_TO_GAMAS['CINTAS']||[];
+    }
+    gamas=localGamas.map(g=>({...g,_src:'local'}));
   }
   if(!gamas.length){grid.innerHTML='<div class="no-results">No hay gamas definidas para '+selMachine.modelo+'.</div>';}else{grid.innerHTML='';gamas.forEach(g=>{const d=document.createElement('div');d.className='gama-btn'+(selGama&&selGama.id===g.id?' selected':'');d.innerHTML=`<div><div class="gama-name">${g.nombre}</div><div class="gama-meta">${g.checks.length} puntos</div></div><div class="gama-interval">${g.intervalo===1?'Diario':g.intervalo+'h'}</div>`;d.onclick=()=>{selGama=g;document.querySelectorAll('.gama-btn').forEach(x=>x.classList.remove('selected'));d.classList.add('selected');document.getElementById('btnS2').disabled=false;};grid.appendChild(d);});}}
 function goStep3(){showOT('screen3');setSteps(3);}
