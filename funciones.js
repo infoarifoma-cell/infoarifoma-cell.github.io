@@ -30,10 +30,11 @@ async function enviarLineaBCPesada(data) {
       console.warn('BC: Función getBCToken no disponible');
       return;
     }
-    const response = await fetch('/api/bc/linea-pesada', {
+    const response = await fetch('/api/bc', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        action: 'linea-pesada',
         codigoCliente: data.codigoCliente,
         proyectoCod: data.proyectoCod,
         productoCod: data.productoCod,

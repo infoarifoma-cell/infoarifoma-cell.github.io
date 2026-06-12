@@ -100,10 +100,11 @@ async function doPostPesada(data) {
 
 async function enviarLineaBCPesada(data) {
   const token = await getBCToken();
-  const res = await fetch('/api/bc/linea-pesada', {
+  const res = await fetch('/api/bc', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      action: 'linea-pesada',
       token,
       codigoCliente: data.codigoCliente,
       proyectoCod: data.proyectoCod,
@@ -801,7 +802,7 @@ let PROD_MAP={
 async function cargarProductosBC(){
   try{
     const token=await getBCTokenSilent();
-    const resp=await fetch('/api/bc/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});
+    const resp=await fetch('/api/bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'items',token})});
     const data=await resp.json();
     if(data.ok&&data.items.length){
       const map={};
@@ -5703,10 +5704,11 @@ async function enviarBCCliente(bcIdx, btn) {
     btn.textContent = 'Creando factura...';
 
     // Crear factura vía backend
-    const invRes = await fetch('/api/bc/facturas', {
+    const invRes = await fetch('/api/bc', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        action: 'facturas',
         token,
         customerNumber: customerNo,
         invoiceDate,
@@ -5956,10 +5958,10 @@ async function facturarAlbaranesSeleccionados() {
     }
 
     // Crear factura via backend
-    const invRes = await fetch('/api/bc/facturas', {
+    const invRes = await fetch('/api/bc', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, customerNumber: customerNo, invoiceDate, externalDocumentNumber: extDoc })
+      body: JSON.stringify({ action: 'facturas', token, customerNumber: customerNo, invoiceDate, externalDocumentNumber: extDoc })
     });
     if (!invRes.ok) throw new Error(await invRes.text());
     const invData = await invRes.json();
@@ -7053,10 +7055,10 @@ async function cargarCostes(){
 
     // Cargar GL entries y producción en paralelo
     const [bcRes, prodRes] = await Promise.all([
-      fetch('/api/bc/costes', {
+      fetch('/api/bc', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({token, anyo})
+        body:JSON.stringify({action:'costes', token, anyo})
       }).then(r=>r.json()),
       getProduccion(null, anyo)
     ]);
@@ -7920,8 +7922,8 @@ async function cargarFacturasPendientes() {
   try {
     const token = await getBCToken();
     const [rVenta, rCompra] = await Promise.all([
-      fetch('/api/bc/facturas-pendientes', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,type:'venta'})}).then(r=>r.json()),
-      fetch('/api/bc/facturas-pendientes', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,type:'compra'})}).then(r=>r.json())
+      fetch('/api/bc', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'facturas-pendientes',token,type:'venta'})}).then(r=>r.json()),
+      fetch('/api/bc', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'facturas-pendientes',token,type:'compra'})}).then(r=>r.json())
     ]);
     if (!rVenta.ok) throw new Error('Ventas: ' + rVenta.error);
     if (!rCompra.ok) throw new Error('Compras: ' + rCompra.error);
@@ -8133,11 +8135,12 @@ async function cargarHistoricoVentas() {
     const fechaDesde = document.getElementById('hv-fecha-desde').value || undefined;
     const fechaHasta = document.getElementById('hv-fecha-hasta').value || undefined;
 
-    const res = await fetch('/api/bc/historico-ventas', {
+    const res = await fetch('/api/bc', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, fechaDesde, fechaHasta })
+      body: JSON.stringify({ action: 'historico-ventas', token, fechaDesde, fechaHasta })
     });
+
 
     const json = await res.json();
     if (!json.ok) throw new Error(json.error || 'Error cargando facturas');
@@ -8620,10 +8623,10 @@ async function checkFacturasVencidasBackground() {
     // Solo últimos 6 meses
     const desde = new Date();
     desde.setMonth(desde.getMonth() - 6);
-    const res = await fetch('/api/bc/historico-ventas', {
+    const res = await fetch('/api/bc', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, fechaDesde: desde.toISOString().slice(0, 10) })
+      body: JSON.stringify({ action: 'historico-ventas', token, fechaDesde: desde.toISOString().slice(0, 10) })
     });
     const json = await res.json();
     if (json.ok) {
@@ -8816,7 +8819,7 @@ async function comprasInitArticulos(){
   if(!dl||_comprasItemsBC.length)return;
   try{
     const token=await getBCToken();
-    const resp=await fetch('/api/bc/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});
+    const resp=await fetch('/api/bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'items',token})});
     const data=await resp.json();
     if(data.ok&&data.items.length){
       _comprasItemsBC=data.items;
@@ -8874,7 +8877,7 @@ async function comprasInitProveedores(){
   // Intentar cargar desde BC
   try{
     const token=await getBCToken();
-    const resp=await fetch('/api/bc/vendors',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});
+    const resp=await fetch('/api/bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'vendors',token})});
     const data=await resp.json();
     if(data.ok&&data.vendors.length){
       _comprasVendorsBC=data.vendors;
@@ -9198,10 +9201,11 @@ async function comprasCrearPedidoCompra(){
     const unitPrice=document.getElementById('compras-precio')?.value||null;
 
     console.log('compras payload:', {vendorName:prov, vendorInvoiceNumber:nfac, itemNumber, quantity, unitPrice});
-    const resp=await fetch('/api/bc/pedido-compra',{
+    const resp=await fetch('/api/bc',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
+        action:'pedido-compra',
         token,
         vendorName:prov,
         orderDate,
@@ -12391,10 +12395,10 @@ async function cargarKPIs() {
       dbQuery({ action:'select', table:'ensayos_registros', options:{select:'estado,fraccion', limit:5000} }),
       dbQuery({ action:'select', table:'GASOIL_STOCK', options:{select:'deposito,stock'} }),
       bcTok
-        ? fetch('/api/bc/facturas-pendientes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:bcTok,type:'venta'})}).then(r=>r.json()).catch(()=>({ok:false}))
+        ? fetch('/api/bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'facturas-pendientes',token:bcTok,type:'venta'})}).then(r=>r.json()).catch(()=>({ok:false}))
         : Promise.resolve({ok:false}),
       bcTok
-        ? fetch('/api/bc/facturas-pendientes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:bcTok,type:'compra'})}).then(r=>r.json()).catch(()=>({ok:false}))
+        ? fetch('/api/bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'facturas-pendientes',token:bcTok,type:'compra'})}).then(r=>r.json()).catch(()=>({ok:false}))
         : Promise.resolve({ok:false}),
       // Báscula mes
       dbQuery({ action:'select', table:'tblpedidos',
