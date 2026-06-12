@@ -9850,19 +9850,37 @@ async function cargarStock() {
     const finAnyo = `${anyo}-12-31`;
 
     // Cargar producción y pedidos del año en paralelo
-    const [prodRes, pedRes] = await Promise.all([
+    // pedidos: paginar de 1000 en 1000 hasta agotar resultados
+    const pedFilters = [
+      { column: 'fechaHora', op: 'gte', value: iniAnyo + 'T00:00:00Z' },
+      { column: 'fechaHora', op: 'lte', value: finAnyo + 'T23:59:59Z' }
+    ];
+    const PAGE = 1000;
+    async function fetchAllPedidos() {
+      let all = [], offset = 0;
+      while (true) {
+        const res = await dbQuery({ action: 'select', table: 'tblpedidos',
+          filters: pedFilters,
+          options: { select: 'fechaHora,productoNombre,pesoNeto', order: 'fechaHora', limit: PAGE, offset }
+        });
+        if (!res.ok) break;
+        const rows = res.data || [];
+        all = all.concat(rows);
+        if (rows.length < PAGE) break;
+        offset += PAGE;
+      }
+      return all;
+    }
+
+    const [prodRes, pedRows] = await Promise.all([
       dbQuery({ action: 'select', table: 'PRODUCCION',
         filters: [{ column: 'fecha', op: 'gte', value: iniAnyo }, { column: 'fecha', op: 'lte', value: finAnyo }],
         options: { select: 'fecha,t04,t412,t1220,t2040', order: 'fecha' }
       }),
-      dbQuery({ action: 'select', table: 'tblpedidos',
-        filters: [{ column: 'fechaHora', op: 'gte', value: iniAnyo + 'T00:00:00Z' }, { column: 'fechaHora', op: 'lte', value: finAnyo + 'T23:59:59Z' }],
-        options: { select: 'fechaHora,productoNombre,pesoNeto', order: 'fechaHora', limit: 10000 }
-      })
+      fetchAllPedidos()
     ]);
 
     const prodRows = prodRes.ok ? (prodRes.data || []) : [];
-    const pedRows  = pedRes.ok  ? (pedRes.data  || []) : [];
 
     // Acumular producción por mes
     const prodMes = Array.from({length:12}, () => ({t04:0,t412:0,t1220:0,t2040:0}));
@@ -9887,7 +9905,7 @@ async function cargarStock() {
 
     console.log('STOCK DEBUG — producción por mes (Tn):', prodMes.map((m,i)=>({mes:i,t04:m.t04.toFixed(1),t412:m.t412.toFixed(1)})));
     console.log('STOCK DEBUG — ventas por mes (Tn):', ventMes.map((m,i)=>({mes:i,t04:m.t04.toFixed(1),t412:m.t412.toFixed(1)})));
-    console.log('STOCK DEBUG — pedidos totales:', pedRows.length, '— produccion filas:', prodRows.length);
+    console.log('STOCK DEBUG — pedidos totales (paginados):', pedRows.length, '— produccion filas:', prodRows.length);
 
     // Calcular stock acumulado mes a mes
     const keys = ['04', '412', '1220', '2040'];

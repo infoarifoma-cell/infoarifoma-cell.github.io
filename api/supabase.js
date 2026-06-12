@@ -95,6 +95,7 @@ export default async function handler(req, res) {
       params.push('select=' + encodeURIComponent(options?.select || '*'));
       if (options?.order) params.push('order=' + encodeURIComponent(options.order));
       if (options?.limit) params.push('limit=' + encodeURIComponent(options.limit));
+      if (options?.offset) params.push('offset=' + encodeURIComponent(options.offset));
       // Filtros: [{column, op, value}]  op='in' usa sintaxis Supabase: column=in.(v1,v2,...)
       if (filters && Array.isArray(filters)) {
         for (const f of filters) {
