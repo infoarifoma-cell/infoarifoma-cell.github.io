@@ -4383,7 +4383,7 @@ function renderPctFabricacion(anyo){
   const el=document.getElementById('prod-pct-fab');
   if(!el)return;
   const meses=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
-  const byMonth=Array.from({length:12},()=>({t04:0,t412:0,t1220:0,t2040:0}));
+  const byMonth=Array.from({length:12},()=>({t04:0,t412:0,t1220:0,t2040:0,t020:0}));
   prodData.forEach(r=>{
     if(!r.fecha)return;
     const m=parseInt(r.fecha.split('-')[1])-1;
@@ -4392,20 +4392,21 @@ function renderPctFabricacion(anyo){
     byMonth[m].t412+=Number(r.t412)||0;
     byMonth[m].t1220+=Number(r.t1220)||0;
     byMonth[m].t2040+=Number(r.t2040)||0;
+    byMonth[m].t020+=Number(r.t020)||0;
   });
-  const totY={t04:0,t412:0,t1220:0,t2040:0};
-  byMonth.forEach(m=>{totY.t04+=m.t04;totY.t412+=m.t412;totY.t1220+=m.t1220;totY.t2040+=m.t2040;});
+  const totY={t04:0,t412:0,t1220:0,t2040:0,t020:0};
+  byMonth.forEach(m=>{totY.t04+=m.t04;totY.t412+=m.t412;totY.t1220+=m.t1220;totY.t2040+=m.t2040;totY.t020+=m.t020;});
   function pctRow(d){
-    const sum=d.t04+d.t412+d.t1220+d.t2040;
-    if(!sum)return {p04:'—',p412:'—',p1220:'—',p2040:'—'};
-    return {p04:Math.round(d.t04/sum*100)+'%',p412:Math.round(d.t412/sum*100)+'%',p1220:Math.round(d.t1220/sum*100)+'%',p2040:Math.round(d.t2040/sum*100)+'%'};
+    const sum=d.t04+d.t412+d.t1220+d.t2040+d.t020;
+    if(!sum)return {p04:'—',p412:'—',p1220:'—',p2040:'—',p020:'—'};
+    return {p04:Math.round(d.t04/sum*100)+'%',p412:Math.round(d.t412/sum*100)+'%',p1220:Math.round(d.t1220/sum*100)+'%',p2040:Math.round(d.t2040/sum*100)+'%',p020:Math.round(d.t020/sum*100)+'%'};
   }
   let html=`<table style="width:100%;border-collapse:collapse;font-size:.72rem">
     <thead><tr style="background:var(--surface2);color:var(--muted);font-size:.62rem;text-transform:uppercase">
-      <th style="padding:6px;text-align:left"></th><th style="text-align:right">0/4</th><th style="text-align:right">4/12</th><th style="text-align:right">12/20</th><th style="text-align:right">20/40</th>
+      <th style="padding:6px;text-align:left"></th><th style="text-align:right">0/4</th><th style="text-align:right">4/12</th><th style="text-align:right">12/20</th><th style="text-align:right">20/40</th><th style="text-align:right">0/20</th>
     </tr></thead><tbody>`;
   byMonth.forEach((m,i)=>{
-    const sum=m.t04+m.t412+m.t1220+m.t2040;
+    const sum=m.t04+m.t412+m.t1220+m.t2040+m.t020;
     if(!sum)return;
     const p=pctRow(m);
     html+=`<tr style="border-top:1px solid var(--border)">
@@ -4414,6 +4415,7 @@ function renderPctFabricacion(anyo){
       <td style="text-align:right;font-family:'DM Mono',monospace">${p.p412}</td>
       <td style="text-align:right;font-family:'DM Mono',monospace">${p.p1220}</td>
       <td style="text-align:right;font-family:'DM Mono',monospace">${p.p2040}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace">${p.p020}</td>
     </tr>`;
   });
   const pt=pctRow(totY);
@@ -4423,6 +4425,7 @@ function renderPctFabricacion(anyo){
     <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--accent)">${pt.p412}</td>
     <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--accent)">${pt.p1220}</td>
     <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--accent)">${pt.p2040}</td>
+    <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--accent)">${pt.p020}</td>
   </tr></tbody></table>`;
   el.innerHTML=html;
 }
@@ -4491,6 +4494,7 @@ function editarProdDia(idx){
   document.getElementById('pe-t412').value=r.t412||'';
   document.getElementById('pe-t1220').value=r.t1220||'';
   document.getElementById('pe-t2040').value=r.t2040||'';
+  document.getElementById('pe-t020').value=r.t020||'';
   document.getElementById('pe-tndia').value=r.tnDia||'';
   document.getElementById('pe-horas').value=r.horasPlanta||'';
   document.getElementById('pe-obs').value=r.observaciones||'';
@@ -4506,6 +4510,7 @@ function abrirAddProduccion(){
   document.getElementById('pe-tipo').value='P';
   document.getElementById('pe-t04').value='';document.getElementById('pe-t412').value='';
   document.getElementById('pe-t1220').value='';document.getElementById('pe-t2040').value='';
+  document.getElementById('pe-t020').value='';
   document.getElementById('pe-tndia').value='';document.getElementById('pe-horas').value='';
   document.getElementById('pe-obs').value='';document.getElementById('pe-msg').textContent='';
   document.getElementById('prod-edit-title').textContent='Añadir día de producción';
@@ -4524,6 +4529,7 @@ async function guardarProdEdit(){
     t412:document.getElementById('pe-t412').value||0,
     t1220:document.getElementById('pe-t1220').value||0,
     t2040:document.getElementById('pe-t2040').value||0,
+    t020:document.getElementById('pe-t020').value||0,
     tnDia:document.getElementById('pe-tndia').value||0,
     horasPlanta:document.getElementById('pe-horas').value||0,
     observaciones:document.getElementById('pe-obs').value,
@@ -9482,7 +9488,7 @@ async function cargarInformeDiario() {
     const [fichajesRes, pedidosRes, produccionRes, gasoilRes, stockRes] = await Promise.all([
       dbQuery({ action:'select', table:'tblFichaje', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'empleado,entrada,salida,tiempodia,fentrada,fsalida'} }),
       dbQuery({ action:'select', table:'tblpedidos', filters:[{column:'fechaHora',op:'gte',value:fechaDesde},{column:'fechaHora',op:'lte',value:fechaHasta}], options:{select:'fechaHora,matriculacam,pesoBruto,pesoNeto,productoNombre,nombreCliente',order:'fechaHora'} }),
-      dbQuery({ action:'select', table:'PRODUCCION', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'fecha,tipoDia,t04,t412,t1220,t2040,tnDia,horasPlanta'} }),
+      dbQuery({ action:'select', table:'PRODUCCION', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'fecha,tipoDia,t04,t412,t1220,t2040,t020,tnDia,horasPlanta'} }),
       dbQuery({ action:'select', table:'GASOIL', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'fecha,origen,destino,litros,tipo'} }),
       apiFetch('?accion=gasoil'),
     ]);
@@ -9579,6 +9585,7 @@ function _renderInforme(d) {
         <div><span style="color:var(--muted)">4/12:</span> <b>${fmt(p.t412)} Tn</b></div>
         <div><span style="color:var(--muted)">12/20:</span> <b>${fmt(p.t1220)} Tn</b></div>
         <div><span style="color:var(--muted)">20/40:</span> <b>${fmt(p.t2040)} Tn</b></div>
+        ${Number(p.t020||0)>0?`<div><span style="color:var(--muted)">0/20 (rev):</span> <b>${fmt(p.t020)} Tn</b></div>`:''}
       </div>`;
   }
 
@@ -9703,12 +9710,12 @@ async function _infGenerarBuffer(d) {
   addSubHdr(['NOMBRE','ENTRADA','SALIDA','HORAS']);
   d.fichajes.forEach(f => { const horas = calcHorasFichaje(f); addRow([f.empleado||'', f.entrada||'', f.salida||'', horas!=='—'?Number(horas):'']); });
   addBlank();
-  addHdr('PRODUCCIÓN', 8);
-  addSubHdr(['FECHA','DÍA','0/4 Tn','4/12 Tn','12/20 Tn','20/40 Tn','TOTAL Tn','H.PLANTA']);
+  addHdr('PRODUCCIÓN', 9);
+  addSubHdr(['FECHA','DÍA','0/4 Tn','4/12 Tn','12/20 Tn','20/40 Tn','0/20 Tn','TOTAL Tn','H.PLANTA']);
   if (d.produccion) {
     const p = d.produccion;
-    addRow([fechaFmt, p.tipoDia||'', Number(p.t04||0), Number(p.t412||0), Number(p.t1220||0), Number(p.t2040||0), Number(p.tnDia||0), p.horasPlanta||'']);
-    const totProd = ws.addRow(['','TOTALES',Number(p.t04||0),Number(p.t412||0),Number(p.t1220||0),Number(p.t2040||0),Number(p.tnDia||0),'']);
+    addRow([fechaFmt, p.tipoDia||'', Number(p.t04||0), Number(p.t412||0), Number(p.t1220||0), Number(p.t2040||0), Number(p.t020||0), Number(p.tnDia||0), p.horasPlanta||'']);
+    const totProd = ws.addRow(['','TOTALES',Number(p.t04||0),Number(p.t412||0),Number(p.t1220||0),Number(p.t2040||0),Number(p.t020||0),Number(p.tnDia||0),'']);
     totProd.font=boldFont; totProd.eachCell(c=>{c.border=border;});
   }
   addBlank();
