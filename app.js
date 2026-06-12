@@ -9873,15 +9873,41 @@ async function cargarStock() {
       return all;
     }
 
-    const [prodRes, pedRows] = await Promise.all([
+    const [prodRes, pedRows, topoRes, regRes] = await Promise.all([
       dbQuery({ action: 'select', table: 'PRODUCCION',
         filters: [{ column: 'fecha', op: 'gte', value: iniAnyo }, { column: 'fecha', op: 'lte', value: finAnyo }],
         options: { select: 'fecha,t04,t412,t1220,t2040', order: 'fecha' }
       }),
-      fetchAllPedidos()
+      fetchAllPedidos(),
+      dbQuery({ action: 'select', table: 'tblTopografia',
+        filters: [{ column: 'fecha', op: 'gte', value: iniAnyo }, { column: 'fecha', op: 'lte', value: finAnyo }],
+        options: { select: 'fecha,t04,t412,t1220,t2040', order: 'fecha' }
+      }),
+      dbQuery({ action: 'select', table: 'tblRegularizaciones',
+        filters: [{ column: 'fecha', op: 'gte', value: iniAnyo }, { column: 'fecha', op: 'lte', value: finAnyo }],
+        options: { select: 'fecha,t04,t412,t1220,t2040', order: 'fecha' }
+      })
     ]);
 
     const prodRows = prodRes.ok ? (prodRes.data || []) : [];
+    const topoRows = topoRes.ok ? (topoRes.data || []) : [];
+    const regRows  = regRes.ok  ? (regRes.data  || []) : [];
+
+    // Indexar levantamientos por mes (último del mes si hubiera varios)
+    const topoMes = {}; // mes(0-11) → {t04,t412,t1220,t2040,fecha}
+    for (const r of topoRows) {
+      const m = new Date(r.fecha + 'T12:00:00').getMonth();
+      topoMes[m] = { t04: Number(r.t04||0), t412: Number(r.t412||0), t1220: Number(r.t1220||0), t2040: Number(r.t2040||0), fecha: r.fecha };
+    }
+    // Acumular regularizaciones por mes
+    const regMes = Array.from({length:12}, () => ({t04:0,t412:0,t1220:0,t2040:0}));
+    for (const r of regRows) {
+      const m = new Date(r.fecha + 'T12:00:00').getMonth();
+      regMes[m].t04   += Number(r.t04   || 0);
+      regMes[m].t412  += Number(r.t412  || 0);
+      regMes[m].t1220 += Number(r.t1220 || 0);
+      regMes[m].t2040 += Number(r.t2040 || 0);
+    }
 
     // Acumular producción por mes
     const prodMes = Array.from({length:12}, () => ({t04:0,t412:0,t1220:0,t2040:0}));
@@ -9923,14 +9949,27 @@ async function cargarStock() {
       for (let m = 0; m <= mesLimite; m++) {
         const prod = prodMes[m][pk] || 0;
         const vent = ventMes[m][pk] || 0;
+        const reg  = regMes[m][pk]  || 0;
         const inicio = acum;
-        acum += prod - vent;
+        const topo = topoMes[m];
+        let fuente = 'calculo';
+        let fechaTopo = null;
+        if (topo) {
+          // Levantamiento topográfico → reemplaza el acumulado
+          acum = topo[pk] + reg;
+          fuente = 'topografia';
+          fechaTopo = topo.fecha;
+        } else {
+          acum += prod - vent + reg;
+        }
         const esActual = (hoy.getFullYear() === anyo && hoy.getMonth() === m);
         meses.push({
           mes: STOCK_MESES[m],
           inicio: inicio || null,
           final: acum,
-          actual: esActual ? acum : null
+          actual: esActual ? acum : null,
+          fuente,
+          fechaTopo
         });
       }
       _stockData[key] = meses;
@@ -9969,13 +10008,19 @@ function renderStockOverview() {
     elActual.textContent = lastVal != null ? lastVal.toLocaleString('es-ES') + ' T' : '—';
 
     const elDelta = document.getElementById('stock-delta-' + key);
-    if (lastVal != null && prevVal != null && prevVal !== 0) {
+    // Buscar si el mes actual (último) viene de levantamiento topográfico
+    const lastMes = meses.length ? meses[meses.length - 1] : null;
+    const esTopo = lastMes && lastMes.fuente === 'topografia';
+    let deltaHTML = '';
+    if (esTopo) {
+      deltaHTML += `<div style="margin-top:4px"><span style="background:#1a6fc4;color:#fff;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600;">📐 Levantamiento ${lastMes.fechaTopo}</span></div>`;
+    }
+    if (lastVal != null && prevVal != null && prevVal !== 0 && !esTopo) {
       const pct = ((lastVal - prevVal) / prevVal * 100).toFixed(1);
       const up = pct >= 0;
-      elDelta.innerHTML = `<span style="color:${up ? '#27ae60' : '#e74c3c'}">${up ? '▲' : '▼'} ${Math.abs(pct)}%</span> <span style="color:var(--muted)">vs inicio mes</span>`;
-    } else {
-      elDelta.textContent = '';
+      deltaHTML += `<span style="color:${up ? '#27ae60' : '#e74c3c'}">${up ? '▲' : '▼'} ${Math.abs(pct)}%</span> <span style="color:var(--muted)">vs inicio mes</span>`;
     }
+    elDelta.innerHTML = deltaHTML;
   }
 
   // --- Evolution line chart (all products over time) ---
@@ -10129,8 +10174,12 @@ function abrirStockDetalle(key) {
   for (const d of datos) {
     const tr = document.createElement('tr');
     tr.style.borderBottom = '1px solid var(--border)';
-    tr.innerHTML = `<td style="padding:6px 8px">${d.mes}</td>
-      <td style="text-align:right;padding:6px 8px">${d.inicio != null ? d.inicio.toLocaleString('es-ES') : '—'}</td>
+    if (d.fuente === 'topografia') tr.style.background = 'rgba(26,111,196,0.07)';
+    const topoBadge = d.fuente === 'topografia'
+      ? `<span style="background:#1a6fc4;color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:6px;vertical-align:middle;">📐 Topo ${d.fechaTopo}</span>`
+      : '';
+    tr.innerHTML = `<td style="padding:6px 8px">${d.mes}${topoBadge}</td>
+      <td style="text-align:right;padding:6px 8px">${d.fuente === 'topografia' ? '<span title="Reemplazado por levantamiento">—</span>' : (d.inicio != null ? d.inicio.toLocaleString('es-ES') : '—')}</td>
       <td style="text-align:right;padding:6px 8px">${d.final != null ? d.final.toLocaleString('es-ES') : '—'}</td>
       <td style="text-align:right;padding:6px 8px;font-weight:600;color:var(--accent)">${d.actual != null ? d.actual.toLocaleString('es-ES') : '—'}</td>`;
     tbody.appendChild(tr);
