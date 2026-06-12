@@ -5282,7 +5282,7 @@ async function cargarResumenCaja() {
           facturabc,
           fechafactura: (c[3] || ''),
           proveedor: (c[5] || '').trim(),
-          importe: parseFloat((c[6] || '').replace(',', '.')) || 0,
+          importe: parseFloat((c[6] || '').replace(/\./g, '').replace(',', '.').replace(/[^0-9.\-]/g, '')) || 0,
           factproveedor: (c[7] || '').trim()
         });
       }
