@@ -542,6 +542,9 @@
         <button class="snav-btn" onclick="goPage('stock')" id="snav-stock">
           <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 14l4-6 3 4 4-8 5 10"/><path d="M1 14h16" opacity=".4"/></svg>Stock
         </button>
+        <button class="snav-btn" onclick="goPage('topografia')" id="snav-topografia">
+          <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 13l4-5 3 3 4-6 5 8"/><path d="M1 17h16" opacity=".4"/><circle cx="5" cy="8" r="1.2" fill="currentColor" opacity=".6"/><circle cx="8" cy="11" r="1.2" fill="currentColor" opacity=".6"/><circle cx="12" cy="5" r="1.2" fill="currentColor" opacity=".6"/></svg>Topografía
+        </button>
         <div class="snav-divider"></div>
         <div class="sidebar-section">Transporte</div>
         <button class="snav-btn" onclick="goPage('camiones')" id="snav-camiones">
@@ -1131,6 +1134,167 @@
                 </tr></thead>
                 <tbody></tbody>
               </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ TOPOGRAFÍA ══ -->
+        <div class="page" id="pg-topografia">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+            <div class="sec-title" style="margin:0">Levantamiento Topográfico</div>
+            <div style="display:flex;gap:8px">
+              <select class="inp" id="topo-anyo" onchange="cargarTopografia()" style="width:100px"></select>
+              <button class="btn-pri" onclick="abrirTopoModal()">+ Nuevo</button>
+            </div>
+          </div>
+
+          <!-- Tabla histórico -->
+          <div class="card" style="padding:0;overflow-x:auto">
+            <table id="topo-tabla" style="width:100%;border-collapse:collapse;font-size:.83rem">
+              <thead>
+                <tr style="border-bottom:2px solid var(--border);background:var(--surface2)">
+                  <th style="text-align:left;padding:10px 12px;font-weight:700">Fecha</th>
+                  <th style="text-align:right;padding:10px 8px">0/4 m³</th>
+                  <th style="text-align:right;padding:10px 8px">0/4 Tn</th>
+                  <th style="text-align:right;padding:10px 8px">4/12 m³</th>
+                  <th style="text-align:right;padding:10px 8px">4/12 Tn</th>
+                  <th style="text-align:right;padding:10px 8px">12/20 m³</th>
+                  <th style="text-align:right;padding:10px 8px">12/20 Tn</th>
+                  <th style="text-align:right;padding:10px 8px">20/40 m³</th>
+                  <th style="text-align:right;padding:10px 8px">20/40 Tn</th>
+                  <th style="text-align:right;padding:10px 8px">Rev 0/20 m³</th>
+                  <th style="text-align:right;padding:10px 8px">Rev 0/20 Tn</th>
+                  <th style="text-align:right;padding:10px 8px;font-weight:700;color:var(--accent)">Total Tn</th>
+                  <th style="text-align:left;padding:10px 8px">Obs.</th>
+                  <th style="padding:10px 8px"></th>
+                </tr>
+              </thead>
+              <tbody id="topo-tbody">
+                <tr><td colspan="14" style="text-align:center;padding:40px;color:var(--muted)">Cargando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Regularizaciones -->
+          <div style="margin-top:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+            <div class="sec-title" style="margin:0;font-size:.9rem">Regularizaciones manuales</div>
+            <button class="btn-sec" style="font-size:.8rem" onclick="abrirRegModal()">+ Regularización</button>
+          </div>
+          <div class="card" style="padding:0;overflow-x:auto;margin-top:8px">
+            <table id="reg-tabla" style="width:100%;border-collapse:collapse;font-size:.83rem">
+              <thead>
+                <tr style="border-bottom:2px solid var(--border);background:var(--surface2)">
+                  <th style="text-align:left;padding:10px 12px;font-weight:700">Fecha</th>
+                  <th style="text-align:right;padding:10px 8px">0/4 Tn</th>
+                  <th style="text-align:right;padding:10px 8px">4/12 Tn</th>
+                  <th style="text-align:right;padding:10px 8px">12/20 Tn</th>
+                  <th style="text-align:right;padding:10px 8px">20/40 Tn</th>
+                  <th style="text-align:right;padding:10px 8px">Rev 0/20 Tn</th>
+                  <th style="text-align:left;padding:10px 8px">Motivo</th>
+                  <th style="padding:10px 8px"></th>
+                </tr>
+              </thead>
+              <tbody id="reg-tbody">
+                <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--muted)">Sin regularizaciones</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Modal nuevo levantamiento -->
+        <div id="topo-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:900;display:flex;align-items:center;justify-content:center;padding:16px" class="hidden">
+          <div class="card" style="width:100%;max-width:520px;padding:20px;max-height:90vh;overflow-y:auto">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+              <div style="font-weight:700;font-size:1.05rem" id="topo-modal-title">Nuevo levantamiento</div>
+              <button onclick="cerrarTopoModal()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--muted)">&times;</button>
+            </div>
+            <div style="margin-bottom:12px">
+              <label style="font-size:.8rem;color:var(--muted);font-weight:600">Fecha</label>
+              <input type="date" class="inp" id="topo-fecha" style="width:100%;margin-top:4px">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px">
+              <div style="font-size:.75rem;font-weight:700;color:var(--muted);text-align:center">Material</div>
+              <div style="font-size:.75rem;font-weight:700;color:var(--muted);text-align:center">m³ (topografía)</div>
+            </div>
+            <div id="topo-fields" style="display:flex;flex-direction:column;gap:8px">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center">
+                <label style="font-size:.85rem;font-weight:600">0/4 <span style="font-size:.7rem;color:var(--muted)">(×1,50)</span></label>
+                <input type="number" class="inp" id="topo-v04" placeholder="m³" step="0.01" min="0" oninput="topoCalcTn()">
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center">
+                <label style="font-size:.85rem;font-weight:600">4/12 <span style="font-size:.7rem;color:var(--muted)">(×1,40)</span></label>
+                <input type="number" class="inp" id="topo-v412" placeholder="m³" step="0.01" min="0" oninput="topoCalcTn()">
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center">
+                <label style="font-size:.85rem;font-weight:600">12/20 <span style="font-size:.7rem;color:var(--muted)">(×1,40)</span></label>
+                <input type="number" class="inp" id="topo-v1220" placeholder="m³" step="0.01" min="0" oninput="topoCalcTn()">
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center">
+                <label style="font-size:.85rem;font-weight:600">20/40 <span style="font-size:.7rem;color:var(--muted)">(×1,40)</span></label>
+                <input type="number" class="inp" id="topo-v2040" placeholder="m³" step="0.01" min="0" oninput="topoCalcTn()">
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center">
+                <label style="font-size:.85rem;font-weight:600">Revuelto 0/20 <span style="font-size:.7rem;color:var(--muted)">(×1,30)</span></label>
+                <input type="number" class="inp" id="topo-v020" placeholder="m³" step="0.01" min="0" oninput="topoCalcTn()">
+              </div>
+            </div>
+            <!-- Preview Tn -->
+            <div id="topo-preview" style="margin-top:12px;padding:10px;background:var(--surface2);border-radius:8px;font-size:.82rem;display:none">
+              <div style="font-weight:700;margin-bottom:6px;color:var(--accent)">Toneladas calculadas</div>
+              <div id="topo-preview-rows"></div>
+            </div>
+            <div style="margin-top:12px">
+              <label style="font-size:.8rem;color:var(--muted);font-weight:600">Observaciones</label>
+              <textarea class="inp" id="topo-obs" rows="2" style="width:100%;margin-top:4px;resize:none"></textarea>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:16px">
+              <button class="btn-sec" onclick="cerrarTopoModal()" style="flex:1">Cancelar</button>
+              <button class="btn-pri" onclick="guardarTopo()" style="flex:2" id="topo-btn-guardar">Guardar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal regularización -->
+        <div id="reg-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:900;display:flex;align-items:center;justify-content:center;padding:16px" class="hidden">
+          <div class="card" style="width:100%;max-width:460px;padding:20px;max-height:90vh;overflow-y:auto">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+              <div style="font-weight:700;font-size:1.05rem">Regularización manual</div>
+              <button onclick="cerrarRegModal()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--muted)">&times;</button>
+            </div>
+            <div style="font-size:.78rem;color:var(--muted);margin-bottom:12px">Valores positivos = entrada, negativos = salida. Se aplica al stock del día indicado.</div>
+            <div style="margin-bottom:12px">
+              <label style="font-size:.8rem;color:var(--muted);font-weight:600">Fecha</label>
+              <input type="date" class="inp" id="reg-fecha" style="width:100%;margin-top:4px">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center">
+                <label style="font-size:.85rem;font-weight:600">0/4 (Tn)</label>
+                <input type="number" class="inp" id="reg-t04" placeholder="0,00" step="0.01">
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center">
+                <label style="font-size:.85rem;font-weight:600">4/12 (Tn)</label>
+                <input type="number" class="inp" id="reg-t412" placeholder="0,00" step="0.01">
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center">
+                <label style="font-size:.85rem;font-weight:600">12/20 (Tn)</label>
+                <input type="number" class="inp" id="reg-t1220" placeholder="0,00" step="0.01">
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center">
+                <label style="font-size:.85rem;font-weight:600">20/40 (Tn)</label>
+                <input type="number" class="inp" id="reg-t2040" placeholder="0,00" step="0.01">
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center">
+                <label style="font-size:.85rem;font-weight:600">Revuelto 0/20 (Tn)</label>
+                <input type="number" class="inp" id="reg-t020" placeholder="0,00" step="0.01">
+              </div>
+            </div>
+            <div style="margin-top:12px">
+              <label style="font-size:.8rem;color:var(--muted);font-weight:600">Motivo</label>
+              <input type="text" class="inp" id="reg-motivo" placeholder="Ej: Ajuste tras levantamiento" style="width:100%;margin-top:4px">
+            </div>
+            <div style="display:flex;gap:8px;margin-top:16px">
+              <button class="btn-sec" onclick="cerrarRegModal()" style="flex:1">Cancelar</button>
+              <button class="btn-pri" onclick="guardarReg()" style="flex:2">Guardar</button>
             </div>
           </div>
         </div>

@@ -510,7 +510,7 @@ const DIAS_LAB_2026=[18,18,22,20,20,21,23,21,22,21,21,18];
 const HORAS_DIA_STD=8; // Jornada estándar convenio
 const PRODS=['ARIDO AF-T-0/4-I','ARIDO AG-T-4/12-I','ARIDO AG-T-12/20-I','ARIDO AG-T-20/40-I','ARIDO AG-T-40/70-I','REVUELTO 0/20','REVUELTO 0/10','PIEDRA PARA MURO (UD)','MATERIAL DE RELLENO 0/4'];
 const PROD_CAT={'ARIDO AF-T-0/4-I':'0/4','ARIDO AG-T-4/12-I':'4/12','ARIDO AG-T-12/20-I':'12/20','ARIDO AG-T-20/40-I':'20/40'};
-const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas','historico-ventas':'Histórico de Ventas',caja:'Caja',costes:'Análisis de Costes',produccion:'Producción Planta',informes:'Informes Planta',stock:'Stock Áridos',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',tareas:'Tareas',preventivo:'Mantenimiento Preventivo',compras:'Escanear Factura',choferes:'Conductores',ensayos:'Control de Ensayos',kpis:'KPIs — Planta de Árido'};
+const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas','historico-ventas':'Histórico de Ventas',caja:'Caja',costes:'Análisis de Costes',produccion:'Producción Planta',informes:'Informes Planta',stock:'Stock Áridos',topografia:'Levantamiento Topográfico',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',tareas:'Tareas',preventivo:'Mantenimiento Preventivo',compras:'Escanear Factura',choferes:'Conductores',ensayos:'Control de Ensayos',kpis:'KPIs — Planta de Árido'};
 
 // Login via Google OAuth — ver funciones.js: googleLogin() y checkGoogleSession()
 
@@ -572,6 +572,7 @@ function goPage(id){
   if(id==='produccion')initProduccion();
   if(id==='informes'){const fi=document.getElementById('inf-fecha');if(fi&&!fi.value)fi.value=new Date().toISOString().slice(0,10);}
   if(id==='stock')initStock();
+  if(id==='topografia')initTopografia();
   if(id==='facturacion')initFacturacion();
   if(id==='caja')initCaja();
   if(id==='costes')initCostes();
@@ -12500,4 +12501,201 @@ async function cargarKPIs() {
     console.error('cargarKPIs error:', e);
     wrap.innerHTML = `<div style="color:#e53935;text-align:center;padding:40px;font-size:.82rem">Error: ${e.message}</div>`;
   }
+}
+
+// ══════════════════════════════════════════════════════════════
+// TOPOGRAFÍA — Levantamientos mensuales + regularizaciones
+// Tabla Supabase: tblTopografia  (id, fecha, v04, v412, v1220, v2040, v020, t04, t412, t1220, t2040, t020, obs)
+// Tabla Supabase: tblRegularizaciones (id, fecha, t04, t412, t1220, t2040, t020, motivo)
+// ══════════════════════════════════════════════════════════════
+
+const TOPO_DENSIDADES = { v04:1.50, v412:1.40, v1220:1.40, v2040:1.40, v020:1.30 };
+const TOPO_LABELS = { v04:'0/4', v412:'4/12', v1220:'12/20', v2040:'20/40', v020:'Rev 0/20' };
+const TOPO_KEYS = ['v04','v412','v1220','v2040','v020'];
+
+let _topoInited = false;
+let _topoEditId = null;
+
+function initTopografia() {
+  if (!_topoInited) {
+    const sel = document.getElementById('topo-anyo');
+    const yr = new Date().getFullYear();
+    for (let y = yr; y >= yr - 4; y--) {
+      const o = document.createElement('option');
+      o.value = y; o.textContent = y;
+      sel.appendChild(o);
+    }
+    _topoInited = true;
+  }
+  cargarTopografia();
+}
+
+async function cargarTopografia() {
+  const anyo = parseInt(document.getElementById('topo-anyo').value);
+  const ini = `${anyo}-01-01`, fin = `${anyo}-12-31`;
+  const [topoRes, regRes] = await Promise.all([
+    dbQuery({ action:'select', table:'tblTopografia',
+      filters:[{column:'fecha',op:'gte',value:ini},{column:'fecha',op:'lte',value:fin}],
+      options:{select:'*',order:'fecha.desc'} }),
+    dbQuery({ action:'select', table:'tblRegularizaciones',
+      filters:[{column:'fecha',op:'gte',value:ini},{column:'fecha',op:'lte',value:fin}],
+      options:{select:'*',order:'fecha.desc'} })
+  ]);
+  renderTopoTabla(topoRes.ok ? topoRes.data||[] : []);
+  renderRegTabla(regRes.ok ? regRes.data||[] : []);
+}
+
+function _fmtTn(v){ return v!=null&&v!==''&&!isNaN(v) ? Number(v).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—'; }
+
+function renderTopoTabla(rows) {
+  const tbody = document.getElementById('topo-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:40px;color:var(--muted)">Sin levantamientos registrados</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => {
+    const totalTn = ['t04','t412','t1220','t2040','t020'].reduce((s,k)=>s+Number(r[k]||0),0);
+    return `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:9px 12px;font-weight:600">${r.fecha||''}</td>
+      <td style="text-align:right;padding:9px 8px;color:var(--muted)">${_fmtTn(r.v04)}</td>
+      <td style="text-align:right;padding:9px 8px">${_fmtTn(r.t04)}</td>
+      <td style="text-align:right;padding:9px 8px;color:var(--muted)">${_fmtTn(r.v412)}</td>
+      <td style="text-align:right;padding:9px 8px">${_fmtTn(r.t412)}</td>
+      <td style="text-align:right;padding:9px 8px;color:var(--muted)">${_fmtTn(r.v1220)}</td>
+      <td style="text-align:right;padding:9px 8px">${_fmtTn(r.t1220)}</td>
+      <td style="text-align:right;padding:9px 8px;color:var(--muted)">${_fmtTn(r.v2040)}</td>
+      <td style="text-align:right;padding:9px 8px">${_fmtTn(r.t2040)}</td>
+      <td style="text-align:right;padding:9px 8px;color:var(--muted)">${_fmtTn(r.v020)}</td>
+      <td style="text-align:right;padding:9px 8px">${_fmtTn(r.t020)}</td>
+      <td style="text-align:right;padding:9px 8px;font-weight:700;color:var(--accent)">${_fmtTn(totalTn)}</td>
+      <td style="padding:9px 8px;color:var(--muted);font-size:.78rem;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.obs||''}</td>
+      <td style="padding:9px 8px;white-space:nowrap">
+        <button onclick="editarTopo(${r.id})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:.8rem;padding:2px 6px">✏️</button>
+        <button onclick="eliminarTopo(${r.id})" style="background:none;border:none;cursor:pointer;color:#e53935;font-size:.8rem;padding:2px 6px">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function renderRegTabla(rows) {
+  const tbody = document.getElementById('reg-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--muted)">Sin regularizaciones</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `<tr style="border-bottom:1px solid var(--border)">
+    <td style="padding:9px 12px;font-weight:600">${r.fecha||''}</td>
+    <td style="text-align:right;padding:9px 8px;color:${Number(r.t04||0)>=0?'var(--accent)':'#e53935'}">${_fmtTn(r.t04)}</td>
+    <td style="text-align:right;padding:9px 8px;color:${Number(r.t412||0)>=0?'var(--accent)':'#e53935'}">${_fmtTn(r.t412)}</td>
+    <td style="text-align:right;padding:9px 8px;color:${Number(r.t1220||0)>=0?'var(--accent)':'#e53935'}">${_fmtTn(r.t1220)}</td>
+    <td style="text-align:right;padding:9px 8px;color:${Number(r.t2040||0)>=0?'var(--accent)':'#e53935'}">${_fmtTn(r.t2040)}</td>
+    <td style="text-align:right;padding:9px 8px;color:${Number(r.t020||0)>=0?'var(--accent)':'#e53935'}">${_fmtTn(r.t020)}</td>
+    <td style="padding:9px 8px;color:var(--muted);font-size:.78rem">${r.motivo||''}</td>
+    <td style="padding:9px 8px">
+      <button onclick="eliminarReg(${r.id})" style="background:none;border:none;cursor:pointer;color:#e53935;font-size:.8rem;padding:2px 6px">🗑</button>
+    </td>
+  </tr>`).join('');
+}
+
+// ── Modal levantamiento ──
+function abrirTopoModal(datos) {
+  _topoEditId = datos?.id || null;
+  document.getElementById('topo-modal-title').textContent = _topoEditId ? 'Editar levantamiento' : 'Nuevo levantamiento';
+  document.getElementById('topo-fecha').value = datos?.fecha || new Date().toISOString().slice(0,10);
+  TOPO_KEYS.forEach(k => {
+    document.getElementById('topo-'+k).value = datos?.[k] != null ? datos[k] : '';
+  });
+  document.getElementById('topo-obs').value = datos?.obs || '';
+  topoCalcTn();
+  document.getElementById('topo-modal').classList.remove('hidden');
+  document.getElementById('topo-modal').style.display = 'flex';
+}
+function cerrarTopoModal() {
+  document.getElementById('topo-modal').classList.add('hidden');
+  document.getElementById('topo-modal').style.display = 'none';
+  _topoEditId = null;
+}
+function topoCalcTn() {
+  const preview = document.getElementById('topo-preview');
+  const rows = [];
+  let anyVal = false;
+  TOPO_KEYS.forEach(k => {
+    const v = parseFloat(document.getElementById('topo-'+k).value);
+    if (!isNaN(v) && v > 0) {
+      anyVal = true;
+      const tn = v * TOPO_DENSIDADES[k];
+      rows.push(`<div style="display:flex;justify-content:space-between;padding:2px 0"><span>${TOPO_LABELS[k]}</span><span><span style="color:var(--muted)">${v.toLocaleString('es-ES',{maximumFractionDigits:2})} m³ × ${TOPO_DENSIDADES[k]}</span> = <b>${tn.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})} Tn</b></span></div>`);
+    }
+  });
+  if (anyVal) {
+    document.getElementById('topo-preview-rows').innerHTML = rows.join('');
+    preview.style.display = 'block';
+  } else {
+    preview.style.display = 'none';
+  }
+}
+async function guardarTopo() {
+  const fecha = document.getElementById('topo-fecha').value;
+  if (!fecha) { alert('Indica la fecha'); return; }
+  const data = { fecha, obs: document.getElementById('topo-obs').value || null };
+  TOPO_KEYS.forEach(k => {
+    const v = parseFloat(document.getElementById('topo-'+k).value);
+    data[k] = isNaN(v) ? null : v;
+    const tk = k.replace('v','t');
+    data[tk] = isNaN(v) ? null : parseFloat((v * TOPO_DENSIDADES[k]).toFixed(4));
+  });
+  const btn = document.getElementById('topo-btn-guardar');
+  btn.disabled = true; btn.textContent = 'Guardando...';
+  let res;
+  if (_topoEditId) {
+    res = await dbQuery({ action:'update', table:'tblTopografia', data, filters:[{column:'id',op:'eq',value:_topoEditId}] });
+  } else {
+    res = await dbQuery({ action:'insert', table:'tblTopografia', data });
+  }
+  btn.disabled = false; btn.textContent = 'Guardar';
+  if (res.ok) { cerrarTopoModal(); cargarTopografia(); }
+  else alert('Error al guardar: ' + (res.error||'desconocido'));
+}
+async function editarTopo(id) {
+  const res = await dbQuery({ action:'select', table:'tblTopografia', filters:[{column:'id',op:'eq',value:id}], options:{select:'*'} });
+  if (res.ok && res.data?.[0]) abrirTopoModal(res.data[0]);
+}
+async function eliminarTopo(id) {
+  if (!confirm('¿Eliminar este levantamiento?')) return;
+  const res = await dbQuery({ action:'delete', table:'tblTopografia', filters:[{column:'id',op:'eq',value:id}] });
+  if (res.ok) cargarTopografia();
+  else alert('Error al eliminar');
+}
+
+// ── Modal regularización ──
+function abrirRegModal() {
+  document.getElementById('reg-fecha').value = new Date().toISOString().slice(0,10);
+  ['t04','t412','t1220','t2040','t020'].forEach(k => document.getElementById('reg-'+k).value = '');
+  document.getElementById('reg-motivo').value = '';
+  document.getElementById('reg-modal').classList.remove('hidden');
+  document.getElementById('reg-modal').style.display = 'flex';
+}
+function cerrarRegModal() {
+  document.getElementById('reg-modal').classList.add('hidden');
+  document.getElementById('reg-modal').style.display = 'none';
+}
+async function guardarReg() {
+  const fecha = document.getElementById('reg-fecha').value;
+  if (!fecha) { alert('Indica la fecha'); return; }
+  const data = { fecha, motivo: document.getElementById('reg-motivo').value || null };
+  ['t04','t412','t1220','t2040','t020'].forEach(k => {
+    const v = parseFloat(document.getElementById('reg-'+k).value);
+    data[k] = isNaN(v) ? null : v;
+  });
+  const allZero = ['t04','t412','t1220','t2040','t020'].every(k => !data[k]);
+  if (allZero) { alert('Introduce al menos un valor'); return; }
+  const res = await dbQuery({ action:'insert', table:'tblRegularizaciones', data });
+  if (res.ok) { cerrarRegModal(); cargarTopografia(); }
+  else alert('Error al guardar: ' + (res.error||'desconocido'));
+}
+async function eliminarReg(id) {
+  if (!confirm('¿Eliminar esta regularización?')) return;
+  const res = await dbQuery({ action:'delete', table:'tblRegularizaciones', filters:[{column:'id',op:'eq',value:id}] });
+  if (res.ok) cargarTopografia();
+  else alert('Error al eliminar');
 }
