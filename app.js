@@ -423,9 +423,10 @@ async function apiPost(payload) {
   const t = payload.tipo || '';
 
   // ── Producción y Gasoil → Google Sheets ──
-  if (t === 'gasoil' || t === 'editarGasoil' || t === 'editProduccion' || t === 'addProduccion') {
+  if (t === 'gasoil' || t === 'editProduccion' || t === 'addProduccion') {
     return sheetsPost(payload);
   }
+  if (t === 'editarGasoil') return doEditarGasoil(payload);
 
   // ── Todo lo demás → Supabase ──
   if (t === 'fichajeEntrada')  return doPostEntrada(payload);
@@ -3645,9 +3646,13 @@ async function goStep2(){if(!selMachine)return;const grid=document.getElementByI
       // Coincide por ID de activo o por modelo
       return nm===mid||nm===mmod;
     });
+    const seenGamaIds=new Set();
     dynGamas.forEach(n=>{
+      const gamaId=n.Numero||'DB-'+n.id;
+      if(seenGamaIds.has(gamaId))return;
+      seenGamaIds.add(gamaId);
       const checks=[];for(let i=1;i<=60;i++)if(n['n'+i])checks.push(n['n'+i]);
-      gamas.push({id:n.Numero||'DB-'+n.id,modelo:n.Modelo,nombre:n.Gama||n.Numero||'Gama '+n.id,intervalo:n.Intervalo||0,checks,_src:'db',_dbId:n.id});
+      gamas.push({id:gamaId,modelo:n.Modelo,nombre:n.Gama||n.Numero||'Gama '+n.id,intervalo:n.Intervalo||0,checks,_src:'db',_dbId:n.id});
     });
   }catch(e){console.warn('Error cargando gamas dinámicas:',e);}
   // Hardcoded solo como fallback si no hay nada en Supabase para este modelo
@@ -3981,9 +3986,11 @@ function renderGasoilStock(){
 function renderGasoilHistorial(){
   const filtTipo=(document.getElementById('gasoil-filt-tipo')||{}).value||'';
   const filtOrigen=(document.getElementById('gasoil-filt-origen')||{}).value||'';
+  const filtDestino=(document.getElementById('gasoil-filt-destino')||{}).value||'';
   let filtered=[...gasoilData];
   if(filtTipo)filtered=filtered.filter(r=>String(r.tipo||'').toUpperCase().includes(filtTipo));
   if(filtOrigen)filtered=filtered.filter(r=>String(r.origen||'').toUpperCase().includes(filtOrigen.toUpperCase()));
+  if(filtDestino)filtered=filtered.filter(r=>String(r.destino||'').toUpperCase()===filtDestino.toUpperCase());
   const el=document.getElementById('gasoil-hist-list');
   if(!el)return;
   if(!filtered.length){el.innerHTML='<div class="tbl"><div class="empty">Sin registros</div></div>';return;}
@@ -6070,7 +6077,24 @@ function printOT(filled){
   document.getElementById('otp-fecha').textContent='';
   const tbl=document.getElementById('otp-checks-table');
   let rows='';
-  const checksConGrupo = selGama._checksConGrupo || (selGama._checksExpanded||selGama.checks).map(c=>({text:c,grupo:selGama.nombre}));
+  // Si no se pasó por goStep4Real, calcular acumulación de subgamas igual que goStep4Real
+  let checksConGrupo = selGama._checksConGrupo;
+  if(!checksConGrupo){
+    const mod=(selMachine.modelo||'').trim().toUpperCase();
+    const gamasModelo=normasData.filter(n=>(n.Modelo||'').trim().toUpperCase()===mod);
+    const acumulados=[];
+    gamasModelo
+      .filter(n=>(n.Intervalo||0)<selGama.intervalo&&(n.Intervalo||0)>0)
+      .sort((a,b)=>(a.Intervalo||0)-(b.Intervalo||0))
+      .forEach(n=>{
+        const chks=[];for(let i=1;i<=60;i++)if(n['n'+i])chks.push(n['n'+i]);
+        if(chks.length)acumulados.push({nombre:n.Gama||n.Numero||'Gama '+n.Intervalo+'h',checks:chks});
+      });
+    const todos=[];
+    acumulados.forEach(g=>g.checks.forEach(c=>todos.push({text:c,grupo:g.nombre})));
+    selGama.checks.forEach(c=>todos.push({text:c,grupo:selGama.nombre}));
+    checksConGrupo=todos.length?todos:(selGama._checksExpanded||selGama.checks).map(c=>({text:c,grupo:selGama.nombre}));
+  }
   let grupoActualPrint = null;
   checksConGrupo.forEach((c,i)=>{
     const done=filled&&checkStates[i];
