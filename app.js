@@ -426,7 +426,16 @@ async function apiPost(payload) {
   if (t === 'gasoil' || t === 'editProduccion' || t === 'addProduccion') {
     return sheetsPost(payload);
   }
-  if (t === 'editarGasoil') return sheetsPost({...payload, secret:'ar1f0ma-2025-sh3ets'});
+  if (t === 'editarGasoil') {
+    try {
+      const res = await fetch('/api/gasoil-edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (_sessionToken||'') },
+        body: JSON.stringify(payload)
+      });
+      return await res.json();
+    } catch(e) { return { ok: false, error: e.message }; }
+  }
 
   // ── Todo lo demás → Supabase ──
   if (t === 'fichajeEntrada')  return doPostEntrada(payload);
