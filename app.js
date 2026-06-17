@@ -426,7 +426,7 @@ async function apiPost(payload) {
   if (t === 'gasoil' || t === 'editProduccion' || t === 'addProduccion') {
     return sheetsPost(payload);
   }
-  if (t === 'editarGasoil') return doEditarGasoil(payload);
+  if (t === 'editarGasoil') return sheetsPost({...payload, secret:'ar1f0ma-2025-sh3ets'});
 
   // ── Todo lo demás → Supabase ──
   if (t === 'fichajeEntrada')  return doPostEntrada(payload);
@@ -4050,6 +4050,7 @@ function renderGasoilHorometros(){
 
 function openGasoilEditModal(r){
   document.getElementById('gedit-rownum').value=r.id||r.rowNum||'';
+  document.getElementById('gedit-rownum').dataset.sheetKey=r.sheet_key||'';
   document.getElementById('gedit-tipo').value=r.tipo||'SALIDA';
   document.getElementById('gedit-origen').value=r.origen||'DEPOSITO 1';
   document.getElementById('gedit-destino').value=r.destino||'';
@@ -4086,8 +4087,8 @@ async function saveGasoilEdit(){
   msg.style.color='var(--muted)';msg.textContent='Guardando...';
   try{
     const horometro=parseInt(document.getElementById('gedit-horometro').value)||null;
-    console.log('DEBUG editarGasoil',{recordId,fecha:fechaFmt,proveedor,origen,destino,tipoMovimiento:tipo,litros,horometro});
-    await apiPost({tipo:'editarGasoil',id:recordId,fecha:fechaFmt,proveedor,origen,destino,tipoMovimiento:tipo,litros,horometro});
+    const sheetKey=document.getElementById('gedit-rownum').dataset.sheetKey||'';
+    await apiPost({tipo:'editarGasoil',sheet_key:sheetKey,id:recordId,fecha:fechaFmt,proveedor,origen,destino,tipoMovimiento:tipo,litros,horometro});
     // Update local data
     const idx=gasoilData.findIndex(r=>String(r.id)===String(recordId));
     if(idx>=0)gasoilData[idx]={...gasoilData[idx],fecha:fechaFmt,proveedor,origen,destino,tipo,litros};
