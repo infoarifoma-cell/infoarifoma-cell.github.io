@@ -3996,13 +3996,14 @@ function renderGasoilHistorial(){
   if(!filtered.length){el.innerHTML='<div class="tbl"><div class="empty">Sin registros</div></div>';return;}
   const COLOR={'SALIDA':'rgba(255,95,95,.15)','ENTRADA':'rgba(107,125,46,.15)','ENTRADA-SALIDA':'rgba(107,125,46,.12)','REAJUSTE COMBUSTIBLE':'rgba(107,125,46,.15)'};
   const CTEXT={'SALIDA':'var(--danger)','ENTRADA':'var(--accent)','ENTRADA-SALIDA':'var(--accent2)','REAJUSTE COMBUSTIBLE':'#f5c842'};
-  const rows=filtered.map(r=>{
+  window._gasoilEditRows=filtered;
+  const rows=filtered.map((r,i)=>{
     const t=String(r.tipo||'').toUpperCase();
     const bg=COLOR[t]||'rgba(122,132,160,.1)';
     const col=CTEXT[t]||'var(--muted)';
     const tShort=t==='REAJUSTE COMBUSTIBLE'?'REAJUSTE':t==='ENTRADA-SALIDA'?'E-S':t;
     const horo=r.horometro?Number(r.horometro).toLocaleString()+' h':'—';
-    return '<div class="tr" style="cursor:pointer" onclick="openGasoilEditModal('+JSON.stringify(r)+')">'+
+    return '<div class="tr" style="cursor:pointer" onclick="openGasoilEditModal(window._gasoilEditRows['+i+'])">'+
       '<div class="tc" style="flex:.7;color:var(--muted);font-size:.8rem">'+(r.fecha||'—')+'</div>'+
       '<div class="tc" style="flex:.8"><span class="badge" style="background:'+bg+';color:'+col+';white-space:nowrap;font-size:.72rem">'+tShort+'</span></div>'+
       '<div class="tc" style="flex:.6;color:var(--muted);font-size:.78rem">'+(r.origen||'—')+'</div>'+
