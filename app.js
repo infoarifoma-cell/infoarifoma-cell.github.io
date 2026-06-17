@@ -4086,6 +4086,7 @@ async function saveGasoilEdit(){
   msg.style.color='var(--muted)';msg.textContent='Guardando...';
   try{
     const horometro=parseInt(document.getElementById('gedit-horometro').value)||null;
+    console.log('DEBUG editarGasoil',{recordId,fecha:fechaFmt,proveedor,origen,destino,tipoMovimiento:tipo,litros,horometro});
     await apiPost({tipo:'editarGasoil',id:recordId,fecha:fechaFmt,proveedor,origen,destino,tipoMovimiento:tipo,litros,horometro});
     // Update local data
     const idx=gasoilData.findIndex(r=>String(r.id)===String(recordId));
