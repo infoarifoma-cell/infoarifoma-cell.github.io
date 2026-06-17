@@ -9,7 +9,7 @@ async function sheetsPost(payload) {
   try {
     const res = await fetch('/api/google-sheet-post', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (_sessionToken||'') },
       body: JSON.stringify(payload)
     });
     if (!res.ok) return { ok: false, error: 'HTTP ' + res.status };
