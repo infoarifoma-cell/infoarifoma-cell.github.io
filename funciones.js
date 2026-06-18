@@ -195,7 +195,7 @@ async function checkGoogleSession(existingSession) {
 // Session timeout: 30 minutos de inactividad
 let _sessionTimeout;
 let _tokenRefreshTimeout;
-const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
+const SESSION_TIMEOUT_MS = 12 * 60 * 60 * 1000; // 12 horas
 
 function decodeJWT(token) {
   try {
@@ -228,11 +228,13 @@ async function scheduleTokenRefresh(token) {
         scheduleTokenRefresh(session.access_token);
       } else {
         console.warn('Error refrescando token Google:', error?.message);
-        // Token irrecuperable — forzar re-login
-        await cerrarSesion();
-        document.getElementById('login-error').textContent = 'Sesión expirada. Inicie sesión nuevamente.';
-        document.getElementById('pinScreen').style.display = 'flex';
-        document.getElementById('shell').style.display = 'none';
+        // Token irrecuperable — avisar sin cerrar sesión para no perder datos en curso
+        const aviso = document.getElementById('login-error');
+        if (aviso) aviso.textContent = '⚠ Sesión expirada. Guarda tu trabajo y recarga la página.';
+        // Intentar re-login silencioso con Google
+        try {
+          const { data: d2 } = await _supabase.auth.signInWithOAuth({ provider: 'google', options: { skipBrowserRedirect: true } });
+        } catch(e2) {}
       }
     }, refreshTime);
   }
@@ -241,11 +243,13 @@ async function scheduleTokenRefresh(token) {
 function resetSessionTimeout() {
   clearTimeout(_sessionTimeout);
   _sessionTimeout = setTimeout(async () => {
-    console.warn('Sesión expirada por inactividad');
-    await cerrarSesion();
-    document.getElementById('login-error').textContent = 'Sesión expirada. Inicie sesión nuevamente.';
-    document.getElementById('pinScreen').style.display = 'flex';
-    document.getElementById('shell').style.display = 'none';
+    console.warn('Sesión expirada por inactividad — intentando renovar');
+    const refreshed = await _refreshToken();
+    if (!refreshed) {
+      // Solo avisar, no cerrar — no perder datos en curso
+      const aviso = document.getElementById('login-error');
+      if (aviso) aviso.textContent = '⚠ Sesión expirada. Recarga la página para continuar.';
+    }
   }, SESSION_TIMEOUT_MS);
 }
 
