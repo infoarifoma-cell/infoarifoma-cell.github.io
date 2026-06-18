@@ -2323,7 +2323,10 @@
         <div class="page" id="pg-documentos">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
             <div class="sec-title" style="margin:0">Control Documental</div>
-            <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="cargarDocumentos()">&#8635; Actualizar</button>
+            <div style="display:flex;gap:6px">
+              <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="docAbrirOneDrive('',null)">☁ Ver OneDrive</button>
+              <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="cargarDocumentos()">&#8635; Actualizar</button>
+            </div>
           </div>
           <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
             <div id="doc-badge-rojo" style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:#ff4d4d22;font-size:.75rem;color:#ff4d4d;font-weight:700"><span id="doc-cnt-rojo">0</span> Vencidos</div>
