@@ -3841,20 +3841,29 @@ async function docAbrirOneDrive(nombre, btnEl) {
   try {
     if (btnEl) { btnEl.textContent = '⏳'; btnEl.disabled = true; }
     const token = await comprasGetToken();
-    const { driveId, arifomaId } = await _oneDriveGetArifomaRoot(token);
+    const { driveId, admonId } = await _oneDriveGetArifomaRoot(token);
 
-    // Navegar desde Arifoma → 07. CONTROL DOCUMENTAL → 07.01 DOCUMENTOS
+    // admonId = "06. ADMINISTRACION". Su padre (mismo nivel) tiene "07. CONTROL DOCUMENTAL".
+    // Obtenemos el parentId de "06." directamente via Graph.
     async function getChild(parentId, childName) {
       const r = await fetch('https://graph.microsoft.com/v1.0/drives/' + driveId + '/items/' + parentId + '/children?$select=id,name,webUrl,folder&$top=200', {
         headers: { 'Authorization': 'Bearer ' + token }
       });
-      if (!r.ok) throw new Error('Error listando carpeta');
+      if (!r.ok) throw new Error('Error listando carpeta (HTTP ' + r.status + ')');
       const j = await r.json();
       const norm = s => s.trim().toLowerCase();
       return (j.value || []).find(i => norm(i.name) === norm(childName));
     }
 
-    const carpeta07 = await getChild(arifomaId, '07. CONTROL DOCUMENTAL');
+    // Obtener el parentId real de "06." (carpeta Arifoma o Escritorio)
+    const admonMeta = await fetch('https://graph.microsoft.com/v1.0/drives/' + driveId + '/items/' + admonId + '?$select=id,name,parentReference', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!admonMeta.ok) throw new Error('No se pudo leer metadatos de la carpeta de administración');
+    const admonJson = await admonMeta.json();
+    const realParentId = admonJson.parentReference.id;
+
+    const carpeta07 = await getChild(realParentId, '07. CONTROL DOCUMENTAL');
     if (!carpeta07) throw new Error('Carpeta "07. CONTROL DOCUMENTAL" no encontrada');
     const carpetaDocs = await getChild(carpeta07.id, '07.01 DOCUMENTOS');
     if (!carpetaDocs) throw new Error('Carpeta "07.01 DOCUMENTOS" no encontrada');
