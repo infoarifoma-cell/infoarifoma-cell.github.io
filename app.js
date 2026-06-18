@@ -3861,24 +3861,38 @@ async function docAbrirOneDrive(nombre, btnEl) {
     const carpetaDocs = await getChild(carpeta07.id, '07.01 DOCUMENTOS');
     if (!carpetaDocs) throw new Error('Carpeta "07.01 DOCUMENTOS" no encontrada');
 
-    // Buscar archivo por nombre (con o sin extensión)
-    const r = await fetch('https://graph.microsoft.com/v1.0/drives/' + driveId + '/items/' + carpetaDocs.id + '/children?$select=id,name,webUrl&$top=500', {
+    // Listar todos los archivos y mostrar modal
+    const r = await fetch('https://graph.microsoft.com/v1.0/drives/' + driveId + '/items/' + carpetaDocs.id + '/children?$select=id,name,webUrl&$top=500&$orderby=name', {
       headers: { 'Authorization': 'Bearer ' + token }
     });
     if (!r.ok) throw new Error('Error listando documentos');
     const j = await r.json();
-    const norm = s => s.trim().toLowerCase().replace(/\.[^.]+$/, '');
-    const found = (j.value || []).find(i => norm(i.name) === norm(nombre));
-    if (found) {
-      window.open(found.webUrl, '_blank');
-    } else {
-      alert('Documento no encontrado en OneDrive:\n' + nombre);
-    }
+    window._docOdArchivos = j.value || [];
+    docOdMostrarModal();
   } catch(e) {
     alert('Error abriendo OneDrive: ' + e.message);
   } finally {
     if (btnEl) { btnEl.textContent = '☁ Ver'; btnEl.disabled = false; }
   }
+}
+
+function docOdMostrarModal() {
+  document.getElementById('doc-od-search').value = '';
+  docOdFiltrar();
+  document.getElementById('doc-od-modal').classList.add('open');
+}
+
+function docOdFiltrar() {
+  const q = (document.getElementById('doc-od-search').value || '').toLowerCase();
+  const archivos = (window._docOdArchivos || []).filter(f => !q || f.name.toLowerCase().includes(q));
+  const el = document.getElementById('doc-od-list');
+  if (!archivos.length) { el.innerHTML = '<div style="font-size:.78rem;color:var(--muted);text-align:center;padding:16px">Sin resultados</div>'; return; }
+  el.innerHTML = archivos.map(f =>
+    `<a href="${f.webUrl}" target="_blank" onclick="document.getElementById('doc-od-modal').classList.remove('open')"
+      style="display:block;padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:6px;font-size:.78rem;color:var(--text);text-decoration:none;cursor:pointer">
+      📄 ${f.name}
+    </a>`
+  ).join('');
 }
 
 async function cargarHistorialOT(){

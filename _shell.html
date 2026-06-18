@@ -2348,6 +2348,17 @@
           <div id="doc-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
         </div>
 
+        <!-- Modal archivos OneDrive -->
+        <div class="modal-wrap" id="doc-od-modal">
+          <div class="modal-box" style="max-width:480px;max-height:80vh;display:flex;flex-direction:column">
+            <h3 style="margin:0 0 4px">☁ Documentos OneDrive</h3>
+            <div style="font-size:.72rem;color:var(--muted);margin-bottom:12px">07.01 DOCUMENTOS</div>
+            <input class="inp" id="doc-od-search" placeholder="Filtrar..." oninput="docOdFiltrar()" style="margin-bottom:10px">
+            <div id="doc-od-list" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:4px"></div>
+            <button class="btn-sec" onclick="document.getElementById('doc-od-modal').classList.remove('open')" style="margin-top:12px">Cerrar</button>
+          </div>
+        </div>
+
         <!-- ══ KPIs ══ -->
         <div class="page" id="pg-kpis">
           <div class="sec-title" style="margin-bottom:4px">KPIs — Planta de Árido</div>
