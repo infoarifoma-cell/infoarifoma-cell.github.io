@@ -62,7 +62,7 @@ export default async function handler(req, res) {
     'tblGamasListadoPreventivo', 'tblUsuarios',
     'tblactivos', 'tblcaja', 'tblnotas', 'tblchoferes', 'tblTareas',
     'ensayos_semanas', 'ensayos_registros', 'ensayos_prestaciones', 'ensayos_limites', 'ensayos_anuales',
-    'tblTopografia', 'tblRegularizaciones'
+    'tblTopografia', 'tblRegularizaciones', 'tblPesoBascula'
   ];
 
   if (!table || !ALLOWED_TABLES.includes(table)) {
