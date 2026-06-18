@@ -3298,8 +3298,10 @@ async function imprimirSolicitudVacaciones(worker, vacId, btnEl) {
       const norm = s => s.trim().toLowerCase();
       return (j.value || []).find(i => norm(i.name) === norm(childName));
     }
-    // admonId = 06. ADMINISTRACION → navegar directo sin pasar por Arifoma
-    const c2 = await getChild(admonId, '06.00 PERSONAL');
+    // admonId = Arifoma → bajar a 06. ADMINISTRACION → 06.00 PERSONAL
+    const c1 = await getChild(admonId, '06. ADMINISTRACION');
+    if (!c1) throw new Error('"06. ADMINISTRACION" no encontrada');
+    const c2 = await getChild(c1.id, '06.00 PERSONAL');
     if (!c2) throw new Error('"06.00 PERSONAL" no encontrada');
     const c3 = await getChild(c2.id, '06.00.02 VACACIONES');
     if (!c3) throw new Error('"06.00.02 VACACIONES" no encontrada');
@@ -3830,10 +3832,9 @@ async function _oneDriveGetArifomaRoot(token) {
   });
   if (!shareRes.ok) throw new Error('No se pudo acceder a OneDrive');
   const shareItem = await shareRes.json();
-  console.log('SHARE ITEM FULL:', JSON.stringify(shareItem));
   const driveId = shareItem.parentReference.driveId;
-  const arifomaId = shareItem.parentReference.id; // carpeta Arifoma
-  const admonId = shareItem.id; // carpeta 06. ADMINISTRACION
+  const arifomaId = shareItem.id; // carpeta Arifoma (shareItem ES Arifoma)
+  const admonId = shareItem.id;   // alias — mismo ID
   return { driveId, arifomaId, admonId };
 }
 
@@ -3843,8 +3844,7 @@ async function docAbrirOneDrive(nombre, btnEl) {
     const token = await comprasGetToken();
     const { driveId, admonId } = await _oneDriveGetArifomaRoot(token);
 
-    // admonId = "06. ADMINISTRACION". Su padre (mismo nivel) tiene "07. CONTROL DOCUMENTAL".
-    // Obtenemos el parentId de "06." directamente via Graph.
+    // arifomaId = carpeta Arifoma → navegar directo a 07. CONTROL DOCUMENTAL
     async function getChild(parentId, childName) {
       const r = await fetch('https://graph.microsoft.com/v1.0/drives/' + driveId + '/items/' + parentId + '/children?$select=id,name,webUrl,folder&$top=200', {
         headers: { 'Authorization': 'Bearer ' + token }
@@ -3855,16 +3855,7 @@ async function docAbrirOneDrive(nombre, btnEl) {
       return (j.value || []).find(i => norm(i.name) === norm(childName));
     }
 
-    // admonId = "06. ADMINISTRACION" → navegar directo como hace imprimirSolicitudVacaciones
-    // pero "07. CONTROL DOCUMENTAL" es hermano de "06.", no hijo.
-    // Subimos al padre de "06." via Graph y desde ahí bajamos a "07."
-    const parentRes = await fetch('https://graph.microsoft.com/v1.0/drives/' + driveId + '/items/' + admonId + '?$select=parentReference', {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
-    if (!parentRes.ok) throw new Error('No se pudo leer carpeta de administración (HTTP ' + parentRes.status + ')');
-    const parentJson = await parentRes.json();
-    const arifomaId = parentJson.parentReference.id;
-
+    // arifomaId = carpeta Arifoma → navegar directo igual que imprimirSolicitudVacaciones
     const carpeta07 = await getChild(arifomaId, '07. CONTROL DOCUMENTAL');
     if (!carpeta07) throw new Error('Carpeta "07. CONTROL DOCUMENTAL" no encontrada');
     const carpetaDocs = await getChild(carpeta07.id, '07.01 DOCUMENTOS');
