@@ -1060,6 +1060,26 @@ async function leerDesdeSerial() {
   throw new Error('Datos recibidos pero formato desconocido. Ver debug.');
 }
 
+async function leerPesoSupabase(){
+  const btn = document.getElementById('btn-leer-supabase');
+  btn.textContent = '⏳ Leyendo...'; btn.disabled = true;
+  try {
+    const res = await dbQuery({ action: 'select', table: 'tblPesoBascula', filters: [{ column: 'id', op: 'eq', value: 1 }], options: { select: 'peso,updated_at' } });
+    if (!res.ok || !res.data || !res.data.length) throw new Error('Sin datos');
+    const peso = Number(res.data[0].peso);
+    const updated = res.data[0].updated_at ? new Date(res.data[0].updated_at).toLocaleTimeString() : '';
+    document.getElementById('bas-peso-input').value = Math.round(peso);
+    basActualizarPeso();
+    btn.textContent = '✓ ' + Math.round(peso).toLocaleString() + ' kg (' + updated + ')';
+    btn.style.borderColor = 'var(--accent2)'; btn.style.color = 'var(--accent2)';
+  } catch(e) {
+    btn.textContent = '❌ Error: ' + e.message;
+    btn.style.borderColor = 'var(--danger)'; btn.style.color = 'var(--danger)';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 async function leerBascula(){
   const btn=document.getElementById('btn-leer-bascula');
   const svgScale='<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" style="width:18px;height:18px"><ellipse cx="10" cy="6" rx="7" ry="2.5"/><path d="M3 6v4c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6"/><rect x="8.5" y="12.5" width="3" height="4" rx=".5"/><rect x="5" y="16.5" width="10" height="1.5" rx=".7"/></svg>';

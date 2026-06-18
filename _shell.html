@@ -720,6 +720,11 @@
                   Leer báscula
                 </button>
               </div>
+              <div style="margin-bottom:8px">
+                <button id="btn-leer-supabase" onclick="leerPesoSupabase()" style="width:100%;padding:10px;background:var(--surface2);border:2px solid #0078d4;border-radius:8px;color:#0078d4;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .2s">
+                  📡 Leer peso desde móvil
+                </button>
+              </div>
               <div id="serial-debug" style="display:none;background:#0d1f0a;border:1px solid var(--accent);border-radius:6px;padding:8px 10px;font-family:'DM Mono',monospace;font-size:.7rem;color:#7dda58;white-space:pre-wrap;margin-bottom:8px;word-break:break-all"></div>
               <input type="number" class="inp inp-mono" id="bas-peso-input" placeholder="O introduce peso manual (kg)..." oninput="basActualizarPeso()" style="font-size:1.1rem;text-align:center;font-weight:700;margin-bottom:8px">
               <button class="btn-pri" style="width:100%;font-size:1rem;padding:14px" id="bas-btn-continuar" onclick="basGoStep(2)" disabled>Continuar →</button>
