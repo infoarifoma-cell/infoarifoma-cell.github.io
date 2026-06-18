@@ -3825,12 +3825,12 @@ function renderDocumentos(){
 async function _oneDriveGetArifomaRoot(token) {
   // Share link apunta a 06. ADMINISTRACION — su padre es la carpeta Arifoma
   const shareToken = 'u!' + btoa(COMPRAS_SHARE_URL).replace(/=+$/, '').replace(/\//g, '_').replace(/\+/g, '-');
-  const shareRes = await fetch('https://graph.microsoft.com/v1.0/shares/' + shareToken + '/driveItem?$select=id,parentReference', {
+  const shareRes = await fetch('https://graph.microsoft.com/v1.0/shares/' + shareToken + '/driveItem?$select=id,name,parentReference,webUrl', {
     headers: { 'Authorization': 'Bearer ' + token }
   });
   if (!shareRes.ok) throw new Error('No se pudo acceder a OneDrive');
   const shareItem = await shareRes.json();
-  console.log('SHARE ITEM:', JSON.stringify({id:shareItem.id, name:shareItem.name, parentRef:shareItem.parentReference}));
+  console.log('SHARE ITEM FULL:', JSON.stringify(shareItem));
   const driveId = shareItem.parentReference.driveId;
   const arifomaId = shareItem.parentReference.id; // carpeta Arifoma
   const admonId = shareItem.id; // carpeta 06. ADMINISTRACION
@@ -3855,15 +3855,17 @@ async function docAbrirOneDrive(nombre, btnEl) {
       return (j.value || []).find(i => norm(i.name) === norm(childName));
     }
 
-    // Obtener el parentId real de "06." (carpeta Arifoma o Escritorio)
-    const admonMeta = await fetch('https://graph.microsoft.com/v1.0/drives/' + driveId + '/items/' + admonId + '?$select=id,name,parentReference', {
+    // admonId = "06. ADMINISTRACION" → navegar directo como hace imprimirSolicitudVacaciones
+    // pero "07. CONTROL DOCUMENTAL" es hermano de "06.", no hijo.
+    // Subimos al padre de "06." via Graph y desde ahí bajamos a "07."
+    const parentRes = await fetch('https://graph.microsoft.com/v1.0/drives/' + driveId + '/items/' + admonId + '?$select=parentReference', {
       headers: { 'Authorization': 'Bearer ' + token }
     });
-    if (!admonMeta.ok) throw new Error('No se pudo leer metadatos de la carpeta de administración');
-    const admonJson = await admonMeta.json();
-    const realParentId = admonJson.parentReference.id;
+    if (!parentRes.ok) throw new Error('No se pudo leer carpeta de administración (HTTP ' + parentRes.status + ')');
+    const parentJson = await parentRes.json();
+    const arifomaId = parentJson.parentReference.id;
 
-    const carpeta07 = await getChild(realParentId, '07. CONTROL DOCUMENTAL');
+    const carpeta07 = await getChild(arifomaId, '07. CONTROL DOCUMENTAL');
     if (!carpeta07) throw new Error('Carpeta "07. CONTROL DOCUMENTAL" no encontrada');
     const carpetaDocs = await getChild(carpeta07.id, '07.01 DOCUMENTOS');
     if (!carpetaDocs) throw new Error('Carpeta "07.01 DOCUMENTOS" no encontrada');
