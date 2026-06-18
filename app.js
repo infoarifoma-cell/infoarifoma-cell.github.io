@@ -3842,7 +3842,7 @@ async function docAbrirOneDrive(nombre, btnEl) {
   try {
     if (btnEl) { btnEl.textContent = '⏳'; btnEl.disabled = true; }
     const token = await comprasGetToken();
-    const { driveId, admonId } = await _oneDriveGetArifomaRoot(token);
+    const { driveId, arifomaId } = await _oneDriveGetArifomaRoot(token);
 
     // arifomaId = carpeta Arifoma → navegar directo a 07. CONTROL DOCUMENTAL
     async function getChild(parentId, childName) {
