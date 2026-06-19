@@ -135,7 +135,7 @@ async function googleLogin() {
 
 let _checkingSession = false;
 async function checkGoogleSession(existingSession) {
-  if (_checkingSession || window._appInitialized) return;
+  if (_checkingSession || window.appInitialized) return;
   _checkingSession = true;
   try {
   const session = existingSession || (await _supabase.auth.getSession()).data.session;
@@ -218,7 +218,7 @@ async function scheduleTokenRefresh(token) {
   const timeUntilExpiry = expiresAt - now;
   const refreshTime = timeUntilExpiry - (5 * 60 * 1000);
 
-  if (refreshTime > 0) {
+  if (refreshTime > 1000) {
     _tokenRefreshTimeout = setTimeout(async () => {
       console.log('Refrescando token Google...');
       const { data, error } = await _supabase.auth.refreshSession();
