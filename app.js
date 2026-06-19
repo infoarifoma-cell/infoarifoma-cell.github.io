@@ -9992,7 +9992,7 @@ async function cargarStock() {
       return all;
     }
 
-    const [prodRes, pedRows, topoRes] = await Promise.all([
+    const [prodRes, pedRows, topoRes, reguRes] = await Promise.all([
       dbQuery({ action: 'select', table: 'PRODUCCION',
         filters: [{ column: 'fecha', op: 'gte', value: iniAnyo }, { column: 'fecha', op: 'lte', value: finAnyo }],
         options: { select: 'fecha,t04,t412,t1220,t2040', order: 'fecha' }
@@ -10001,11 +10001,16 @@ async function cargarStock() {
       dbQuery({ action: 'select', table: 'tblTopografia',
         filters: [{ column: 'fecha', op: 'gte', value: iniAnyo }, { column: 'fecha', op: 'lte', value: finAnyo }],
         options: { select: 'fecha,t04,t412,t1220,t2040', order: 'fecha' }
+      }),
+      dbQuery({ action: 'select', table: 'tblRegularizaciones',
+        filters: [{ column: 'fecha', op: 'gte', value: iniAnyo }, { column: 'fecha', op: 'lte', value: finAnyo }],
+        options: { select: 'fecha,t04,t412,t1220,t2040', order: 'fecha' }
       })
     ]);
 
     const prodRows = prodRes.ok ? (prodRes.data || []) : [];
-    const topoRows = topoRes.ok ? (topoRes.data || []) : [];
+    // Combinar levantamientos topográficos + regularizaciones (el más reciente del mes gana)
+    const topoRows = (topoRes.ok ? (topoRes.data || []) : []).concat(reguRes.ok ? (reguRes.data || []) : []).sort((a,b)=>a.fecha.localeCompare(b.fecha));
 
     // Indexar levantamientos por mes (último del mes si hubiera varios)
     const topoMes = {}; // mes(0-11) → {t04,t412,t1220,t2040,fecha}
