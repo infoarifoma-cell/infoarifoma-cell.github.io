@@ -9600,7 +9600,7 @@ async function cargarInformeDiario() {
     const [fichajesRes, pedidosRes, produccionRes, gasoilRes, stockRes] = await Promise.all([
       dbQuery({ action:'select', table:'tblFichaje', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'empleado,entrada,salida,tiempodia,fentrada,fsalida'} }),
       dbQuery({ action:'select', table:'tblpedidos', filters:[{column:'fechaHora',op:'gte',value:fechaDesde},{column:'fechaHora',op:'lte',value:fechaHasta}], options:{select:'fechaHora,matriculacam,pesoBruto,pesoNeto,productoNombre,nombreCliente',order:'fechaHora'} }),
-      dbQuery({ action:'select', table:'PRODUCCION', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'fecha,tipoDia,t04,t412,t1220,t2040,t020,tnDia,horasPlanta'} }),
+      dbQuery({ action:'select', table:'PRODUCCION', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'fecha,tipoDia,t04,t412,t1220,t2040,t020,otroTipo,otroTn,tnDia,horasPlanta'} }),
       dbQuery({ action:'select', table:'GASOIL', filters:[{column:'fecha',op:'eq',value:fecha}], options:{select:'fecha,origen,destino,litros,tipo'} }),
       apiFetch('?accion=gasoil'),
     ]);
@@ -9698,6 +9698,7 @@ function _renderInforme(d) {
         <div><span style="color:var(--muted)">12/20:</span> <b>${fmt(p.t1220)} Tn</b></div>
         <div><span style="color:var(--muted)">20/40:</span> <b>${fmt(p.t2040)} Tn</b></div>
         ${Number(p.t020||0)>0?`<div><span style="color:var(--muted)">0/20 (rev):</span> <b>${fmt(p.t020)} Tn</b></div>`:''}
+        ${p.otroTipo?`<div><span style="color:var(--muted)">${p.otroTipo}:</span> <b>${fmt(p.otroTn)} Tn</b></div>`:''}
       </div>`;
   }
 
@@ -9823,11 +9824,11 @@ async function _infGenerarBuffer(d) {
   d.fichajes.forEach(f => { const horas = calcHorasFichaje(f); addRow([f.empleado||'', f.entrada||'', f.salida||'', horas!=='—'?Number(horas):'']); });
   addBlank();
   addHdr('PRODUCCIÓN', 9);
-  addSubHdr(['FECHA','DÍA','0/4 Tn','4/12 Tn','12/20 Tn','20/40 Tn','0/20 Tn','TOTAL Tn','H.PLANTA']);
+  addSubHdr(['FECHA','DÍA','0/4 Tn','4/12 Tn','12/20 Tn','20/40 Tn','0/20 Tn','Otro','Otro Tn','TOTAL Tn','H.PLANTA']);
   if (d.produccion) {
     const p = d.produccion;
-    addRow([fechaFmt, p.tipoDia||'', Number(p.t04||0), Number(p.t412||0), Number(p.t1220||0), Number(p.t2040||0), Number(p.t020||0), Number(p.tnDia||0), p.horasPlanta||'']);
-    const totProd = ws.addRow(['','TOTALES',Number(p.t04||0),Number(p.t412||0),Number(p.t1220||0),Number(p.t2040||0),Number(p.t020||0),Number(p.tnDia||0),'']);
+    addRow([fechaFmt, p.tipoDia||'', Number(p.t04||0), Number(p.t412||0), Number(p.t1220||0), Number(p.t2040||0), Number(p.t020||0), p.otroTipo||'', Number(p.otroTn||0), Number(p.tnDia||0), p.horasPlanta||'']);
+    const totProd = ws.addRow(['','TOTALES',Number(p.t04||0),Number(p.t412||0),Number(p.t1220||0),Number(p.t2040||0),Number(p.t020||0),'',Number(p.otroTn||0),Number(p.tnDia||0),'']);
     totProd.font=boldFont; totProd.eachCell(c=>{c.border=border;});
   }
   addBlank();
