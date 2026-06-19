@@ -10026,7 +10026,7 @@ async function cargarStock() {
       prodMes[m].t1220 += Number(r.t1220 || 0);
       prodMes[m].t2040 += Number(r.t2040 || 0);
       // Si hay topo en este mes y producción es posterior, acumular aparte
-      if (topoMes[m] && fecha > topoMes[m].fecha) {
+      if (topoMes[m] && fecha >= topoMes[m].fecha) {
         prodPostTopo[m].t04   += Number(r.t04   || 0);
         prodPostTopo[m].t412  += Number(r.t412  || 0);
         prodPostTopo[m].t1220 += Number(r.t1220 || 0);
@@ -10047,7 +10047,7 @@ async function cargarStock() {
       if (k) {
         const tn = Number(r.pesoNeto || 0) / 1000;
         ventMes[m][k] += tn;
-        if (topoMes[m] && fecha > topoMes[m].fecha) {
+        if (topoMes[m] && fecha >= topoMes[m].fecha) {
           ventPostTopo[m][k] += tn;
         }
       }
