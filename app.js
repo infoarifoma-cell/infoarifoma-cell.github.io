@@ -10055,6 +10055,9 @@ async function cargarStock() {
 
     console.log('STOCK DEBUG — producción por mes (Tn):', prodMes.map((m,i)=>({mes:i,t04:m.t04.toFixed(1),t412:m.t412.toFixed(1)})));
     console.log('STOCK DEBUG — ventas por mes (Tn):', ventMes.map((m,i)=>({mes:i,t04:m.t04.toFixed(1),t412:m.t412.toFixed(1)})));
+    console.log('STOCK DEBUG — prodPostTopo junio:', prodPostTopo[5]);
+    console.log('STOCK DEBUG — ventPostTopo junio:', ventPostTopo[5]);
+    console.log('STOCK DEBUG — topoMes junio:', topoMes[5]);
     console.log('STOCK DEBUG — pedidos totales (paginados):', pedRows.length, '— produccion filas:', prodRows.length);
 
     // Calcular stock acumulado mes a mes
