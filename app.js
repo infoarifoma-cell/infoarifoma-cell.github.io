@@ -898,8 +898,32 @@ async function _cargarClientesYProyectosBC(){
         console.log('BC: '+bcClientes.length+' clientes cargados');
       }
     }
+    _basBCSetOnline(true);
+  }catch(e){
+    console.warn('BC clientes:',e.message);
+    _basBCSetOnline(false);
+  }
+}
 
-  }catch(e){console.warn('BC clientes:',e.message);}
+function _basBCSetOnline(online){
+  const banner=document.getElementById('bas-bc-offline-banner');
+  if(!banner)return;
+  banner.style.display=online?'none':'flex';
+}
+
+async function basReconectarBC(){
+  const banner=document.getElementById('bas-bc-offline-banner');
+  const btn=banner?banner.querySelector('button'):null;
+  if(btn){btn.textContent='Conectando...';btn.disabled=true;}
+  try{
+    await getBCToken(); // abre popup si hace falta
+    await _cargarClientesYProyectosBC();
+  }catch(e){
+    alert('No se pudo reconectar: '+e.message);
+    _basBCSetOnline(false);
+  }finally{
+    if(btn){btn.textContent='🔄 Reconectar';btn.disabled=false;}
+  }
 }
 async function initBasculaCamiones(){
   try{
