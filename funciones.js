@@ -135,7 +135,7 @@ async function googleLogin() {
 
 let _checkingSession = false;
 async function checkGoogleSession(existingSession) {
-  if (_checkingSession || window.appInitialized) return;
+  if (_checkingSession) return;
   _checkingSession = true;
   try {
   const session = existingSession || (await _supabase.auth.getSession()).data.session;
