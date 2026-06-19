@@ -4593,9 +4593,38 @@ async function guardarProdEdit(){
     payload.tipo='addProduccion';payload.fecha=document.getElementById('pe-fecha').value;
   }
   try{
+    // Escribir en Google Sheets
     const json=await apiPost(payload);
-    if(json.ok){msg.style.color='var(--accent)';msg.textContent='Guardado';setTimeout(()=>{cerrarProdEdit();cargarProduccion();},800);}
-    else{msg.style.color='var(--danger)';msg.textContent='Error: '+(json.error||'');}
+    if(!json.ok){msg.style.color='var(--danger)';msg.textContent='Error: '+(json.error||'');return;}
+    // Sync a Supabase para que Stock lo vea
+    try{
+      const sbData={
+        tipoDia:payload.tipoDia,
+        t04:Number(payload.t04||0), t412:Number(payload.t412||0),
+        t1220:Number(payload.t1220||0), t2040:Number(payload.t2040||0),
+        t020:Number(payload.t020||0), tnDia:Number(payload.tnDia||0),
+        horasPlanta:Number(payload.horasPlanta||0),
+        observaciones:payload.observaciones||''
+      };
+      if(fila){
+        // Editar: buscar registro por fecha del fila editado
+        const editRow=prodData.find(r=>r.fila==fila)||prodData[fila-6];
+        if(editRow&&editRow.id){
+          await dbQuery({action:'update',table:'PRODUCCION',data:sbData,filters:[{column:'id',op:'eq',value:editRow.id}]});
+        }
+      }else{
+        // Añadir nuevo
+        sbData.fecha=payload.fecha;
+        // Check si ya existe registro para esa fecha
+        const existing=await dbQuery({action:'select',table:'PRODUCCION',filters:[{column:'fecha',op:'eq',value:payload.fecha}],options:{select:'id',limit:1}});
+        if(existing.ok&&existing.data&&existing.data.length>0){
+          await dbQuery({action:'update',table:'PRODUCCION',data:sbData,filters:[{column:'id',op:'eq',value:existing.data[0].id}]});
+        }else{
+          await dbQuery({action:'insert',table:'PRODUCCION',data:sbData});
+        }
+      }
+    }catch(e2){console.warn('Sync Supabase producción:',e2.message);}
+    msg.style.color='var(--accent)';msg.textContent='Guardado';setTimeout(()=>{cerrarProdEdit();cargarProduccion();},800);
   }catch(e){msg.style.color='var(--danger)';msg.textContent='Error de red';}
 }
 
@@ -9987,23 +10016,41 @@ async function cargarStock() {
 
     // Acumular producción por mes
     const prodMes = Array.from({length:12}, () => ({t04:0,t412:0,t1220:0,t2040:0}));
+    // Producción posterior al levantamiento topográfico (mismo mes)
+    const prodPostTopo = Array.from({length:12}, () => ({t04:0,t412:0,t1220:0,t2040:0}));
     for (const r of prodRows) {
-      const m = new Date(r.fecha).getMonth();
+      const fecha = r.fecha;
+      const m = new Date(fecha).getMonth();
       prodMes[m].t04   += Number(r.t04   || 0);
       prodMes[m].t412  += Number(r.t412  || 0);
       prodMes[m].t1220 += Number(r.t1220 || 0);
       prodMes[m].t2040 += Number(r.t2040 || 0);
+      // Si hay topo en este mes y producción es posterior, acumular aparte
+      if (topoMes[m] && fecha > topoMes[m].fecha) {
+        prodPostTopo[m].t04   += Number(r.t04   || 0);
+        prodPostTopo[m].t412  += Number(r.t412  || 0);
+        prodPostTopo[m].t1220 += Number(r.t1220 || 0);
+        prodPostTopo[m].t2040 += Number(r.t2040 || 0);
+      }
     }
 
     // Mapear producto → fracción usando getCat
     const catKey = { '0/4':'t04', '4/12':'t412', '12/20':'t1220', '20/40':'t2040' };
     // Acumular ventas por mes (kg → Tn)
     const ventMes = Array.from({length:12}, () => ({t04:0,t412:0,t1220:0,t2040:0}));
+    const ventPostTopo = Array.from({length:12}, () => ({t04:0,t412:0,t1220:0,t2040:0}));
     for (const r of pedRows) {
+      const fecha = r.fechaHora ? r.fechaHora.substring(0,10) : '';
       const m = new Date(r.fechaHora).getMonth();
       const cat = getCat(r.productoNombre);
       const k = catKey[cat];
-      if (k) ventMes[m][k] += Number(r.pesoNeto || 0) / 1000;
+      if (k) {
+        const tn = Number(r.pesoNeto || 0) / 1000;
+        ventMes[m][k] += tn;
+        if (topoMes[m] && fecha > topoMes[m].fecha) {
+          ventPostTopo[m][k] += tn;
+        }
+      }
     }
 
     console.log('STOCK DEBUG — producción por mes (Tn):', prodMes.map((m,i)=>({mes:i,t04:m.t04.toFixed(1),t412:m.t412.toFixed(1)})));
@@ -10030,8 +10077,8 @@ async function cargarStock() {
         let fuente = 'calculo';
         let fechaTopo = null;
         if (topo) {
-          // Levantamiento topográfico → reemplaza el acumulado
-          acum = topo[pk];
+          // Levantamiento topográfico → reemplaza acumulado + suma producción/ventas posteriores
+          acum = topo[pk] + (prodPostTopo[m][pk] || 0) - (ventPostTopo[m][pk] || 0);
           fuente = 'topografia';
           fechaTopo = topo.fecha;
         } else {
