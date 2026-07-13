@@ -3645,13 +3645,20 @@ const MODEL_TO_GAMAS={};GAMAS.forEach(g=>{if(!MODEL_TO_GAMAS[g.modelo])MODEL_TO_
 
 function _buildOTFromActivos(data){
   if(!data||!data.length) return;
-  MACHINES = data.filter(m=>m.Codigo).map(m=>({
-    id: m.Codigo,
-    name: m.Activo || m.Codigo,
-    tipo: (m.tipoactivo||'OTROS').toUpperCase(),
-    modelo: m.modelo||'-',
-    fabricante: (m.fabricante||'-').toUpperCase()
-  }));
+  // Índice de máquinas hardcoded para rellenar modelo/fabricante si DB trae vacío
+  const hcIdx={};MACHINES.forEach(m=>{hcIdx[m.id]=m;});
+  MACHINES = data.filter(m=>m.Codigo).map(m=>{
+    const hc=hcIdx[m.Codigo]||{};
+    const mod=m.modelo&&m.modelo!=='-'?m.modelo:(hc.modelo||'-');
+    const fab=m.fabricante&&m.fabricante!=='-'?m.fabricante:(hc.fabricante||'-');
+    return {
+      id: m.Codigo,
+      name: m.Activo || m.Codigo,
+      tipo: (m.tipoactivo||'OTROS').toUpperCase(),
+      modelo: mod,
+      fabricante: fab.toUpperCase()
+    };
+  });
 }
 
 async function initOT(){
