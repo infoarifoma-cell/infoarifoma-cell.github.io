@@ -7747,6 +7747,13 @@ function updateCostesToggleBtn(){
 
 // ── PRECIO MÍNIMO ÁRIDO ──────────────────────────────────────────────────────
 
+let precioAridoExclMeses = new Set();
+function togglePrecioAridoMes(m, included){
+  if(included) precioAridoExclMeses.delete(m);
+  else precioAridoExclMeses.add(m);
+  renderPrecioArido();
+}
+
 async function renderPrecioArido(){
   const wrap = document.getElementById('precio-arido-wrap');
   if(!costesRawData.length || !costesProduccion.length){
@@ -7811,13 +7818,24 @@ async function renderPrecioArido(){
   // Build table
   let html = '<table class="costes-tbl"><thead><tr><th class="costes-cat-col">Concepto</th>';
   for(const m of mesesActivos) html+=`<th class="costes-val-col">${MESES_CORTO[m]}</th>`;
-  html+='<th class="costes-val-col costes-total-col">Total</th></tr></thead><tbody>';
+  html+='<th class="costes-val-col costes-total-col">Total</th></tr>';
+  // Checkboxes row
+  html+='<tr style="background:var(--surface2)"><td style="font-size:.7rem;color:var(--muted)">Incluir en total</td>';
+  for(const m of mesesActivos){
+    const checked = !precioAridoExclMeses.has(m);
+    html+=`<td class="c"><input type="checkbox" ${checked?'checked':''} onchange="togglePrecioAridoMes(${m},this.checked)" style="cursor:pointer;width:15px;height:15px"></td>`;
+  }
+  html+='<td></td></tr></thead><tbody>';
+
+  // Meses incluidos para totales
+  const mesesIncl = mesesActivos.filter(m=>!precioAridoExclMeses.has(m));
 
   // Row: Total Gastos €
   let totalGasto=0;
   html+='<tr style="background:var(--surface2);font-weight:700"><td>Total Gastos (€)</td>';
   for(const m of mesesActivos){
-    const g=gastoMes[m]||0; totalGasto+=g;
+    const g=gastoMes[m]||0;
+    if(!precioAridoExclMeses.has(m)) totalGasto+=g;
     html+=`<td class="costes-val">${fmtES(g)}</td>`;
   }
   html+=`<td class="costes-val costes-total-col">${fmtES(totalGasto)}</td></tr>`;
@@ -7826,7 +7844,8 @@ async function renderPrecioArido(){
   let totalProd=0;
   html+='<tr style="background:var(--surface2)"><td>Producción Total (Tn)</td>';
   for(const m of mesesActivos){
-    const tn=prodMes[m]?.tn||0; totalProd+=tn;
+    const tn=prodMes[m]?.tn||0;
+    if(!precioAridoExclMeses.has(m)) totalProd+=tn;
     html+=`<td class="costes-val">${fmtTn(tn)}</td>`;
   }
   html+=`<td class="costes-val costes-total-col">${fmtTn(totalProd)}</td></tr>`;
@@ -7859,7 +7878,8 @@ async function renderPrecioArido(){
     html+=`<tr style="background:var(--surface2)"><td>Producción ${tipo.label} (Tn)</td>`;
     let tProd=0;
     for(const m of mesesActivos){
-      const tn=prodMes[m]?.[tipo.key]||0; tProd+=tn;
+      const tn=prodMes[m]?.[tipo.key]||0;
+      if(!precioAridoExclMeses.has(m)) tProd+=tn;
       html+=`<td class="costes-val">${fmtTn(tn)}</td>`;
     }
     html+=`<td class="costes-val costes-total-col">${fmtTn(tProd)}</td></tr>`;
@@ -7873,7 +7893,7 @@ async function renderPrecioArido(){
       const precio=tot?(es04?base+1:base):0;
       html+=`<td class="costes-val">${precio?fmtES(precio):'—'}</td>`;
     }
-    const totalTn04=mesesActivos.reduce((s,m)=>(s+(prodMes[m]?.t04||0)),0);
+    const totalTn04=mesesIncl.reduce((s,m)=>(s+(prodMes[m]?.t04||0)),0);
     const baseTotal=totalProd?(totalGasto-totalTn04)/totalProd:0;
     const precioTotal=totalProd?(es04?baseTotal+1:baseTotal):0;
     html+=`<td class="costes-val costes-total-col">${precioTotal?fmtES(precioTotal):'—'}</td></tr>`;
@@ -7927,7 +7947,7 @@ async function renderPrecioArido(){
     const vm=ventaMes[m];
     if(vm && vm.total>0){
       const pond=p04*vm.t04 + pResto*(vm.t412+vm.t1220+vm.t2040);
-      totalPonderado+=pond; totalVendido+=vm.total;
+      if(!precioAridoExclMeses.has(m)){ totalPonderado+=pond; totalVendido+=vm.total; }
       html+=`<td class="costes-val" style="font-weight:900;color:var(--accent)">${fmtES(pond/vm.total)}</td>`;
     } else {
       html+=`<td class="costes-val">—</td>`;
