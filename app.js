@@ -1698,6 +1698,7 @@ function mostrarAlbaranUltimaLinea(){
   aw.classList.add('print-active');
   const notasBtn=document.getElementById('btn-notas-float');
   if(notasBtn)notasBtn.style.display='none';
+  setTimeout(firmaInit,100);
   // BC en segundo plano
   if(p.codigoCliente){
     _cargarDatosFiscalesBC(p.codigoCliente).then(d=>{
@@ -1792,6 +1793,7 @@ async function mostrarAlbaran(id,p){
     aw.classList.add('print-active');
     const notasBtn=document.getElementById('btn-notas-float');
     if(notasBtn)notasBtn.style.display='none';
+    setTimeout(firmaInit,100);
     setTimeout(()=>{const s=document.createElement('style');s.id='_pgsz';s.textContent='@page{size:A5 landscape;margin:4mm}';document.head.appendChild(s);window.print();setTimeout(()=>s.remove(),500);},100);
   }
   // Cargar datos fiscales BC en segundo plano (deshabilitado por error MSAL)
@@ -1813,8 +1815,157 @@ function cerrarAlbaran(){
   // Limpiar peso anterior para siguiente pesada
   document.getElementById('bas-peso-input').value='';
   basActualizarPeso();
+  // Limpiar firma
+  if(window._signaturePad){window._signaturePad.clear();}
+  const fImg=document.getElementById('alb-firma-img');
+  if(fImg){fImg.style.display='none';fImg.src='';}
+  const fCanvas=document.getElementById('alb-firma-canvas');
+  if(fCanvas)fCanvas.style.display='block';
 }
 
+// ── FIRMA DIGITAL ALBARÁN ──────────────────────────────────────
+const ALBARANES_ONEDRIVE_BASE='ARIFOMA/Arifoma/06. ADMINISTRACION/06.14 VENTAS';
+
+function firmaInit(){
+  const canvas=document.getElementById('alb-firma-canvas');
+  if(!canvas)return;
+  if(typeof SignaturePad==='undefined'){console.warn('SignaturePad not loaded');return;}
+  if(window._signaturePad){window._signaturePad.clear();return;}
+  window._signaturePad=new SignaturePad(canvas,{
+    minWidth:1,maxWidth:2.5,penColor:'#111',backgroundColor:'rgba(250,250,250,0)'
+  });
+  // Resize canvas to match CSS size
+  function resizeCanvas(){
+    const ratio=Math.max(window.devicePixelRatio||1,1);
+    canvas.width=canvas.offsetWidth*ratio;
+    canvas.height=canvas.offsetHeight*ratio;
+    canvas.getContext('2d').scale(ratio,ratio);
+    window._signaturePad.clear();
+  }
+  resizeCanvas();
+}
+
+function firmaLimpiar(){
+  if(window._signaturePad)window._signaturePad.clear();
+  const fImg=document.getElementById('alb-firma-img');
+  if(fImg){fImg.style.display='none';fImg.src='';}
+  const fCanvas=document.getElementById('alb-firma-canvas');
+  if(fCanvas)fCanvas.style.display='block';
+}
+
+async function firmarYGuardarAlbaran(){
+  // Validar firma
+  if(!window._signaturePad||window._signaturePad.isEmpty()){
+    alert('El chofer debe firmar antes de guardar.');
+    return;
+  }
+  const btn=document.getElementById('btn-firmar-guardar');
+  if(btn){btn.disabled=true;btn.textContent='Generando PDF...';}
+  try{
+    // Colocar firma como imagen (para html2canvas)
+    const firmaDataUrl=window._signaturePad.toDataURL('image/png');
+    const fCanvas=document.getElementById('alb-firma-canvas');
+    const fImg=document.getElementById('alb-firma-img');
+    if(fCanvas)fCanvas.style.display='none';
+    if(fImg){fImg.src=firmaDataUrl;fImg.style.display='block';}
+    // Ocultar botones para captura
+    const clearBtn=document.getElementById('alb-firma-clear');
+    if(clearBtn)clearBtn.style.display='none';
+
+    // Capturar albarán como imagen
+    const doc=document.getElementById('albaran-doc');
+    const canvas=await html2canvas(doc,{
+      scale:2,useCORS:true,backgroundColor:'#ffffff',
+      logging:false,
+      onclone:function(clonedDoc){
+        const btns=clonedDoc.getElementById('albaran-btns');
+        if(btns)btns.style.display='none';
+        const btnsTop=clonedDoc.getElementById('albaran-btns-top');
+        if(btnsTop)btnsTop.style.display='none';
+        const clrBtn=clonedDoc.getElementById('alb-firma-clear');
+        if(clrBtn)clrBtn.style.display='none';
+      }
+    });
+
+    // Generar PDF A5 landscape
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a5'});
+    const pageW=pdf.internal.pageSize.getWidth();
+    const pageH=pdf.internal.pageSize.getHeight();
+    const imgData=canvas.toDataURL('image/jpeg',0.92);
+    const imgRatio=canvas.width/canvas.height;
+    let w=pageW-8,h=w/imgRatio;
+    if(h>pageH-8){h=pageH-8;w=h*imgRatio;}
+    pdf.addImage(imgData,'JPEG',(pageW-w)/2,(pageH-h)/2,w,h);
+    const pdfBlob=pdf.output('blob');
+
+    // Nombre archivo
+    const numAlb=(document.getElementById('alb-num').textContent||'ALB').replace(/[/\\:*?"<>|]/g,'-');
+    const now=new Date();
+    const fechaStr=now.getFullYear()+pad(now.getMonth()+1)+pad(now.getDate());
+    const fileName=numAlb+'_'+fechaStr+'.pdf';
+
+    // Subir a OneDrive: .../06.14 VENTAS/{año}/{mes}/{cliente}/
+    const año=String(now.getFullYear());
+    const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const mes=pad(now.getMonth()+1)+'-'+meses[now.getMonth()];
+    const clienteNombre=(document.getElementById('alb-cliente').textContent||'SIN-CLIENTE').trim().replace(/[/\\:*?"<>|]/g,'-');
+    const folderPath=ALBARANES_ONEDRIVE_BASE+'/'+año+'/'+mes+'/'+clienteNombre;
+
+    try{
+      const token=await comprasGetToken();
+      // Crear carpetas: año, mes, cliente
+      const baseEncoded=ALBARANES_ONEDRIVE_BASE.split('/').map(s=>encodeURIComponent(s)).join('/');
+      await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+baseEncoded+':/children',{
+        method:'POST',
+        headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+        body:JSON.stringify({name:año,folder:{},'@microsoft.graph.conflictBehavior':'fail'})
+      }).catch(()=>{});
+      const yearEncoded=(ALBARANES_ONEDRIVE_BASE+'/'+año).split('/').map(s=>encodeURIComponent(s)).join('/');
+      await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+yearEncoded+':/children',{
+        method:'POST',
+        headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+        body:JSON.stringify({name:mes,folder:{},'@microsoft.graph.conflictBehavior':'fail'})
+      }).catch(()=>{});
+      const mesEncoded=(ALBARANES_ONEDRIVE_BASE+'/'+año+'/'+mes).split('/').map(s=>encodeURIComponent(s)).join('/');
+      await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+mesEncoded+':/children',{
+        method:'POST',
+        headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+        body:JSON.stringify({name:clienteNombre,folder:{},'@microsoft.graph.conflictBehavior':'fail'})
+      }).catch(()=>{});
+      // Upload PDF
+      const uploadPath=folderPath.split('/').map(s=>encodeURIComponent(s)).join('/');
+      const uploadUrl='https://graph.microsoft.com/v1.0/me/drive/root:/'+uploadPath+'/'+encodeURIComponent(fileName)+':/content';
+      const resp=await fetch(uploadUrl,{
+        method:'PUT',
+        headers:{'Authorization':'Bearer '+token,'Content-Type':'application/pdf'},
+        body:pdfBlob
+      });
+      if(!resp.ok){
+        const err=await resp.text();
+        throw new Error('OneDrive: '+err);
+      }
+      alert('✓ Albarán firmado guardado en OneDrive:\n'+folderPath+'/'+fileName);
+    }catch(e){
+      console.error('Error subiendo albarán firmado:',e);
+      alert('Error subiendo a OneDrive: '+e.message+'\n\nEl PDF se descargará localmente.');
+      // Fallback: descargar localmente
+      const link=document.createElement('a');
+      link.href=URL.createObjectURL(pdfBlob);
+      link.download=fileName;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+
+    // Restaurar canvas
+    if(clearBtn)clearBtn.style.display='';
+  }catch(e){
+    console.error('Error generando PDF albarán:',e);
+    alert('Error generando PDF: '+e.message);
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='✍ Firmar y Guardar PDF';}
+  }
+}
 
 
 // ── PEDIDOS ───────────────────────────────────────────────────
@@ -4652,8 +4803,7 @@ function initFacturacion(){
     initInformeMensual();
     factInited=true;
   }
-  if(factData.length===0) cargarFacturacion();
-  else { renderFacturacion(); renderInformeMensual(); }
+  cargarFacturacion();
 }
 
 async function cargarFacturacion(){
@@ -7107,9 +7257,12 @@ function initCostes(){
 function switchCostesTab(tab){
   document.getElementById('costes-panel-analisis').style.display = tab==='analisis' ? '' : 'none';
   document.getElementById('costes-panel-config').style.display = tab==='config' ? '' : 'none';
+  document.getElementById('costes-panel-precio').style.display = tab==='precio' ? '' : 'none';
   document.getElementById('costes-tab-analisis').classList.toggle('active', tab==='analisis');
   document.getElementById('costes-tab-config').classList.toggle('active', tab==='config');
+  document.getElementById('costes-tab-precio').classList.toggle('active', tab==='precio');
   if(tab==='config') renderConfigCostes();
+  if(tab==='precio') renderPrecioArido();
 }
 
 function renderConfigCostes(){
@@ -7591,6 +7744,145 @@ function updateCostesToggleBtn(){
   const allSub = document.querySelectorAll('.costes-sub-row');
   const anyVisible = [...allSub].some(r=>!r.classList.contains('collapsed'));
   btn.textContent = anyVisible ? '▼ Contraer todo' : '▶ Expandir todo';
+}
+
+// ── PRECIO MÍNIMO ÁRIDO ──────────────────────────────────────────────────────
+
+function renderPrecioArido(){
+  const wrap = document.getElementById('precio-arido-wrap');
+  if(!costesRawData.length || !costesProduccion.length){
+    wrap.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Carga datos de BC primero.</div>';
+    return;
+  }
+
+  const mesDesde = parseInt(document.getElementById('costes-mes-desde').value);
+  const mesHasta = parseInt(document.getElementById('costes-mes-hasta').value);
+  const mesesActivos = [];
+  for(let m=mesDesde;m<=mesHasta;m++) mesesActivos.push(m);
+
+  // Producción por mes y tipo
+  const prodMes = {}; // { mes: { tn, t04, t412, t1220, t2040 } }
+  for(const p of costesProduccion){
+    const m = parseInt(p.fecha.split('-')[1]);
+    if(m<mesDesde||m>mesHasta) continue;
+    if(!prodMes[m]) prodMes[m]={tn:0,t04:0,t412:0,t1220:0,t2040:0};
+    prodMes[m].tn   += parseFloat(p.tnDia)||0;
+    prodMes[m].t04  += parseFloat(p.t04)||0;
+    prodMes[m].t412 += parseFloat(p.t412)||0;
+    prodMes[m].t1220+= parseFloat(p.t1220)||0;
+    prodMes[m].t2040+= parseFloat(p.t2040)||0;
+  }
+
+  // Gastos por mes (solo categorías de gasto, sin INGRESOS)
+  const gastoMes = {};
+  for(const e of costesRawData){
+    if(costesExcludedAccounts.has(e.account||'?')) continue;
+    const m = parseInt(e.date.split('-')[1]);
+    if(m<mesDesde||m>mesHasta) continue;
+    const ca = e.ca||'#N/D';
+    const info = COSTES_CA_MAP[ca]||{cat:'#N/D',name:ca,orden:'0.GASTO'};
+    if(info.cat==='INGRESOS') continue;
+    const importe = (e.debit||0)-(e.credit||0);
+    gastoMes[m] = (gastoMes[m]||0)+importe;
+  }
+
+  const tipos = [
+    {key:'t04',  label:'0/4'},
+    {key:'t412', label:'4/12'},
+    {key:'t1220',label:'12/20'},
+    {key:'t2040',label:'20/40'}
+  ];
+
+  const fmtES = (v,dec=2) => {
+    if(!v||v===0) return '—';
+    const neg=v<0;
+    const [ent,d2]=Math.abs(v).toFixed(dec).split('.');
+    const miles=ent.replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+    return (neg?'-':'')+miles+','+d2;
+  };
+  const fmtTn = v => (!v||v===0)?'—':fmtES(v,1);
+
+  const MESES_CORTO={1:'Ene',2:'Feb',3:'Mar',4:'Abr',5:'May',6:'Jun',7:'Jul',8:'Ago',9:'Sep',10:'Oct',11:'Nov',12:'Dic'};
+
+  // Build table
+  let html = '<table class="costes-tbl"><thead><tr><th class="costes-cat-col">Concepto</th>';
+  for(const m of mesesActivos) html+=`<th class="costes-val-col">${MESES_CORTO[m]}</th>`;
+  html+='<th class="costes-val-col costes-total-col">Total</th></tr></thead><tbody>';
+
+  // Row: Total Gastos €
+  let totalGasto=0;
+  html+='<tr style="background:var(--surface2);font-weight:700"><td>Total Gastos (€)</td>';
+  for(const m of mesesActivos){
+    const g=gastoMes[m]||0; totalGasto+=g;
+    html+=`<td class="costes-val">${fmtES(g)}</td>`;
+  }
+  html+=`<td class="costes-val costes-total-col">${fmtES(totalGasto)}</td></tr>`;
+
+  // Row: Producción total Tn
+  let totalProd=0;
+  html+='<tr style="background:var(--surface2)"><td>Producción Total (Tn)</td>';
+  for(const m of mesesActivos){
+    const tn=prodMes[m]?.tn||0; totalProd+=tn;
+    html+=`<td class="costes-val">${fmtTn(tn)}</td>`;
+  }
+  html+=`<td class="costes-val costes-total-col">${fmtTn(totalProd)}</td></tr>`;
+
+  // Row: Precio mínimo global €/Tn
+  html+='<tr class="costes-grand-row"><td>Precio Mín. Global (€/Tn)</td>';
+  for(const m of mesesActivos){
+    const g=gastoMes[m]||0; const tn=prodMes[m]?.tn||0;
+    html+=`<td class="costes-val">${tn?fmtES(g/tn):'—'}</td>`;
+  }
+  html+=`<td class="costes-val costes-total-col">${totalProd?fmtES(totalGasto/totalProd):'—'}</td></tr>`;
+
+  // Separator
+  html+='<tr><td colspan="'+(mesesActivos.length+2)+'" style="padding:8px 0;border:none"><div style="border-top:2px solid var(--accent);margin:0"></div></td></tr>';
+
+  // Per product type
+  for(const tipo of tipos){
+    // Production row
+    html+=`<tr style="background:var(--surface2)"><td>Producción ${tipo.label} (Tn)</td>`;
+    let tProd=0;
+    for(const m of mesesActivos){
+      const tn=prodMes[m]?.[tipo.key]||0; tProd+=tn;
+      html+=`<td class="costes-val">${fmtTn(tn)}</td>`;
+    }
+    html+=`<td class="costes-val costes-total-col">${fmtTn(tProd)}</td></tr>`;
+
+    // % of production
+    html+=`<tr><td style="padding-left:16px;font-size:.72rem;color:var(--muted)">% sobre total</td>`;
+    for(const m of mesesActivos){
+      const tn=prodMes[m]?.[tipo.key]||0; const tot=prodMes[m]?.tn||0;
+      html+=`<td class="costes-val" style="font-size:.72rem;color:var(--muted)">${tot?(tn/tot*100).toFixed(1)+'%':'—'}</td>`;
+    }
+    html+=`<td class="costes-val costes-total-col" style="font-size:.72rem;color:var(--muted)">${totalProd?(tProd/totalProd*100).toFixed(1)+'%':'—'}</td></tr>`;
+
+    // Coste proporcional
+    html+=`<tr><td style="padding-left:16px;font-size:.72rem;color:var(--muted)">Coste proporcional (€)</td>`;
+    let tCoste=0;
+    for(const m of mesesActivos){
+      const tn=prodMes[m]?.[tipo.key]||0; const tot=prodMes[m]?.tn||0; const g=gastoMes[m]||0;
+      const coste=tot?(g*tn/tot):0; tCoste+=coste;
+      html+=`<td class="costes-val" style="font-size:.72rem;color:var(--muted)">${coste?fmtES(coste):'—'}</td>`;
+    }
+    html+=`<td class="costes-val costes-total-col" style="font-size:.72rem;color:var(--muted)">${tCoste?fmtES(tCoste):'—'}</td></tr>`;
+
+    // Precio mínimo
+    html+=`<tr class="costes-grand-row"><td>Precio Mín. ${tipo.label} (€/Tn)</td>`;
+    for(const m of mesesActivos){
+      const tn=prodMes[m]?.[tipo.key]||0; const tot=prodMes[m]?.tn||0; const g=gastoMes[m]||0;
+      const precio=tn?(g*tn/tot)/tn:0;
+      html+=`<td class="costes-val">${precio?fmtES(precio):'—'}</td>`;
+    }
+    const precioTotal=tProd?(tCoste/tProd):0;
+    html+=`<td class="costes-val costes-total-col">${precioTotal?fmtES(precioTotal):'—'}</td></tr>`;
+
+    // spacing between types
+    html+=`<tr><td colspan="${mesesActivos.length+2}" style="padding:4px;border:none"></td></tr>`;
+  }
+
+  html+='</tbody></table>';
+  wrap.innerHTML=html;
 }
 
 // ── COSTES CHARTS ────────────────────────────────────────────────────────────

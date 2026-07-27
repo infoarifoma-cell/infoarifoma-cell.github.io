@@ -230,6 +230,9 @@
       #albaran-wrap { position: static !important; background: transparent !important; padding: 0 !important; width: auto !important; height: auto !important; }
       #albaran-btns { display: none !important; }
       #albaran-btns-top { display: none !important; }
+      #alb-firma-clear { display: none !important; }
+      #alb-firma-canvas { display: none !important; }
+      #alb-firma-img[src]:not([src=""]) { display: block !important; }
       #albaran-doc { box-shadow: none !important; height: auto !important; display: flex !important; flex-direction: column !important; width: 100% !important; max-width: 100% !important; }
       #albaran-doc > table:last-of-type { margin-top: 0.5mm !important; }
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -237,9 +240,10 @@
     }
   </style>
   <div id="albaran-wrap" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#f0f0ec;z-index:999;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;page-break-after:avoid;">
-    <div id="albaran-btns-top" style="display:flex;gap:8px;margin-bottom:12px;width:210mm;max-width:100%;">
-      <button onclick="cerrarAlbaran()" style="flex:1;padding:11px;background:#555;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.88rem">Cerrar</button>
-      <button onclick="window.print()" style="flex:1;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.88rem;font-weight:700">&#128438; Guardar / Imprimir</button>
+    <div id="albaran-btns-top" style="display:flex;gap:8px;margin-bottom:12px;width:210mm;max-width:100%;flex-wrap:wrap">
+      <button onclick="cerrarAlbaran()" style="flex:1;min-width:100px;padding:11px;background:#555;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.88rem">Cerrar</button>
+      <button onclick="window.print()" style="flex:1;min-width:100px;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.88rem;font-weight:700">&#128438; Imprimir</button>
+      <button onclick="firmarYGuardarAlbaran()" style="flex:1;min-width:100px;padding:11px;background:#107c10;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.88rem;font-weight:700">&#9997; Firmar y Guardar</button>
     </div>
     <div id="albaran-doc" style="background:#fff;color:#111;width:210mm;height:auto;max-width:100%;page-break-after:avoid;font-family:Arial,Helvetica,sans-serif;font-size:10pt;padding:5mm;box-sizing:border-box;box-shadow:0 2px 12px rgba(0,0,0,.15);display:flex;flex-direction:column">
 
@@ -359,7 +363,14 @@
         <tr>
           <td style="width:26%;border:none;height:50px;padding:3px 4px;vertical-align:top"></td>
           <td style="width:26%;border:none;height:50px;padding:3px 4px;vertical-align:top"></td>
-          <td style="width:26%;border:none;height:50px;padding:3px 4px;vertical-align:top"></td>
+          <td style="width:26%;border:none;padding:3px 4px;vertical-align:top">
+            <!-- Firma digital del chofer -->
+            <div id="alb-firma-wrap" style="position:relative">
+              <canvas id="alb-firma-canvas" width="280" height="80" style="border:1px solid #bbb;border-radius:4px;background:#fafafa;width:100%;height:80px;touch-action:none"></canvas>
+              <img id="alb-firma-img" style="display:none;width:100%;height:80px;object-fit:contain;border:1px solid #bbb;border-radius:4px" alt="Firma">
+              <button id="alb-firma-clear" onclick="firmaLimpiar()" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.5);color:#fff;border:none;border-radius:4px;font-size:7pt;padding:2px 6px;cursor:pointer">Borrar</button>
+            </div>
+          </td>
           <td style="width:22%;border:none;height:50px;padding:3px 4px;vertical-align:middle;text-align:center" rowspan="2">
             <div style="display:inline-flex;align-items:center;gap:6px;justify-content:center">
               <div id="alb-ce-wrap" style="display:none;flex-direction:column;align-items:center;gap:2px">
@@ -385,9 +396,10 @@
     </div>
 
     <!-- BOTONES (no se imprimen) -->
-    <div id="albaran-btns" style="display:flex;gap:8px;margin-top:12px;width:210mm;max-width:100%;">
-      <button onclick="cerrarAlbaran()" style="flex:1;padding:11px;background:#555;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.88rem">Cerrar</button>
-      <button onclick="window.print()" style="flex:1;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.88rem;font-weight:700">Imprimir</button>
+    <div id="albaran-btns" style="display:flex;gap:8px;margin-top:12px;width:210mm;max-width:100%;flex-wrap:wrap">
+      <button onclick="cerrarAlbaran()" style="flex:1;min-width:120px;padding:11px;background:#555;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.88rem">Cerrar</button>
+      <button onclick="window.print()" style="flex:1;min-width:120px;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.88rem;font-weight:700">&#128438; Imprimir</button>
+      <button onclick="firmarYGuardarAlbaran()" id="btn-firmar-guardar" style="flex:1;min-width:120px;padding:11px;background:#107c10;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.88rem;font-weight:700">&#9997; Firmar y Guardar PDF</button>
     </div>
   </div>
   <div class="topbar">
@@ -1473,6 +1485,7 @@
           <div class="ctrl-tabs" style="margin-bottom:0">
             <button class="ctrl-tab active" id="costes-tab-analisis" onclick="switchCostesTab('analisis')">Análisis</button>
             <button class="ctrl-tab" id="costes-tab-config" onclick="switchCostesTab('config')">⚙ Config. Cuentas</button>
+            <button class="ctrl-tab" id="costes-tab-precio" onclick="switchCostesTab('precio')">💰 Precio Árido</button>
           </div>
 
           <!-- Panel Análisis -->
@@ -1537,6 +1550,16 @@
               Carga datos de BC primero para ver las cuentas disponibles.
             </div>
           </div>
+          <!-- Panel Precio Árido -->
+          <div id="costes-panel-precio" style="display:none;margin-top:14px">
+            <div style="font-size:.8rem;color:var(--muted);margin-bottom:12px">
+              Precio mínimo de venta por tipo de árido para cubrir costes. Coste total (gastos) ÷ producción por tipo.
+            </div>
+            <div id="precio-arido-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+              <div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Carga datos de BC primero.</div>
+            </div>
+          </div>
+
           <!-- ── RENDIMIENTO ── -->
           <div id="rendimiento-wrap" style="display:none;margin-top:28px">
             <div style="font-size:.95rem;font-weight:700;letter-spacing:.04em;color:var(--accent);border-bottom:2px solid var(--accent);padding-bottom:6px;margin-bottom:16px">RENDIMIENTO PRODUCTIVO</div>
