@@ -7547,7 +7547,7 @@ function renderCostes(){
   if(tw) tw.style.display='';
 
   // Renderizar gráficos
-  renderCostesCharts(catData, mesesActivos, prodMes, prodAcum, totalProd);
+  // renderCostesCharts(catData, mesesActivos, prodMes, prodAcum, totalProd);
 }
 
 // ── COSTES EXPORT EXCEL ──────────────────────────────────────────────────────
@@ -7845,8 +7845,11 @@ function renderPrecioArido(){
   // Separator
   html+='<tr><td colspan="'+(mesesActivos.length+2)+'" style="padding:8px 0;border:none"><div style="border-top:2px solid var(--accent);margin:0"></div></td></tr>';
 
-  // Per product type — coste proporcional a producción real
+  // Per product type — media ponderada: 0/4 = base+1, resto = base
+  // base = (coste - tn_04) / producción_total  →  base×tot + tn_04 = coste
   for(const tipo of tipos){
+    const es04 = tipo.key==='t04';
+
     // Production row
     html+=`<tr style="background:var(--surface2)"><td>Producción ${tipo.label} (Tn)</td>`;
     let tProd=0;
@@ -7856,22 +7859,27 @@ function renderPrecioArido(){
     }
     html+=`<td class="costes-val costes-total-col">${fmtTn(tProd)}</td></tr>`;
 
-    // Precio mínimo
+    // Precio mínimo: base = (gasto - tn04) / tot, precio 0/4 = base+1, resto = base
     html+=`<tr class="costes-grand-row"><td>Precio Mín. ${tipo.label} (€/Tn)</td>`;
     for(const m of mesesActivos){
-      const tn=prodMes[m]?.[tipo.key]||0; const tot=prodMes[m]?.tn||0; const g=gastoMes[m]||0;
-      const precio=tn?(g*(tn/tot))/tn:0;
+      const tot=prodMes[m]?.tn||0; const g=gastoMes[m]||0;
+      const tn04=prodMes[m]?.t04||0;
+      const base=tot?(g-tn04)/tot:0;
+      const precio=tot?(es04?base+1:base):0;
       html+=`<td class="costes-val">${precio?fmtES(precio):'—'}</td>`;
     }
-    const tCoste=totalProd?totalGasto*(tProd/totalProd):0;
-    const precioTotal=tProd?tCoste/tProd:0;
+    const totalTn04=mesesActivos.reduce((s,m)=>(s+(prodMes[m]?.t04||0)),0);
+    const baseTotal=totalProd?(totalGasto-totalTn04)/totalProd:0;
+    const precioTotal=totalProd?(es04?baseTotal+1:baseTotal):0;
     html+=`<td class="costes-val costes-total-col">${precioTotal?fmtES(precioTotal):'—'}</td></tr>`;
 
     // Precio socios (+8%)
     html+=`<tr style="background:rgba(46,125,107,.08)"><td style="padding-left:16px;font-weight:600">Precio Socios ${tipo.label} (+8%) (€/Tn)</td>`;
     for(const m of mesesActivos){
-      const tn=prodMes[m]?.[tipo.key]||0; const tot=prodMes[m]?.tn||0; const g=gastoMes[m]||0;
-      const precio=tn?(g*(tn/tot))/tn*1.08:0;
+      const tot=prodMes[m]?.tn||0; const g=gastoMes[m]||0;
+      const tn04=prodMes[m]?.t04||0;
+      const base=tot?(g-tn04)/tot:0;
+      const precio=tot?(es04?base+1:base)*1.08:0;
       html+=`<td class="costes-val" style="color:#2e7d6b">${precio?fmtES(precio):'—'}</td>`;
     }
     const precioSocios=precioTotal*1.08;
