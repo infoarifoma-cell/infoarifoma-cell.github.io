@@ -7761,10 +7761,8 @@ async function renderPrecioArido(){
     return;
   }
 
-  // Cargar ventas del año si no están
-  if(!ventasData.length){
-    try{ const json=await apiFetch('?accion=pedidos&dias=365'); if(json.ok) ventasData=json.data; }catch(e){}
-  }
+  // Cargar ventas del año completo
+  try{ const json=await apiFetch('?accion=pedidos&dias=365'); if(json.ok) ventasData=json.data; }catch(e){}
 
   const mesDesde = parseInt(document.getElementById('costes-mes-desde').value);
   const mesHasta = parseInt(document.getElementById('costes-mes-hasta').value);
