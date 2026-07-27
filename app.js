@@ -7942,7 +7942,6 @@ async function renderPrecioArido(){
     const tn04=prodMes[m]?.t04||0;
     const base=tot?(g-tn04)/tot:0;
     const p04=(base+1)*1.08, pResto=base*1.08;
-    const vm=ventaMes[m];
     // Usar ventas si hay, si no usar producción como proxy
     const vm=ventaMes[m];
     const usarVentas = vm && vm.total>0;
