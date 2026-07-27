@@ -7818,16 +7818,18 @@ async function renderPrecioArido(){
   const _p04  = _base + 1;
   const _pResto = _base;
 
-  const kpiCard = (label, value, color) => `
+  const kpiCard = (label, value, valueSocios, color) => `
     <div style="background:var(--surface);border:2px solid ${color};border-radius:12px;padding:20px 24px;text-align:center;flex:1;min-width:180px">
       <div style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">${label}</div>
       <div style="font-size:1.8rem;font-weight:900;color:${color}">${value}<span style="font-size:.85rem;font-weight:400;margin-left:4px">€/Tn</span></div>
+      <div style="font-size:.72rem;color:var(--muted);margin-top:6px">+8%: <strong style="color:${color}">${valueSocios} €/Tn</strong></div>
     </div>`;
 
   let html = '<div style="display:flex;gap:14px;margin-bottom:20px;flex-wrap:wrap">';
-  html += kpiCard('Precio Mín. Global', _totalProd?fmtES(_totalGasto/_totalProd):'—', 'var(--accent)');
-  html += kpiCard('Precio Mín. 0/4', _totalProd?fmtES(_p04):'—', '#d4a017');
-  html += kpiCard('Precio Mín. Resto', _totalProd?fmtES(_pResto):'—', '#2e7d6b');
+  const gbl = _totalProd ? _totalGasto/_totalProd : 0;
+  html += kpiCard('Precio Mín. Global', _totalProd?fmtES(gbl):'—', _totalProd?fmtES(gbl*1.08):'—', 'var(--accent)');
+  html += kpiCard('Precio Mín. 0/4', _totalProd?fmtES(_p04):'—', _totalProd?fmtES(_p04*1.08):'—', '#d4a017');
+  html += kpiCard('Precio Mín. Resto', _totalProd?fmtES(_pResto):'—', _totalProd?fmtES(_pResto*1.08):'—', '#2e7d6b');
   html += '</div>';
 
   // Build table
