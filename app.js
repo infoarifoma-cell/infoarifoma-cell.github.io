@@ -7747,11 +7747,16 @@ function updateCostesToggleBtn(){
 
 // ── PRECIO MÍNIMO ÁRIDO ──────────────────────────────────────────────────────
 
-function renderPrecioArido(){
+async function renderPrecioArido(){
   const wrap = document.getElementById('precio-arido-wrap');
   if(!costesRawData.length || !costesProduccion.length){
     wrap.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Carga datos de BC primero.</div>';
     return;
+  }
+
+  // Cargar ventas del año si no están
+  if(!ventasData.length){
+    try{ const json=await apiFetch('?accion=pedidos&dias=365'); if(json.ok) ventasData=json.data; }catch(e){}
   }
 
   const mesDesde = parseInt(document.getElementById('costes-mes-desde').value);
@@ -7888,6 +7893,48 @@ function renderPrecioArido(){
     // spacing between types
     html+=`<tr><td colspan="${mesesActivos.length+2}" style="padding:4px;border:none"></td></tr>`;
   }
+
+  // ── Media ponderada final por toneladas vendidas ──
+  // Agrupar ventas por mes y tipo
+  const ventaMes = {}; // { mes: { t04, t412, t1220, t2040, total } }
+  const anyo = costesAnyoCargado;
+  for(const r of ventasData){
+    const d = parseFechaHoraObj(r.fechaHora);
+    if(!d || d.getFullYear()!=anyo) continue;
+    const m = d.getMonth()+1;
+    if(m<mesDesde||m>mesHasta) continue;
+    if(!ventaMes[m]) ventaMes[m]={t04:0,t412:0,t1220:0,t2040:0,total:0};
+    const cat = getCat(r.productoNombre);
+    const tn = (Number(r.pesoNeto)||0)/1000;
+    ventaMes[m].total += tn;
+    if(cat==='0/4') ventaMes[m].t04+=tn;
+    else if(cat==='4/12') ventaMes[m].t412+=tn;
+    else if(cat==='12/20') ventaMes[m].t1220+=tn;
+    else if(cat==='20/40') ventaMes[m].t2040+=tn;
+  }
+
+  // Separator
+  html+='<tr><td colspan="'+(mesesActivos.length+2)+'" style="padding:8px 0;border:none"><div style="border-top:3px solid var(--accent);margin:0"></div></td></tr>';
+
+  // Media ponderada: sum(precio_tipo × tn_vendidas_tipo) / total_vendido
+  html+='<tr style="background:rgba(107,125,46,.15);font-weight:900;font-size:.85rem"><td>PRECIO MEDIO PONDERADO SOCIOS (+8%) (€/Tn)</td>';
+  let totalVendido=0, totalPonderado=0;
+  for(const m of mesesActivos){
+    const tot=prodMes[m]?.tn||0; const g=gastoMes[m]||0;
+    const tn04=prodMes[m]?.t04||0;
+    const base=tot?(g-tn04)/tot:0;
+    const p04=(base+1)*1.08, pResto=base*1.08;
+    const vm=ventaMes[m];
+    if(vm && vm.total>0){
+      const pond=p04*vm.t04 + pResto*(vm.t412+vm.t1220+vm.t2040);
+      totalPonderado+=pond; totalVendido+=vm.total;
+      html+=`<td class="costes-val" style="font-weight:900;color:var(--accent)">${fmtES(pond/vm.total)}</td>`;
+    } else {
+      html+=`<td class="costes-val">—</td>`;
+    }
+  }
+  const mediaFinal=totalVendido?totalPonderado/totalVendido:0;
+  html+=`<td class="costes-val costes-total-col" style="font-weight:900;color:var(--accent);font-size:.9rem">${mediaFinal?fmtES(mediaFinal):'—'}</td></tr>`;
 
   html+='</tbody></table>';
   wrap.innerHTML=html;
