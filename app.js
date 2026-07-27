@@ -7552,6 +7552,10 @@ function renderCostes(){
 
 // ── COSTES EXPORT EXCEL ──────────────────────────────────────────────────────
 async function exportarCostesExcel() {
+  // Si estamos en pestaña Precio Árido, exportar esa
+  if(document.getElementById('costes-tab-precio')?.classList.contains('active')){
+    return exportarPrecioAridoExcel();
+  }
   if (!costesRawData.length) { alert('Primero carga los datos de BC.'); return; }
   if (typeof ExcelJS === 'undefined') { alert('Librería Excel no cargada, recarga la página.'); return; }
 
@@ -7933,6 +7937,78 @@ async function renderPrecioArido(){
   wrap.innerHTML=html;
 }
 
+// ── PRECIO ÁRIDO: EXCEL ──────────────────────────────────────────────────────
+async function exportarPrecioAridoExcel(){
+  if(!costesRawData.length){ alert('Carga datos primero'); return; }
+  if(typeof ExcelJS==='undefined'){ alert('Librería Excel no cargada'); return; }
+
+  const wrap = document.getElementById('precio-arido-wrap');
+  const table = wrap?.querySelector('table');
+  if(!table){ alert('No hay tabla para exportar'); return; }
+
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Precio Árido');
+
+  table.querySelectorAll('tr').forEach(tr=>{
+    const row=[];
+    tr.querySelectorAll('th,td').forEach(cell=>{
+      const inp = cell.querySelector('input');
+      if(inp) { row.push(inp.checked?'✓':'✗'); return; }
+      const txt = cell.textContent.trim();
+      const num = txt.replace(/\./g,'').replace(',','.').replace('—','');
+      row.push(num && !isNaN(Number(num)) ? Number(num) : txt);
+    });
+    ws.addRow(row);
+  });
+
+  // Style header
+  const headerRow = ws.getRow(1);
+  headerRow.font = {bold:true};
+  headerRow.eachCell(c=>{ c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE8E0D0'}}; });
+
+  ws.columns.forEach(col=>{ col.width=14; });
+  ws.getColumn(1).width=35;
+
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `precio-arido-${costesAnyoCargado||''}-${new Date().toISOString().slice(0,10)}.xlsx`;
+  a.click();
+}
+
+// ── PRECIO ÁRIDO: IMPRIMIR ──────────────────────────────────────────────────
+function imprimirPrecioArido(){
+  if(!costesRawData.length){ alert('Carga datos primero'); return; }
+  const content = document.getElementById('precio-arido-wrap');
+  if(!content){ return; }
+
+  const anyo = document.getElementById('costes-anyo').value;
+  const mesDesde = parseInt(document.getElementById('costes-mes-desde').value);
+  const mesHasta = parseInt(document.getElementById('costes-mes-hasta').value);
+  const MESES={1:'Enero',2:'Febrero',3:'Marzo',4:'Abril',5:'Mayo',6:'Junio',7:'Julio',8:'Agosto',9:'Septiembre',10:'Octubre',11:'Noviembre',12:'Diciembre'};
+
+  const win = window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>Precio Árido ${anyo}</title>
+  <style>
+    body{font-family:Arial,sans-serif;font-size:9pt;color:#111;margin:20px}
+    h2{font-size:14pt;margin-bottom:4px}
+    .sub{font-size:9pt;color:#666;margin-bottom:16px}
+    table{width:100%;border-collapse:collapse;font-size:8pt}
+    th,td{padding:4px 6px;border:1px solid #ccc}
+    th{background:#e8e0d0;font-weight:700;text-align:center}
+    td{text-align:right}
+    td:first-child{text-align:left;font-weight:600}
+    @media print{body{margin:10mm}}
+  </style></head><body>
+  <h2>Precio Mínimo de Árido — ARIFOMA ${anyo}</h2>
+  <div class="sub">${MESES[mesDesde]} a ${MESES[mesHasta]} ${anyo}</div>
+  ${content.innerHTML}
+  </body></html>`);
+  win.document.close();
+  setTimeout(()=>{ win.print(); },400);
+}
+
 // ── COSTES CHARTS ────────────────────────────────────────────────────────────
 
 const COSTES_COLORS = [
@@ -8280,6 +8356,10 @@ function renderRendimiento() {
 // ── COSTES IMPRIMIR ──────────────────────────────────────────────────────────
 
 function imprimirCostes(){
+  // Si estamos en pestaña Precio Árido, imprimir esa
+  if(document.getElementById('costes-tab-precio')?.classList.contains('active')){
+    return imprimirPrecioArido();
+  }
   if(!costesRawData.length){ alert('Carga datos primero'); return; }
 
   const wrap = document.getElementById('costes-print-wrap');
