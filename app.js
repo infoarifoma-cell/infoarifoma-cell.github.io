@@ -7356,7 +7356,6 @@ async function cargarCostes(){
 
     info.textContent = `${costesRawData.length} movimientos cargados del ${anyo} · Producción: ${costesProduccion.length} días`;
     renderCostes();
-    renderRendimiento();
   } catch(e){
     info.textContent = 'Error: '+e.message;
     console.error('Costes error:', e);
@@ -7835,6 +7834,14 @@ function renderPrecioArido(){
   }
   html+=`<td class="costes-val costes-total-col">${totalProd?fmtES(totalGasto/totalProd):'—'}</td></tr>`;
 
+  // Row: Precio socios global (+8%)
+  html+='<tr style="background:rgba(46,125,107,.08);font-weight:700"><td>Precio Socios Global (+8%) (€/Tn)</td>';
+  for(const m of mesesActivos){
+    const g=gastoMes[m]||0; const tn=prodMes[m]?.tn||0;
+    html+=`<td class="costes-val" style="color:#2e7d6b">${tn?fmtES(g/tn*1.08):'—'}</td>`;
+  }
+  html+=`<td class="costes-val costes-total-col" style="color:#2e7d6b">${totalProd?fmtES(totalGasto/totalProd*1.08):'—'}</td></tr>`;
+
   // Separator
   html+='<tr><td colspan="'+(mesesActivos.length+2)+'" style="padding:8px 0;border:none"><div style="border-top:2px solid var(--accent);margin:0"></div></td></tr>';
 
@@ -7849,24 +7856,6 @@ function renderPrecioArido(){
     }
     html+=`<td class="costes-val costes-total-col">${fmtTn(tProd)}</td></tr>`;
 
-    // % of production
-    html+=`<tr><td style="padding-left:16px;font-size:.72rem;color:var(--muted)">% sobre total</td>`;
-    for(const m of mesesActivos){
-      const tn=prodMes[m]?.[tipo.key]||0; const tot=prodMes[m]?.tn||0;
-      html+=`<td class="costes-val" style="font-size:.72rem;color:var(--muted)">${tot?(tn/tot*100).toFixed(1)+'%':'—'}</td>`;
-    }
-    html+=`<td class="costes-val costes-total-col" style="font-size:.72rem;color:var(--muted)">${totalProd?(tProd/totalProd*100).toFixed(1)+'%':'—'}</td></tr>`;
-
-    // Coste proporcional
-    html+=`<tr><td style="padding-left:16px;font-size:.72rem;color:var(--muted)">Coste proporcional (€)</td>`;
-    let tCoste=0;
-    for(const m of mesesActivos){
-      const tn=prodMes[m]?.[tipo.key]||0; const tot=prodMes[m]?.tn||0; const g=gastoMes[m]||0;
-      const coste=tot?(g*tn/tot):0; tCoste+=coste;
-      html+=`<td class="costes-val" style="font-size:.72rem;color:var(--muted)">${coste?fmtES(coste):'—'}</td>`;
-    }
-    html+=`<td class="costes-val costes-total-col" style="font-size:.72rem;color:var(--muted)">${tCoste?fmtES(tCoste):'—'}</td></tr>`;
-
     // Precio mínimo
     html+=`<tr class="costes-grand-row"><td>Precio Mín. ${tipo.label} (€/Tn)</td>`;
     for(const m of mesesActivos){
@@ -7874,8 +7863,19 @@ function renderPrecioArido(){
       const precio=tn?(g*tn/tot)/tn:0;
       html+=`<td class="costes-val">${precio?fmtES(precio):'—'}</td>`;
     }
+    const tCoste=totalProd?totalGasto*tProd/totalProd:0;
     const precioTotal=tProd?(tCoste/tProd):0;
     html+=`<td class="costes-val costes-total-col">${precioTotal?fmtES(precioTotal):'—'}</td></tr>`;
+
+    // Precio socios (+8%)
+    html+=`<tr style="background:rgba(46,125,107,.08)"><td style="padding-left:16px;font-weight:600">Precio Socios ${tipo.label} (+8%) (€/Tn)</td>`;
+    for(const m of mesesActivos){
+      const tn=prodMes[m]?.[tipo.key]||0; const tot=prodMes[m]?.tn||0; const g=gastoMes[m]||0;
+      const precio=tn?(g*tn/tot)/tn*1.08:0;
+      html+=`<td class="costes-val" style="color:#2e7d6b">${precio?fmtES(precio):'—'}</td>`;
+    }
+    const precioSocios=precioTotal*1.08;
+    html+=`<td class="costes-val costes-total-col" style="color:#2e7d6b">${precioSocios?fmtES(precioSocios):'—'}</td></tr>`;
 
     // spacing between types
     html+=`<tr><td colspan="${mesesActivos.length+2}" style="padding:4px;border:none"></td></tr>`;
