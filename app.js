@@ -7943,10 +7943,18 @@ async function renderPrecioArido(){
     const base=tot?(g-tn04)/tot:0;
     const p04=(base+1)*1.08, pResto=base*1.08;
     const vm=ventaMes[m];
-    if(vm && vm.total>0){
-      const pond=p04*vm.t04 + pResto*(vm.t412+vm.t1220+vm.t2040);
-      if(!precioAridoExclMeses.has(m)){ totalPonderado+=pond; totalVendido+=vm.total; }
-      html+=`<td class="costes-val" style="font-weight:900;color:var(--accent)">${fmtES(pond/vm.total)}</td>`;
+    // Usar ventas si hay, si no usar producción como proxy
+    const vm=ventaMes[m];
+    const usarVentas = vm && vm.total>0;
+    const vt04  = usarVentas ? vm.t04  : (prodMes[m]?.t04||0);
+    const vt412 = usarVentas ? vm.t412 : (prodMes[m]?.t412||0);
+    const vt1220= usarVentas ? vm.t1220: (prodMes[m]?.t1220||0);
+    const vt2040= usarVentas ? vm.t2040: (prodMes[m]?.t2040||0);
+    const vTotal= vt04+vt412+vt1220+vt2040;
+    if(vTotal>0){
+      const pond=p04*vt04 + pResto*(vt412+vt1220+vt2040);
+      if(!precioAridoExclMeses.has(m)){ totalPonderado+=pond; totalVendido+=vTotal; }
+      html+=`<td class="costes-val" style="font-weight:900;color:var(--accent)">${fmtES(pond/vTotal)}</td>`;
     } else {
       html+=`<td class="costes-val">—</td>`;
     }
