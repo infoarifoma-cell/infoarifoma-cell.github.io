@@ -7400,6 +7400,51 @@ async function cargarCostes(){
   }
 }
 
+async function cargarCostes12m(){
+  const btn = document.getElementById('costes-btn-cargar12');
+  const info = document.getElementById('costes-info');
+  btn.disabled=true; btn.textContent='Cargando...';
+  info.textContent='Cargando últimos 12 meses desde Business Central...';
+  try {
+    const token = await getBCToken();
+    const hoy = new Date();
+    const anyoActual = hoy.getFullYear();
+    const anyoAnterior = anyoActual - 1;
+    const mesActual = hoy.getMonth()+1;
+    // Cargar ambos años de BC + producción en paralelo
+    const [bcCur, bcPrev, prodCur, prodPrev] = await Promise.all([
+      fetch('/api/bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'costes',token,anyo:anyoActual})}).then(r=>r.json()),
+      fetch('/api/bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'costes',token,anyo:anyoAnterior})}).then(r=>r.json()),
+      getProduccion(null, anyoActual),
+      getProduccion(null, anyoAnterior)
+    ]);
+    if(!bcCur.ok) throw new Error(bcCur.error||'Error año actual');
+    if(!bcPrev.ok) throw new Error(bcPrev.error||'Error año anterior');
+    // Filtrar año anterior: solo meses >= mesActual+1 (los últimos 12)
+    const prevEntries = (bcPrev.entries||[]).filter(e=>{
+      const m=parseInt((e.date||'').split('-')[1]);
+      return m>mesActual;
+    });
+    const prevProd = (prodPrev.data||[]).filter(p=>{
+      const m=parseInt((p.fecha||'').split('-')[1]);
+      return m>mesActual;
+    });
+    costesRawData = [...prevEntries, ...(bcCur.entries||[])];
+    costesProduccion = [...prevProd, ...(prodCur.data||[])];
+    costesAnyoCargado = anyoAnterior+'-'+anyoActual;
+    // Ajustar filtros para mostrar todo
+    document.getElementById('costes-mes-desde').value=1;
+    document.getElementById('costes-mes-hasta').value=12;
+    info.textContent=`${costesRawData.length} movimientos cargados (${anyoAnterior}-${anyoActual}, últimos 12 meses) · Producción: ${costesProduccion.length} días`;
+    renderCostes();
+  }catch(e){
+    info.textContent='Error: '+e.message;
+    console.error('Costes 12m error:', e);
+  }finally{
+    btn.disabled=false; btn.textContent='↻ Cargar 12 meses';
+  }
+}
+
 function renderCostes(){
   const wrap = document.getElementById('costes-table-wrap');
   if(!costesRawData.length){ wrap.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Sin datos. Pulsa "Cargar de BC".</div>'; return; }
