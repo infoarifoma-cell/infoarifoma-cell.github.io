@@ -4778,11 +4778,12 @@ async function guardarProdEdit(){
         t1220:Number(payload.t1220||0), t2040:Number(payload.t2040||0),
         t020:Number(payload.t020||0), tnDia:Number(payload.tnDia||0),
         horasPlanta:Number(payload.horasPlanta||0),
-        primarioH:Number(payload.primarioH||0),
-        hp4H:Number(payload.hp4H||0),
-        oreSizerH:Number(payload.oreSizerH||0),
         observaciones:payload.observaciones||''
       };
+      // Añadir campos de horómetros solo si las columnas existen
+      if(payload.primarioH)sbData.primarioH=Number(payload.primarioH);
+      if(payload.hp4H)sbData.hp4H=Number(payload.hp4H);
+      if(payload.oreSizerH)sbData.oreSizerH=Number(payload.oreSizerH);
       if(fila){
         // Editar: buscar registro por fecha del fila editado
         const editRow=prodData.find(r=>r.fila==fila)||prodData[fila-6];
@@ -4815,7 +4816,7 @@ async function cargarProd2025(){
     const existing=await dbQuery({action:'select',table:'PRODUCCION',filters:[{column:'fecha',op:'gte',value:`2025-${String(m+1).padStart(2,'0')}-01`},{column:'fecha',op:'lte',value:`2025-${String(m+1).padStart(2,'0')}-31`}],options:{select:'id',limit:1}});
     if(existing.ok&&existing.data&&existing.data.length>0){skip++;continue;}
     const tn=meses[m];
-    await dbQuery({action:'insert',table:'PRODUCCION',data:{fecha,tipoDia:tn>0?'P':'',tnDia:tn,t04:0,t412:0,t1220:0,t2040:0,t020:0,horasPlanta:0,primarioH:0,hp4H:0,oreSizerH:0,observaciones:'Resumen mensual 2025'}});
+    await dbQuery({action:'insert',table:'PRODUCCION',data:{fecha,tipoDia:tn>0?'P':'',tnDia:tn,observaciones:'Resumen mensual 2025'}});
     ok++;
   }
   alert('Producción 2025 cargada: '+ok+' meses insertados, '+skip+' ya existían.');
@@ -7883,9 +7884,9 @@ async function renderPrecioArido(){
   const fmtES = (v,dec=2) => {
     if(!v||v===0) return '—';
     const neg=v<0;
-    const [ent,d2]=Math.abs(v).toFixed(dec).split('.');
-    const miles=ent.replace(/\B(?=(\d{3})+(?!\d))/g,'.');
-    return (neg?'-':'')+miles+','+d2;
+    const parts=Math.abs(v).toFixed(dec).split('.');
+    const miles=parts[0].replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+    return (neg?'-':'')+miles+(parts[1]?','+parts[1]:'');
   };
   const fmtTn = v => (!v||v===0)?'—':fmtES(v,1);
 

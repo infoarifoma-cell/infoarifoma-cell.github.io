@@ -588,59 +588,52 @@ async function getProduccion(mes, anyo) {
 
 async function doEditProduccion(data) {
   const { id, ...campos } = data;
-  return dbQuery({
-    action: 'update',
-    table: 'PRODUCCION',
-    data: {
-      tipoDia:      campos.tipoDia,
-      tnDia:        Number(campos.tnDia),
-      t04:          Number(campos.t04),
-      t04h:         Number(campos.t04h),
-      t412:         Number(campos.t412),
-      t412h:        Number(campos.t412h),
-      t1220:        Number(campos.t1220),
-      t1220h:       Number(campos.t1220h),
-      t2040:        Number(campos.t2040),
-      t2040h:       Number(campos.t2040h),
-      otroTipo:     campos.otroTipo,
-      otroTn:       Number(campos.otroTn),
-      otroTnh:      Number(campos.otroTnh),
-      horasPlanta:  Number(campos.horasPlanta),
-      primarioH:    Number(campos.primarioH || 0),
-      hp4H:         Number(campos.hp4H || 0),
-      oreSizerH:    Number(campos.oreSizerH || 0),
-      observaciones:campos.observaciones
-    },
-    filters: [{ column: 'id', op: 'eq', value: id }]
-  });
+  const d = {
+    tipoDia:      campos.tipoDia,
+    tnDia:        Number(campos.tnDia),
+    t04:          Number(campos.t04),
+    t04h:         Number(campos.t04h),
+    t412:         Number(campos.t412),
+    t412h:        Number(campos.t412h),
+    t1220:        Number(campos.t1220),
+    t1220h:       Number(campos.t1220h),
+    t2040:        Number(campos.t2040),
+    t2040h:       Number(campos.t2040h),
+    otroTipo:     campos.otroTipo,
+    otroTn:       Number(campos.otroTn),
+    otroTnh:      Number(campos.otroTnh),
+    horasPlanta:  Number(campos.horasPlanta),
+    observaciones:campos.observaciones
+  };
+  if(campos.primarioH) d.primarioH=Number(campos.primarioH);
+  if(campos.hp4H) d.hp4H=Number(campos.hp4H);
+  if(campos.oreSizerH) d.oreSizerH=Number(campos.oreSizerH);
+  return dbQuery({action:'update',table:'PRODUCCION',data:d,filters:[{column:'id',op:'eq',value:id}]});
 }
 
 async function doAddProduccion(data) {
-  return dbQuery({
-    action: 'insert',
-    table: 'PRODUCCION',
-    data: {
-      fecha:         data.fecha,
-      tipoDia:       data.tipoDia,
-      tnDia:         Number(data.tnDia  || 0),
-      t04:           Number(data.t04    || 0),
-      t04h:          Number(data.t04h   || 0),
-      t412:          Number(data.t412   || 0),
-      t412h:         Number(data.t412h  || 0),
-      t1220:         Number(data.t1220  || 0),
-      t1220h:        Number(data.t1220h || 0),
-      t2040:         Number(data.t2040  || 0),
-      t2040h:        Number(data.t2040h || 0),
-      otroTipo:      data.otroTipo  || '',
-      otroTn:        Number(data.otroTn  || 0),
-      otroTnh:       Number(data.otroTnh || 0),
-      horasPlanta:   Number(data.horasPlanta || 0),
-      primarioH:     Number(data.primarioH || 0),
-      hp4H:          Number(data.hp4H || 0),
-      oreSizerH:     Number(data.oreSizerH || 0),
-      observaciones: data.observaciones || ''
-    }
-  });
+  const d = {
+    fecha:         data.fecha,
+    tipoDia:       data.tipoDia,
+    tnDia:         Number(data.tnDia  || 0),
+    t04:           Number(data.t04    || 0),
+    t04h:          Number(data.t04h   || 0),
+    t412:          Number(data.t412   || 0),
+    t412h:         Number(data.t412h  || 0),
+    t1220:         Number(data.t1220  || 0),
+    t1220h:        Number(data.t1220h || 0),
+    t2040:         Number(data.t2040  || 0),
+    t2040h:        Number(data.t2040h || 0),
+    otroTipo:      data.otroTipo  || '',
+    otroTn:        Number(data.otroTn  || 0),
+    otroTnh:       Number(data.otroTnh || 0),
+    horasPlanta:   Number(data.horasPlanta || 0),
+    observaciones: data.observaciones || ''
+  };
+  if(data.primarioH) d.primarioH=Number(data.primarioH);
+  if(data.hp4H) d.hp4H=Number(data.hp4H);
+  if(data.oreSizerH) d.oreSizerH=Number(data.oreSizerH);
+  return dbQuery({action:'insert',table:'PRODUCCION',data:d});
 }
 
 // ── GASOIL ───────────────────────────────────────────────────
