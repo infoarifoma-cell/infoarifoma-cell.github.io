@@ -7469,6 +7469,7 @@ async function cargarCostes12m(){
 }
 
 function renderCostes(){
+  calcAcum12m();
   const wrap = document.getElementById('costes-table-wrap');
   if(!costesRawData.length){ wrap.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Sin datos. Pulsa "Cargar de BC".</div>'; return; }
 
@@ -8088,51 +8089,41 @@ async function renderPrecioArido(){
   html+='</tbody></table>';
   wrap.innerHTML=html;
 
-  // Acumulado últimos 12 meses (rolling) — solo si se cargaron 12 meses
-  const _es12m=String(costesAnyoCargado||'').includes('-');
-  document.getElementById('precio-acum12-box').style.display=_es12m?'block':'none';
-  if(_es12m) try{
+  calcAcum12m();
+}
+
+function calcAcum12m(){
+  const box=document.getElementById('precio-acum12-box');
+  if(!box)return;
+  const es12m=String(costesAnyoCargado||'').includes('-');
+  box.style.display=es12m?'block':'none';
+  if(!es12m)return;
+  const fmtA=(v,dec=2)=>{if(!v||v===0)return'—';const neg=v<0;const parts=Math.abs(v).toFixed(dec).split('.');const miles=parts[0].replace(/\B(?=(\d{3})+(?!\d))/g,'.');return(neg?'-':'')+miles+(parts[1]?','+parts[1]:'');};
+  try{
     const hoy=new Date();
     const mesHoy=hoy.getMonth()+1;
     const anyoHoy=hoy.getFullYear();
-    // Recorrer los últimos 12 meses calendario
-    let acumGasto=0, acumProd=0;
+    let acumGasto=0,acumProd=0;
     for(let i=0;i<12;i++){
-      let mm=mesHoy-i;
-      let yy=anyoHoy;
+      let mm=mesHoy-i,yy=anyoHoy;
       if(mm<=0){mm+=12;yy--;}
       const ymStr=`${yy}-${String(mm).padStart(2,'0')}`;
-      // Gastos de ese mes
       for(const e of costesRawData){
-        if(costesExcludedAccounts.has(e.account||'?')) continue;
-        if((e.date||'').slice(0,7)!==ymStr) continue;
+        if(costesExcludedAccounts.has(e.account||'?'))continue;
+        if((e.date||'').slice(0,7)!==ymStr)continue;
         const ca=e.ca||'#N/D';
         const info=COSTES_CA_MAP[ca]||{cat:'#N/D',name:ca,orden:'0.GASTO'};
-        if(info.cat==='INGRESOS') continue;
+        if(info.cat==='INGRESOS')continue;
         acumGasto+=(e.debit||0)-(e.credit||0);
       }
-      // Producción: primero manual, si no Supabase
       const manYear=precioAridoProdManual[String(yy)]||{};
       const manVal=manYear[String(mm)]!=null?manYear[String(mm)]:(manYear[mm]!=null?manYear[mm]:null);
-      if(manVal!=null&&manVal>0){
-        acumProd+=manVal;
-      }else{
-        for(const p of costesProduccion){
-          const pm=parseInt((p.fecha||'').split('-')[1]);
-          const py=parseInt((p.fecha||'').split('-')[0]);
-          if(py===yy&&pm===mm) acumProd+=parseFloat(p.tnDia)||0;
-        }
-      }
+      if(manVal!=null&&manVal>0){acumProd+=manVal;}
+      else{for(const p of costesProduccion){const pm=parseInt((p.fecha||'').split('-')[1]);const py=parseInt((p.fecha||'').split('-')[0]);if(py===yy&&pm===mm)acumProd+=parseFloat(p.tnDia)||0;}}
     }
-    const box=document.getElementById('precio-acum12-box');
-    if(box){
-      box.style.display='block';
-      const precio=acumProd?acumGasto/acumProd:0;
-      document.getElementById('precio-acum12-valor').textContent=precio?fmtES(precio)+' €/Tn':'—';
-      document.getElementById('precio-acum12-det').textContent=
-        fmtES(acumGasto,0)+' € / '+fmtES(acumProd,0)+' Tn'+
-        (acumProd?' · +8%: '+fmtES(precio*1.08)+' €/Tn':'');
-    }
+    const precio=acumProd?acumGasto/acumProd:0;
+    document.getElementById('precio-acum12-valor').textContent=precio?fmtA(precio)+' €/Tn':'—';
+    document.getElementById('precio-acum12-det').textContent=fmtA(acumGasto,0)+' € / '+fmtA(acumProd,0)+' Tn'+(acumProd?' · +8%: '+fmtA(precio*1.08)+' €/Tn':'');
   }catch(e){console.warn('Acum12:',e);}
 }
 
