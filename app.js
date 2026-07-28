@@ -4809,17 +4809,27 @@ async function guardarProdEdit(){
 // ── CARGA PRODUCCIÓN 2025 (temporal — ejecutar una vez) ──────
 async function cargarProd2025(){
   const meses=[0,286,3648,8413,7598,6372,10136,5837,4717,6811,540,3397];
-  let ok=0,skip=0;
+  let ok=0,skip=0,upd=0;
   for(let m=0;m<12;m++){
-    const fecha=`2025-${String(m+1).padStart(2,'0')}-01`;
-    // Comprobar si ya existe
-    const existing=await dbQuery({action:'select',table:'PRODUCCION',filters:[{column:'fecha',op:'gte',value:`2025-${String(m+1).padStart(2,'0')}-01`},{column:'fecha',op:'lte',value:`2025-${String(m+1).padStart(2,'0')}-31`}],options:{select:'id',limit:1}});
-    if(existing.ok&&existing.data&&existing.data.length>0){skip++;continue;}
+    const mm=String(m+1).padStart(2,'0');
     const tn=meses[m];
-    await dbQuery({action:'insert',table:'PRODUCCION',data:{fecha,tipoDia:tn>0?'P':'',tnDia:tn,observaciones:'Resumen mensual 2025'}});
-    ok++;
+    if(tn===0){skip++;continue;} // No insertar meses sin producción
+    // Buscar si ya hay un registro con tnDia>0 en ese mes (resumen ya cargado)
+    const existing=await dbQuery({action:'select',table:'PRODUCCION',filters:[{column:'fecha',op:'gte',value:`2025-${mm}-01`},{column:'fecha',op:'lte',value:`2025-${mm}-31`},{column:'tnDia',op:'gt',value:0}],options:{select:'id,tnDia,fecha',limit:1}});
+    if(existing.ok&&existing.data&&existing.data.length>0){
+      const row=existing.data[0];
+      if(Number(row.tnDia||0)===tn){skip++;continue;}
+      // Actualizar registro existente
+      await dbQuery({action:'update',table:'PRODUCCION',data:{tnDia:tn},filters:[{column:'id',op:'eq',value:row.id}]});
+      upd++;continue;
+    }
+    // Insertar con fecha día 15 para evitar conflictos con registros de fines de semana
+    const fecha=`2025-${mm}-15`;
+    const d={fecha,tipoDia:'P',tnDia:tn,t04:0,t04h:0,t412:0,t412h:0,t1220:0,t1220h:0,t2040:0,t2040h:0,otroTipo:'',otroTn:0,otroTnh:0,horasPlanta:0,observaciones:'Resumen mensual 2025'};
+    const res=await dbQuery({action:'insert',table:'PRODUCCION',data:d});
+    if(res.ok){ok++;}else{console.warn('Mes '+(m+1)+':',res.error);}
   }
-  alert('Producción 2025 cargada: '+ok+' meses insertados, '+skip+' ya existían.');
+  alert('Producción 2025: '+ok+' insertados, '+upd+' actualizados, '+skip+' sin cambios.');
 }
 
 // ── FACTURACIÓN ──────────────────────────────────────────────
