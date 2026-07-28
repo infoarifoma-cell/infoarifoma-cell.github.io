@@ -7845,6 +7845,18 @@ function updateCostesToggleBtn(){
 
 let precioAridoExclMeses = new Set();
 let precioAridoProdManual = JSON.parse(localStorage.getItem('precioAridoProdManual')||'{}'); // {"2025":{1:286,2:3648,...}}
+let _prodManualLoaded=false;
+async function cargarProdManual(){
+  if(_prodManualLoaded)return;
+  try{
+    const res=await dbQuery({action:'select',table:'tblConfig',filters:[{column:'clave',op:'eq',value:'precioAridoProdManual'}],options:{select:'*',limit:1}});
+    if(res.ok&&res.data&&res.data.length>0){
+      precioAridoProdManual=JSON.parse(res.data[0].valor||'{}');
+      localStorage.setItem('precioAridoProdManual',JSON.stringify(precioAridoProdManual));
+    }
+  }catch(e){console.warn('cargarProdManual:',e);}
+  _prodManualLoaded=true;
+}
 function togglePrecioAridoMes(m, included){
   if(included) precioAridoExclMeses.delete(m);
   else precioAridoExclMeses.add(m);
@@ -7854,10 +7866,20 @@ function setPrecioAridoProd(anyo,m,val){
   if(!precioAridoProdManual[anyo])precioAridoProdManual[anyo]={};
   precioAridoProdManual[anyo][m]=Number(val)||0;
   localStorage.setItem('precioAridoProdManual',JSON.stringify(precioAridoProdManual));
+  // Guardar en Supabase
+  const json=JSON.stringify(precioAridoProdManual);
+  dbQuery({action:'select',table:'tblConfig',filters:[{column:'clave',op:'eq',value:'precioAridoProdManual'}],options:{select:'id',limit:1}}).then(res=>{
+    if(res.ok&&res.data&&res.data.length>0){
+      dbQuery({action:'update',table:'tblConfig',data:{valor:json},filters:[{column:'id',op:'eq',value:res.data[0].id}]});
+    }else{
+      dbQuery({action:'insert',table:'tblConfig',data:{clave:'precioAridoProdManual',valor:json}});
+    }
+  }).catch(e=>console.warn('Sync prodManual:',e));
   renderPrecioArido();
 }
 
 async function renderPrecioArido(){
+  await cargarProdManual();
   const wrap = document.getElementById('precio-arido-wrap');
   if(!costesRawData.length){
     wrap.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Carga datos de BC primero.</div>';
