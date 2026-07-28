@@ -3836,7 +3836,7 @@ async function initOT(){
   const shown=new Set();
   ['TODOS',...new Set(MACHINES.map(m=>m.tipo))].forEach(t=>{const label=labelsMap[t]||t;if(shown.has(label))return;shown.add(label);const div=document.createElement('div');div.className='filter-tab'+(t==='TODOS'?' active':'');div.textContent=label;div.dataset.tipo=t;div.onclick=()=>{currentFilter=t;document.querySelectorAll('.filter-tab').forEach(x=>x.classList.remove('active'));div.classList.add('active');filterMachines();};ft.appendChild(div);});
   renderMachinesOT(MACHINES);
-  document.getElementById('inputFecha').value='';
+  document.getElementById('inputFecha').value=new Date().toISOString().slice(0,16);
   const selOp=document.getElementById('inputOperario');if(selOp){selOp.innerHTML='<option value="">— Seleccionar —</option>';WORKERS.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;selOp.appendChild(o);});}
 }
 function renderMachinesOT(list){
@@ -4138,12 +4138,24 @@ function filtrarHistorialOT(){
   if(!data.length){el.innerHTML='<div class="tbl"><div class="empty">Sin resultados</div></div>';return;}
   const sOT=otHistSort==='ot'?' ▼':'',sFecha=otHistSort==='fecha'?' ▼':'';
   el.innerHTML='<div class="tbl"><div class="tr th"><div class="tc" style="flex:.5;cursor:pointer" onclick="otHistSort=\'ot\';filtrarHistorialOT()">OT'+sOT+'</div><div class="tc" style="flex:1.2">Máquina</div><div class="tc" style="flex:1">Gama</div><div class="tc" style="flex:.8;cursor:pointer" onclick="otHistSort=\'fecha\';filtrarHistorialOT()">Fecha'+sFecha+'</div><div class="tc" style="flex:.8">Operario</div><div class="tc" style="flex:.4;text-align:center">Estado</div><div class="tc" style="flex:.6"></div></div>'+
-  data.map(r=>`<div class="tr"><div class="tc" style="flex:.5;font-family:monospace;color:var(--muted)">#${String(r.ot||r.id).padStart(4,'0')}</div><div class="tc" style="flex:1.2;font-size:.78rem">${r.activo}</div><div class="tc" style="flex:1;color:var(--muted);font-size:.72rem">${r.gama}</div><div class="tc" style="flex:.8;color:var(--muted);font-size:.72rem">${r.fecha}</div><div class="tc" style="flex:.8;font-size:.75rem">${r.operario||'—'}</div><div class="tc" style="flex:.4;text-align:center"><span class="badge ${r.estado===true||r.estado==='TRUE'?'badge-ok':'badge-pend'}" style="cursor:pointer" onclick="toggleEstadoOT(${r.id})" title="Click para cambiar estado">${r.estado===true||r.estado==='TRUE'?'OK':'Pend'}</span></div><div class="tc" style="flex:.6;text-align:right;display:flex;gap:4px;justify-content:flex-end"><button class="btn-sm" onclick="printOTHistorial(${r.id})" title="Imprimir" style="font-size:.65rem;padding:2px 5px">🖨</button><button class="btn-sm" onclick="openOTEditModal(${r.id})">Editar</button><button class="btn-sm" onclick="eliminarOT(${r.id})" title="Eliminar" style="font-size:.65rem;padding:2px 5px;color:#e05;border-color:#e05">🗑</button></div></div>`).join('')+'</div>';
+  data.map(r=>`<div class="tr"><div class="tc" style="flex:.5;font-family:monospace;color:var(--muted)">#${String(r.ot||r.id).padStart(4,'0')}</div><div class="tc" style="flex:1.2;font-size:.78rem">${r.activo}</div><div class="tc" style="flex:1;color:var(--muted);font-size:.72rem">${r.gama}</div><div class="tc" style="flex:.8;color:var(--muted);font-size:.72rem">${r.fecha||'Sin fecha'}</div><div class="tc" style="flex:.8;font-size:.75rem">${r.operario||'—'}</div><div class="tc" style="flex:.4;text-align:center"><span class="badge ${r.estado===true||r.estado==='TRUE'?'badge-ok':'badge-pend'}" style="cursor:pointer" onclick="toggleEstadoOT(${r.id})" title="Click para cambiar estado">${r.estado===true||r.estado==='TRUE'?'OK':'Pend'}</span></div><div class="tc" style="flex:.6;text-align:right;display:flex;gap:4px;justify-content:flex-end"><button class="btn-sm" onclick="printOTHistorial(${r.id})" title="Imprimir" style="font-size:.65rem;padding:2px 5px">🖨</button><button class="btn-sm" onclick="openOTEditModal(${r.id})">Editar</button><button class="btn-sm" onclick="eliminarOT(${r.id})" title="Eliminar" style="font-size:.65rem;padding:2px 5px;color:#e05;border-color:#e05">🗑</button></div></div>`).join('')+'</div>';
 }
-function openOTEditModal(id){const r=otHistData.find(x=>x.id==id);if(!r)return;otEditingId=id;document.getElementById('ot-edit-modal').classList.add('open');document.getElementById('oem-fecha').value=r.fecha||'';document.getElementById('oem-operario').value=r.operario||'';document.getElementById('oem-medicion').value=r.medicion||'';document.getElementById('oem-texto').value=r.texto||'';}
+function openOTEditModal(id){const r=otHistData.find(x=>x.id==id);if(!r)return;otEditingId=id;document.getElementById('ot-edit-modal').classList.add('open');
+  // Convertir fecha a formato datetime-local
+  let fechaVal='';
+  if(r.fecha){
+    const f=String(r.fecha);
+    if(f.includes('T')){fechaVal=f.slice(0,16);}
+    else if(f.includes('/')){const p=f.split(/[\s,\/]+/);if(p.length>=3){fechaVal=p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0')+'T'+(p[3]||'00:00');}}
+    else if(f.match(/^\d{4}-\d{2}-\d{2}/)){fechaVal=f.slice(0,10)+'T00:00';}
+  }
+  if(!fechaVal)fechaVal=new Date().toISOString().slice(0,16);
+  document.getElementById('oem-fecha').value=fechaVal;document.getElementById('oem-operario').value=r.operario||'';document.getElementById('oem-medicion').value=r.medicion||'';document.getElementById('oem-texto').value=r.texto||'';}
 function closeOTEditModal(){document.getElementById('ot-edit-modal').classList.remove('open');otEditingId=null;}
 async function saveOTEdit(){
-  const payload={tipo:'editarOT',id:otEditingId,fecha:document.getElementById('oem-fecha').value,operario:document.getElementById('oem-operario').value,medicion:document.getElementById('oem-medicion').value,texto:document.getElementById('oem-texto').value};
+  const fechaRaw=document.getElementById('oem-fecha').value;
+  const fecha=fechaRaw?new Date(fechaRaw).toISOString():null;
+  const payload={tipo:'editarOT',id:otEditingId,fecha,operario:document.getElementById('oem-operario').value,medicion:document.getElementById('oem-medicion').value,texto:document.getElementById('oem-texto').value};
   try{const json=await apiPost(payload);if(json.ok){closeOTEditModal();cargarHistorialOT();}else alert('Error: '+json.error);}catch(e){alert('Error de conexión');}
 }
 async function toggleEstadoOT(id){
@@ -8076,8 +8088,10 @@ async function renderPrecioArido(){
   html+='</tbody></table>';
   wrap.innerHTML=html;
 
-  // Acumulado últimos 12 meses (rolling)
-  try{
+  // Acumulado últimos 12 meses (rolling) — solo si se cargaron 12 meses
+  const _es12m=String(costesAnyoCargado||'').includes('-');
+  document.getElementById('precio-acum12-box').style.display=_es12m?'block':'none';
+  if(_es12m) try{
     const hoy=new Date();
     const mesHoy=hoy.getMonth()+1;
     const anyoHoy=hoy.getFullYear();
