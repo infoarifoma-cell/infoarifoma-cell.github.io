@@ -7468,11 +7468,17 @@ function renderCostes(){
 
   // Calcular producción por mes
   const prodMes = {};
+  const _anyoC=document.getElementById('costes-anyo').value||new Date().getFullYear();
+  const _manC=precioAridoProdManual[_anyoC]||{};
   for(const p of costesProduccion){
     const m = parseInt(p.fecha.split('-')[1]);
     if(m>=mesDesde && m<=mesHasta){
       prodMes[m] = (prodMes[m]||0) + (parseFloat(p.tnDia)||0);
     }
+  }
+  // Sobreescribir con producción manual
+  for(let m=mesDesde;m<=mesHasta;m++){
+    if(_manC[m]!=null&&_manC[m]>0) prodMes[m]=_manC[m];
   }
 
   // Agrupar movimientos por CA code + mes
@@ -7661,10 +7667,13 @@ async function exportarCostesExcel() {
 
   // Producción por mes
   const prodMes = {};
+  const _anyoX=document.getElementById('costes-anyo').value||new Date().getFullYear();
+  const _manX=precioAridoProdManual[_anyoX]||{};
   for (const p of costesProduccion) {
     const m = parseInt(p.fecha.split('-')[1]);
     if (m >= mesDesde && m <= mesHasta) prodMes[m] = (prodMes[m] || 0) + (parseFloat(p.tnDia) || 0);
   }
+  for(let m=mesDesde;m<=mesHasta;m++){if(_manX[m]!=null&&_manX[m]>0)prodMes[m]=_manX[m];}
   const totalProd = Object.values(prodMes).reduce((a, b) => a + b, 0);
 
   // Agrupación por categoría
@@ -8070,24 +8079,36 @@ async function renderPrecioArido(){
   // Acumulado últimos 12 meses (rolling)
   try{
     const hoy=new Date();
-    const hace12=new Date(hoy.getFullYear()-1,hoy.getMonth(),1);
-    const hace12Str=hace12.toISOString().slice(0,7); // yyyy-mm
-    const hoyStr=hoy.toISOString().slice(0,7);
-    let acumGasto=0, acumProd=0, acumT04=0;
-    for(const e of costesRawData){
-      if(costesExcludedAccounts.has(e.account||'?')) continue;
-      const ym=(e.date||'').slice(0,7);
-      if(ym<hace12Str||ym>hoyStr) continue;
-      const ca=e.ca||'#N/D';
-      const info=COSTES_CA_MAP[ca]||{cat:'#N/D',name:ca,orden:'0.GASTO'};
-      if(info.cat==='INGRESOS') continue;
-      acumGasto+=(e.debit||0)-(e.credit||0);
-    }
-    for(const p of costesProduccion){
-      const ym=(p.fecha||'').slice(0,7);
-      if(ym<hace12Str||ym>hoyStr) continue;
-      acumProd+=parseFloat(p.tnDia)||0;
-      acumT04+=parseFloat(p.t04)||0;
+    const mesHoy=hoy.getMonth()+1;
+    const anyoHoy=hoy.getFullYear();
+    // Recorrer los últimos 12 meses calendario
+    let acumGasto=0, acumProd=0;
+    for(let i=0;i<12;i++){
+      let mm=mesHoy-i;
+      let yy=anyoHoy;
+      if(mm<=0){mm+=12;yy--;}
+      const ymStr=`${yy}-${String(mm).padStart(2,'0')}`;
+      // Gastos de ese mes
+      for(const e of costesRawData){
+        if(costesExcludedAccounts.has(e.account||'?')) continue;
+        if((e.date||'').slice(0,7)!==ymStr) continue;
+        const ca=e.ca||'#N/D';
+        const info=COSTES_CA_MAP[ca]||{cat:'#N/D',name:ca,orden:'0.GASTO'};
+        if(info.cat==='INGRESOS') continue;
+        acumGasto+=(e.debit||0)-(e.credit||0);
+      }
+      // Producción: primero manual, si no Supabase
+      const manYear=precioAridoProdManual[String(yy)]||{};
+      const manVal=manYear[String(mm)]!=null?manYear[String(mm)]:(manYear[mm]!=null?manYear[mm]:null);
+      if(manVal!=null&&manVal>0){
+        acumProd+=manVal;
+      }else{
+        for(const p of costesProduccion){
+          const pm=parseInt((p.fecha||'').split('-')[1]);
+          const py=parseInt((p.fecha||'').split('-')[0]);
+          if(py===yy&&pm===mm) acumProd+=parseFloat(p.tnDia)||0;
+        }
+      }
     }
     const box=document.getElementById('precio-acum12-box');
     if(box){
