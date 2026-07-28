@@ -7844,15 +7844,22 @@ function updateCostesToggleBtn(){
 // ── PRECIO MÍNIMO ÁRIDO ──────────────────────────────────────────────────────
 
 let precioAridoExclMeses = new Set();
+let precioAridoProdManual = JSON.parse(localStorage.getItem('precioAridoProdManual')||'{}'); // {"2025":{1:286,2:3648,...}}
 function togglePrecioAridoMes(m, included){
   if(included) precioAridoExclMeses.delete(m);
   else precioAridoExclMeses.add(m);
   renderPrecioArido();
 }
+function setPrecioAridoProd(anyo,m,val){
+  if(!precioAridoProdManual[anyo])precioAridoProdManual[anyo]={};
+  precioAridoProdManual[anyo][m]=Number(val)||0;
+  localStorage.setItem('precioAridoProdManual',JSON.stringify(precioAridoProdManual));
+  renderPrecioArido();
+}
 
 async function renderPrecioArido(){
   const wrap = document.getElementById('precio-arido-wrap');
-  if(!costesRawData.length || !costesProduccion.length){
+  if(!costesRawData.length){
     wrap.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px;font-size:.82rem">Carga datos de BC primero.</div>';
     return;
   }
@@ -7876,6 +7883,15 @@ async function renderPrecioArido(){
     prodMes[m].t412 += parseFloat(p.t412)||0;
     prodMes[m].t1220+= parseFloat(p.t1220)||0;
     prodMes[m].t2040+= parseFloat(p.t2040)||0;
+  }
+  // Sobreescribir con producción manual si existe
+  const anyoSel=document.getElementById('costes-anyo').value||new Date().getFullYear();
+  const manualAnyo=precioAridoProdManual[anyoSel]||{};
+  for(const m of mesesActivos){
+    if(manualAnyo[m]!=null&&manualAnyo[m]>0){
+      if(!prodMes[m])prodMes[m]={tn:0,t04:0,t412:0,t1220:0,t2040:0};
+      prodMes[m].tn=manualAnyo[m];
+    }
   }
 
   // Gastos por mes (solo categorías de gasto, sin INGRESOS)
@@ -7950,13 +7966,14 @@ async function renderPrecioArido(){
   }
   html+=`<td class="costes-val costes-total-col">${fmtES(totalGasto)}</td></tr>`;
 
-  // Row: Producción total Tn
+  // Row: Producción total Tn (editable)
   let totalProd=0;
   html+='<tr style="background:var(--surface2)"><td>Producción Total (Tn)</td>';
   for(const m of mesesActivos){
     const tn=prodMes[m]?.tn||0;
     if(!precioAridoExclMeses.has(m)) totalProd+=tn;
-    html+=`<td class="costes-val">${fmtTn(tn)}</td>`;
+    const isManual=manualAnyo[m]!=null&&manualAnyo[m]>0;
+    html+=`<td class="costes-val"><input type="number" value="${tn||''}" placeholder="—" onchange="setPrecioAridoProd('${anyoSel}',${m},this.value)" style="width:100%;border:none;background:${isManual?'rgba(107,125,46,.12)':'transparent'};text-align:right;font-family:monospace;font-size:.78rem;padding:2px 4px;border-radius:3px;color:var(--text)"></td>`;
   }
   html+=`<td class="costes-val costes-total-col">${fmtTn(totalProd)}</td></tr>`;
 
