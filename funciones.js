@@ -606,6 +606,9 @@ async function doEditProduccion(data) {
       otroTn:       Number(campos.otroTn),
       otroTnh:      Number(campos.otroTnh),
       horasPlanta:  Number(campos.horasPlanta),
+      primarioH:    Number(campos.primarioH || 0),
+      hp4H:         Number(campos.hp4H || 0),
+      oreSizerH:    Number(campos.oreSizerH || 0),
       observaciones:campos.observaciones
     },
     filters: [{ column: 'id', op: 'eq', value: id }]
@@ -632,6 +635,9 @@ async function doAddProduccion(data) {
       otroTn:        Number(data.otroTn  || 0),
       otroTnh:       Number(data.otroTnh || 0),
       horasPlanta:   Number(data.horasPlanta || 0),
+      primarioH:     Number(data.primarioH || 0),
+      hp4H:          Number(data.hp4H || 0),
+      oreSizerH:     Number(data.oreSizerH || 0),
       observaciones: data.observaciones || ''
     }
   });
@@ -654,11 +660,45 @@ async function getGasoil() {
     if (r.deposito === 'DEP2') dep2 = Number(r.stock) || 0;
   });
 
-  const consumos = (horoRes.data || []).map(r => ({
-    activo:      r.activo,
-    max:         r.horometro,
-    actualizado: r.actualizado ? r.actualizado.slice(0, 10) : null
-  }));
+  // Build consumption aggregation from GASOIL transactions (SALIDA only)
+  const horoMap = {};
+  (horoRes.data || []).forEach(r => {
+    if (r.activo) horoMap[r.activo] = { horometro: r.horometro, actualizado: r.actualizado ? r.actualizado.slice(0, 10) : null };
+  });
+
+  const consumoMap = {};
+  data.forEach(r => {
+    const dest = r.destino;
+    if (!dest) return;
+    const tipo = String(r.tipo || '').toUpperCase();
+    if (tipo !== 'SALIDA') return;
+    if (!consumoMap[dest]) consumoMap[dest] = { litros: 0, horoMin: Infinity, horoMax: 0 };
+    consumoMap[dest].litros += Number(r.litros || 0);
+    const h = Number(r.horometro || 0);
+    if (h > 0) {
+      if (h < consumoMap[dest].horoMin) consumoMap[dest].horoMin = h;
+      if (h > consumoMap[dest].horoMax) consumoMap[dest].horoMax = h;
+    }
+  });
+
+  // Merge horometros table data with aggregated consumos
+  const allActivos = new Set([...Object.keys(horoMap), ...Object.keys(consumoMap)]);
+  const consumos = [...allActivos].map(activo => {
+    const horo = horoMap[activo] || {};
+    const cons = consumoMap[activo] || { litros: 0, horoMin: Infinity, horoMax: 0 };
+    const maxH = horo.horometro || cons.horoMax || 0;
+    const minH = cons.horoMin !== Infinity ? cons.horoMin : 0;
+    const deltaH = maxH - minH;
+    const lh = deltaH > 0 ? (cons.litros / deltaH).toFixed(1) : 0;
+    return {
+      activo,
+      litros:      cons.litros,
+      max:         maxH,
+      min:         minH,
+      lh,
+      actualizado: horo.actualizado || null
+    };
+  }).filter(c => c.litros > 0 || c.max > 0);
 
   return { ok: true, data, dep1, dep2, consumos };
 }

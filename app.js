@@ -710,6 +710,8 @@ async function initApp(){
   checkFacturasVencidasBackground().catch(() => {});
   ['filt-w','filt-mes-w','filt-edit'].forEach(id=>{const s=document.getElementById(id);if(!s)return;WORKERS.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;s.appendChild(o);});});
   ['vm-worker','em-worker','bm-worker','lm-worker','xm-worker'].forEach(id=>{const s=document.getElementById(id);if(!s)return;WORKERS.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;s.appendChild(o);});});
+  // Populate year selectors for Resumen and Vacaciones
+  {const cy=new Date().getFullYear();['filt-mes-anyo','filt-vac-anyo'].forEach(id=>{const s=document.getElementById(id);if(!s)return;for(let y=cy;y>=cy-5;y--){const o=document.createElement('option');o.value=y;o.textContent=y;s.appendChild(o);}});}
   document.getElementById('ventas-mes-sel').value=new Date().getMonth();
   setInterval(actualizarReloj,1000);
   setInterval(()=>{WORKERS.filter(n=>fst.workers[n].working).forEach(n=>renderWcard(n));renderStats();},5000);
@@ -3397,7 +3399,7 @@ function getExtrasMonth(nombre,y,m){return getMsMonthTotal(nombre,y,m)-getExpect
 function getExtrasTotal(nombre){const y=new Date().getFullYear();let t=0;for(let m=0;m<=11;m++)t+=getExtrasMonth(nombre,y,m);return t;}
 function fmtExtra(ms){if(ms===0)return'0h';const sign=ms<0?'-':'+';const abs=Math.abs(ms);const h=Math.floor(abs/3600000);const mn=Math.floor((abs%3600000)/60000);return sign+(mn?h+'h'+pad(mn)+'m':h+'h');}
 function renderMeses(){
-  const fw=document.getElementById('filt-mes-w').value;const y=new Date().getFullYear();const cm=new Date().getMonth();
+  const fw=document.getElementById('filt-mes-w').value;const y=parseInt(document.getElementById('filt-mes-anyo').value)||new Date().getFullYear();const cm=y<new Date().getFullYear()?11:new Date().getMonth();
   let header=fw?`<div class="mtr mth"><div class="mtc mn">Mes</div><div class="mtc mh">Esperadas</div><div class="mtc mh">Fichadas</div><div class="mtc mh">Vacac.</div><div class="mtc mh">Bajas</div><div class="mtc mh">Libres</div><div class="mtc mh">Manual</div><div class="mtc mh">Total</div><div class="mtc mh">Extras</div></div>`:`<div class="mtr mth"><div class="mtc mn">Mes</div>${WORKERS.map(n=>`<div class="mtc mh" style="flex:.7;font-size:.65rem">${n.split(' ')[0]}</div>`).join('')}<div class="mtc mf">Total</div></div>`;
   let rows='';let gt=0;let gx=0;let gfi=0;let gva=0;let gba=0;let gli=0;let gma=0;let gesp=0;const wTotals=WORKERS.reduce((o,n)=>(o[n]=0,o),{});
   for(let m=0;m<=cm;m++){
@@ -3415,7 +3417,7 @@ function renderMeses(){
   document.getElementById('mes-tabla').innerHTML=`<div class="month-table">${header}${rows}${totRow}</div>`;
 }
 function renderExtras(){
-  const y=new Date().getFullYear();
+  const y=parseInt(document.getElementById('filt-mes-anyo').value)||new Date().getFullYear();
   const rows=WORKERS.map(n=>{
     let acc=0;let total=0;
     for(let m=0;m<=11;m++){
@@ -3441,7 +3443,11 @@ function renderHistorial(){
 // VAC
 // s y e inclusivos. Cuenta TODOS los días del rango (incluye findes y festivos)
 function calcWorkDays(s,e){let c=0,cur=new Date(s+'T00:00:00');const end=new Date(e+'T00:00:00');while(cur<=end){c++;cur.setDate(cur.getDate()+1);}return c;}
-function usedDays(n){return fst.vacaciones[n].reduce((a,v)=>a+v.dias,0)}
+function usedDays(n,filterYear){
+  const arr=fst.vacaciones[n]||[];
+  if(!filterYear)return arr.reduce((a,v)=>a+v.dias,0);
+  return arr.filter(v=>v.start&&v.start.substring(0,4)===String(filterYear)).reduce((a,v)=>a+v.dias,0);
+}
 let _editAus=null; // {tipo:'vac'|'baja'|'libre'|'extra', worker:string, id:number}
 const _btnEdit='style="background:transparent;border:none;cursor:pointer;color:var(--accent);font-size:.75rem;margin-right:2px"';
 
@@ -3472,10 +3478,13 @@ async function saveVac(){const w=document.getElementById('vm-worker').value,s=do
 function delVac(n,id){fst.vacaciones[n]=fst.vacaciones[n].filter(v=>v.id!==id);saveFst();renderVac();renderCal();
   try{apiPost({tipo:'delAusencia',id});}catch(e){}}
 function renderVac(){
+  const vy=parseInt((document.getElementById('filt-vac-anyo')||{}).value)||new Date().getFullYear();
+  const titleEl=document.getElementById('vac-title');if(titleEl)titleEl.textContent='Vacaciones '+vy+' — '+TOTAL_VAC+' días';
   document.getElementById('vac-grid').innerHTML=WORKERS.map(n=>{
-    const used=usedDays(n);const pct=Math.min(100,Math.round(used/TOTAL_VAC*100));
-    const items=fst.vacaciones[n].map(v=>`<div class="vac-item"><span>${fmtDate(v.start)} – ${fmtDate(v.end)} (${v.dias}d)</span><span><button onclick="openVacModal('${n}',${v.id})" ${_btnEdit}>&#9998;</button><button onclick="delVac('${n}',${v.id})" style="background:transparent;border:none;cursor:pointer;color:var(--danger);font-size:.82rem">✕</button></span></div>`).join('');
-    return `<div class="vac-card"><div style="font-size:.86rem;font-weight:600;color:var(--text);margin-bottom:6px">${n}</div><div style="font-size:1.4rem;font-weight:700;color:var(--text);font-family:'DM Mono',monospace">${TOTAL_VAC-used}<span style="font-size:.82rem;font-weight:400;color:var(--muted)"> días restantes</span></div><div style="font-size:.68rem;color:var(--muted);margin-bottom:8px">${used} de ${TOTAL_VAC} días usados</div><div class="vac-bar"><div class="vac-bar-fill" style="width:${pct}%"></div></div>${items?'<div>'+items+'</div>':'<div style="font-size:.68rem;color:var(--muted)">Sin vacaciones registradas</div>'}</div>`;
+    const used=usedDays(n,vy);const pct=Math.min(100,Math.round(used/TOTAL_VAC*100));
+    const yearVacs=(fst.vacaciones[n]||[]).filter(v=>v.start&&v.start.substring(0,4)===String(vy));
+    const items=yearVacs.map(v=>`<div class="vac-item"><span>${fmtDate(v.start)} – ${fmtDate(v.end)} (${v.dias}d)</span><span><button onclick="openVacModal('${n}',${v.id})" ${_btnEdit}>&#9998;</button><button onclick="delVac('${n}',${v.id})" style="background:transparent;border:none;cursor:pointer;color:var(--danger);font-size:.82rem">✕</button></span></div>`).join('');
+    return `<div class="vac-card"><div style="font-size:.86rem;font-weight:600;color:var(--text);margin-bottom:6px">${n}</div><div style="font-size:1.4rem;font-weight:700;color:var(--text);font-family:'DM Mono',monospace">${TOTAL_VAC-used}<span style="font-size:.82rem;font-weight:400;color:var(--muted)"> días restantes</span></div><div style="font-size:.68rem;color:var(--muted);margin-bottom:8px">${used} de ${TOTAL_VAC} días usados</div><div class="vac-bar"><div class="vac-bar-fill" style="width:${pct}%"></div></div>${items.length?'<div>'+items+'</div>':'<div style="font-size:.68rem;color:var(--muted)">Sin vacaciones registradas</div>'}</div>`;
   }).join('');
 }
 
@@ -4707,6 +4716,9 @@ function editarProdDia(idx){
   document.getElementById('pe-t020').value=r.t020||'';
   document.getElementById('pe-tndia').value=r.tnDia||'';
   document.getElementById('pe-horas').value=r.horasPlanta||'';
+  document.getElementById('pe-primarioH').value=r.primarioH||'';
+  document.getElementById('pe-hp4H').value=r.hp4H||'';
+  document.getElementById('pe-oreSizerH').value=r.oreSizerH||'';
   document.getElementById('pe-obs').value=r.observaciones||'';
   document.getElementById('pe-msg').textContent='';
   document.getElementById('prod-edit-title').textContent='Editar '+r.fecha;
@@ -4722,6 +4734,7 @@ function abrirAddProduccion(){
   document.getElementById('pe-t1220').value='';document.getElementById('pe-t2040').value='';
   document.getElementById('pe-t020').value='';
   document.getElementById('pe-tndia').value='';document.getElementById('pe-horas').value='';
+  document.getElementById('pe-primarioH').value='';document.getElementById('pe-hp4H').value='';document.getElementById('pe-oreSizerH').value='';
   document.getElementById('pe-obs').value='';document.getElementById('pe-msg').textContent='';
   document.getElementById('prod-edit-title').textContent='Añadir día de producción';
   document.getElementById('modal-prod-edit').classList.add('open');
@@ -4742,6 +4755,9 @@ async function guardarProdEdit(){
     t020:document.getElementById('pe-t020').value||0,
     tnDia:document.getElementById('pe-tndia').value||0,
     horasPlanta:document.getElementById('pe-horas').value||0,
+    primarioH:document.getElementById('pe-primarioH').value||0,
+    hp4H:document.getElementById('pe-hp4H').value||0,
+    oreSizerH:document.getElementById('pe-oreSizerH').value||0,
     observaciones:document.getElementById('pe-obs').value,
   };
   const msg=document.getElementById('pe-msg');
@@ -4762,6 +4778,9 @@ async function guardarProdEdit(){
         t1220:Number(payload.t1220||0), t2040:Number(payload.t2040||0),
         t020:Number(payload.t020||0), tnDia:Number(payload.tnDia||0),
         horasPlanta:Number(payload.horasPlanta||0),
+        primarioH:Number(payload.primarioH||0),
+        hp4H:Number(payload.hp4H||0),
+        oreSizerH:Number(payload.oreSizerH||0),
         observaciones:payload.observaciones||''
       };
       if(fila){
@@ -4784,6 +4803,22 @@ async function guardarProdEdit(){
     }catch(e2){console.warn('Sync Supabase producción:',e2.message);}
     msg.style.color='var(--accent)';msg.textContent='Guardado';setTimeout(()=>{cerrarProdEdit();cargarProduccion();},800);
   }catch(e){msg.style.color='var(--danger)';msg.textContent='Error de red';}
+}
+
+// ── CARGA PRODUCCIÓN 2025 (temporal — ejecutar una vez) ──────
+async function cargarProd2025(){
+  const meses=[0,286,3648,8413,7598,6372,10136,5837,4717,6811,540,3397];
+  let ok=0,skip=0;
+  for(let m=0;m<12;m++){
+    const fecha=`2025-${String(m+1).padStart(2,'0')}-01`;
+    // Comprobar si ya existe
+    const existing=await dbQuery({action:'select',table:'PRODUCCION',filters:[{column:'fecha',op:'gte',value:`2025-${String(m+1).padStart(2,'0')}-01`},{column:'fecha',op:'lte',value:`2025-${String(m+1).padStart(2,'0')}-31`}],options:{select:'id',limit:1}});
+    if(existing.ok&&existing.data&&existing.data.length>0){skip++;continue;}
+    const tn=meses[m];
+    await dbQuery({action:'insert',table:'PRODUCCION',data:{fecha,tipoDia:tn>0?'P':'',tnDia:tn,t04:0,t412:0,t1220:0,t2040:0,t020:0,horasPlanta:0,primarioH:0,hp4H:0,oreSizerH:0,observaciones:'Resumen mensual 2025'}});
+    ok++;
+  }
+  alert('Producción 2025 cargada: '+ok+' meses insertados, '+skip+' ya existían.');
 }
 
 // ── FACTURACIÓN ──────────────────────────────────────────────
@@ -6468,7 +6503,9 @@ function calcMantenimiento(){
     const proximo=Number(r.Proximo)||null;
     const falta=proximo&&currentHoro?proximo-currentHoro:null;
     const diasRestantes=falta!==null?Math.round(falta/HORAS_DIA):null;
-    const estado=falta===null?'sin_datos':falta<=0?'pdte':falta<=(Number(r.Proximo)-Number(r.U_Medicion_med))*0.1?'prox':'ok';
+    const umbralPct=(Number(r.Proximo)-Number(r.U_Medicion_med))*0.1;
+    const umbral=Math.max(umbralPct,50);
+    const estado=falta===null?'sin_datos':falta<=0?'pdte':falta<=umbral?'prox':'ok';
     result.push({
       activo:r.Activo,
       maquina:r.Activo,
@@ -7167,7 +7204,6 @@ function printOTHistorial(id){
   const wrap=document.getElementById('ot-print-wrap');
   wrap.style.display='flex';
   wrap.style.position='fixed';
-  setTimeout(()=>{const s=document.createElement('style');s.id='_pgsz';s.textContent='@page{size:A4 portrait;margin:8mm}';document.head.appendChild(s);window.print();setTimeout(()=>s.remove(),500);},100);
 }
 
 // ── COSTES — Análisis cuentas 600/700 desde BC ──────────────────────────────
@@ -7935,6 +7971,39 @@ async function renderPrecioArido(){
 
   html+='</tbody></table>';
   wrap.innerHTML=html;
+
+  // Acumulado últimos 12 meses (rolling)
+  try{
+    const hoy=new Date();
+    const hace12=new Date(hoy.getFullYear()-1,hoy.getMonth(),1);
+    const hace12Str=hace12.toISOString().slice(0,7); // yyyy-mm
+    const hoyStr=hoy.toISOString().slice(0,7);
+    let acumGasto=0, acumProd=0, acumT04=0;
+    for(const e of costesRawData){
+      if(costesExcludedAccounts.has(e.account||'?')) continue;
+      const ym=(e.date||'').slice(0,7);
+      if(ym<hace12Str||ym>hoyStr) continue;
+      const ca=e.ca||'#N/D';
+      const info=COSTES_CA_MAP[ca]||{cat:'#N/D',name:ca,orden:'0.GASTO'};
+      if(info.cat==='INGRESOS') continue;
+      acumGasto+=(e.debit||0)-(e.credit||0);
+    }
+    for(const p of costesProduccion){
+      const ym=(p.fecha||'').slice(0,7);
+      if(ym<hace12Str||ym>hoyStr) continue;
+      acumProd+=parseFloat(p.tnDia)||0;
+      acumT04+=parseFloat(p.t04)||0;
+    }
+    const box=document.getElementById('precio-acum12-box');
+    if(box){
+      box.style.display='block';
+      const precio=acumProd?acumGasto/acumProd:0;
+      document.getElementById('precio-acum12-valor').textContent=precio?fmtES(precio)+' €/Tn':'—';
+      document.getElementById('precio-acum12-det').textContent=
+        fmtES(acumGasto,0)+' € / '+fmtES(acumProd,0)+' Tn'+
+        (acumProd?' · +8%: '+fmtES(precio*1.08)+' €/Tn':'');
+    }
+  }catch(e){console.warn('Acum12:',e);}
 }
 
 // ── PRECIO ÁRIDO: EXCEL ──────────────────────────────────────────────────────
