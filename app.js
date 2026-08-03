@@ -1826,7 +1826,7 @@ function cerrarAlbaran(){
 }
 
 // ── FIRMA DIGITAL ALBARÁN ──────────────────────────────────────
-const ALBARANES_ONEDRIVE_BASE='ARIFOMA/Arifoma/06. ADMINISTRACION/06.14 VENTAS';
+const ALBARANES_ONEDRIVE_BASE='06. ADMINISTRACION/06.14 VENTAS';
 
 function firmaInit(){
   const canvas=document.getElementById('alb-firma-canvas');
@@ -1915,28 +1915,55 @@ async function firmarYGuardarAlbaran(){
 
     try{
       const token=await comprasGetToken();
-      // Crear carpetas: año, mes, cliente
-      const baseEncoded=ALBARANES_ONEDRIVE_BASE.split('/').map(s=>encodeURIComponent(s)).join('/');
-      await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+baseEncoded+':/children',{
-        method:'POST',
-        headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
-        body:JSON.stringify({name:año,folder:{},'@microsoft.graph.conflictBehavior':'fail'})
-      }).catch(()=>{});
-      const yearEncoded=(ALBARANES_ONEDRIVE_BASE+'/'+año).split('/').map(s=>encodeURIComponent(s)).join('/');
-      await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+yearEncoded+':/children',{
-        method:'POST',
-        headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
-        body:JSON.stringify({name:mes,folder:{},'@microsoft.graph.conflictBehavior':'fail'})
-      }).catch(()=>{});
-      const mesEncoded=(ALBARANES_ONEDRIVE_BASE+'/'+año+'/'+mes).split('/').map(s=>encodeURIComponent(s)).join('/');
-      await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+mesEncoded+':/children',{
-        method:'POST',
-        headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
-        body:JSON.stringify({name:clienteNombre,folder:{},'@microsoft.graph.conflictBehavior':'fail'})
-      }).catch(()=>{});
+      // Resolver drive compartido via share link (mismo método que compras)
+      const shareToken='u!'+btoa(COMPRAS_SHARE_URL).replace(/=+$/,'').replace(/\//g,'_').replace(/\+/g,'-');
+      const shareRes=await fetch('https://graph.microsoft.com/v1.0/shares/'+shareToken+'/driveItem?$select=id,parentReference',{
+        headers:{'Authorization':'Bearer '+token}
+      });
+      if(!shareRes.ok) throw new Error('No se pudo acceder a OneDrive compartido ('+shareRes.status+')');
+      const shareItem=await shareRes.json();
+      const driveId=shareItem.parentReference.driveId;
+      let parentId=shareItem.id;
+
+      // Navegar a carpeta base (06. ADMINISTRACION / 06.14 VENTAS)
+      for(const seg of ALBARANES_ONEDRIVE_BASE.split('/')){
+        const listRes=await fetch('https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+parentId+'/children?$select=id,name,folder&$top=200',{
+          headers:{'Authorization':'Bearer '+token}
+        });
+        if(!listRes.ok) throw new Error('No se pudo listar carpeta: '+seg);
+        const listJson=await listRes.json();
+        const segNorm=seg.trim().toLowerCase();
+        const found=(listJson.value||[]).find(i=>i.folder&&i.name.trim().toLowerCase()===segNorm);
+        if(!found) throw new Error('Carpeta "'+seg+'" no encontrada en OneDrive');
+        parentId=found.id;
+      }
+
+      // Buscar o crear subcarpetas: año, mes, cliente
+      async function _albFindOrCreate(pid,name){
+        const listRes=await fetch('https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+pid+'/children?$select=id,name,folder&$top=200',{
+          headers:{'Authorization':'Bearer '+token}
+        });
+        if(!listRes.ok) throw new Error('No se pudo listar carpeta para buscar "'+name+'"');
+        const listJson=await listRes.json();
+        const nameNorm=name.trim().toLowerCase().normalize('NFC').replace(/\s+/g,' ');
+        const found=(listJson.value||[]).find(i=>i.folder&&i.name.trim().toLowerCase().normalize('NFC').replace(/\s+/g,' ')===nameNorm);
+        if(found) return found.id;
+        const safeName=name.replace(/[.]+$/,'').replace(/\s+$/,'').replace(/[\\/:*?"<>|]/g,'_')||name;
+        const createRes=await fetch('https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+pid+'/children',{
+          method:'POST',
+          headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+          body:JSON.stringify({name:safeName,folder:{}})
+        });
+        if(!createRes.ok) throw new Error('Error creando carpeta "'+name+'": '+await createRes.text());
+        return (await createRes.json()).id;
+      }
+
+      parentId=await _albFindOrCreate(parentId,año);
+      parentId=await _albFindOrCreate(parentId,mes);
+      parentId=await _albFindOrCreate(parentId,clienteNombre);
+
       // Upload PDF
-      const uploadPath=folderPath.split('/').map(s=>encodeURIComponent(s)).join('/');
-      const uploadUrl='https://graph.microsoft.com/v1.0/me/drive/root:/'+uploadPath+'/'+encodeURIComponent(fileName)+':/content';
+      const uploadUrl='https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+parentId+':/'+encodeURIComponent(fileName)+':/content';
       const resp=await fetch(uploadUrl,{
         method:'PUT',
         headers:{'Authorization':'Bearer '+token,'Content-Type':'application/pdf'},
