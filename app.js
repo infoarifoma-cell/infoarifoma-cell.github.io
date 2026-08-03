@@ -9585,6 +9585,9 @@ async function getMsalInstance(){
   if(_msalInstancePromise)return _msalInstancePromise;
   _msalInstancePromise=(async()=>{
     if(_msalInstance)return _msalInstance;
+    if(typeof msal==='undefined'){
+      await new Promise((ok,fail)=>{const s=document.createElement('script');s.src='https://unpkg.com/@azure/msal-browser@2.38.3/lib/msal-browser.min.js';s.onload=ok;s.onerror=fail;document.head.appendChild(s);});
+    }
     const cfg={auth:{clientId:COMPRAS_CLIENT_ID,authority:'https://login.microsoftonline.com/'+COMPRAS_TENANT_ID,redirectUri:COMPRAS_REDIRECT},cache:{cacheLocation:'sessionStorage'}};
     _msalInstance=new msal.PublicClientApplication(cfg);
     await _msalInstance.initialize();
