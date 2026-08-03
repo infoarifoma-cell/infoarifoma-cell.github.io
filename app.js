@@ -1909,8 +1909,7 @@ async function firmarYGuardarAlbaran(){
 
     // Subir a OneDrive: .../06.14 VENTAS/{año}/{mes}/{cliente}/
     const año=String(now.getFullYear());
-    const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-    const mes=pad(now.getMonth()+1)+'-'+meses[now.getMonth()];
+    const mes=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'][now.getMonth()];
     const clienteNombre=(document.getElementById('alb-cliente').textContent||'SIN-CLIENTE').trim().replace(/[/\\:*?"<>|]/g,'-');
     const folderPath=ALBARANES_ONEDRIVE_BASE+'/'+año+'/'+mes+'/'+clienteNombre;
 
