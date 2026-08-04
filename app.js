@@ -1539,13 +1539,15 @@ async function eliminarLineaSesion(idx){
   renderLineasAlbaran();
 }
 
-function renderLineasAlbaran(){
+function renderLineasAlbaran(soloUltima){
   const el=document.getElementById('alb-lineas-list');
   if(!basLineasSesion.length){
     el.innerHTML='<div style="padding:14px;text-align:center;font-size:.78rem;color:var(--muted)">Sin líneas aún</div>';
     return;
   }
-  el.innerHTML=basLineasSesion.map((l,i)=>`
+  const lista=soloUltima?[basLineasSesion[basLineasSesion.length-1]]:basLineasSesion;
+  const offset=soloUltima?basLineasSesion.length-1:0;
+  el.innerHTML=lista.map((l,i)=>`
     <div style="display:flex;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border);font-size:.82rem;color:var(--text);align-items:center">
       <div style="flex:.6;font-family:monospace;color:var(--muted)">${l.numLinea}</div>
       <div style="flex:1;font-family:monospace;font-weight:700;color:var(--accent)">${l.matriculacam}</div>
@@ -1553,7 +1555,7 @@ function renderLineasAlbaran(){
       <div style="flex:1;text-align:right;font-family:monospace;font-weight:700">${Number(l.pesoNeto).toLocaleString()}</div>
       <div style="flex:1.5;font-size:.75rem">${l.productoNombre||''}</div>
       <div style="flex:.5;text-align:right">
-        <button onclick="eliminarLineaSesion(${i})" style="background:transparent;border:1.5px solid #e05;color:#e05;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:.8rem;font-weight:700" title="Eliminar línea">✕</button>
+        <button onclick="eliminarLineaSesion(${offset+i})" style="background:transparent;border:1.5px solid #e05;color:#e05;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:.8rem;font-weight:700" title="Eliminar línea">✕</button>
       </div>
     </div>`).join('');
 }
@@ -1611,6 +1613,28 @@ async function guardarLinea(){
     observaciones:(document.getElementById('bas-observaciones').value||'').trim(),
   };
 
+  /* ── Detección de duplicados antes de guardar ── */
+  try{
+    const hace5min=new Date(Date.now()-5*60*1000).toISOString();
+    const dup=await dbQuery({action:'select',table:'tblpedidos',options:{
+      select:'id,pesoNeto,productoCod,nombreCliente',
+      filters:[
+        {col:'matriculacam',op:'eq',val:payload.matriculacam},
+        {col:'fechaHora',op:'gte',val:hace5min}
+      ],limit:20
+    }});
+    if(dup.ok&&dup.data&&dup.data.length){
+      const dominated=dup.data.some(r=>{
+        const mismoPeso=Number(r.pesoNeto)===payload.pesoNeto&&payload.pesoNeto>0;
+        const mismoPC=(r.productoCod||'')===payload.productoCod&&(r.nombreCliente||'')===payload.nombreCliente;
+        return mismoPeso||mismoPC;
+      });
+      if(dominated&&!confirm('⚠️ Se detectó una pesada similar en los últimos 5 minutos (misma matrícula y mismo peso o mismo producto/cliente).\n\n¿Guardar de todos modos?')){
+        _guardandoLinea=false;return;
+      }
+    }
+  }catch(e){console.warn('Dup check failed:',e);}
+
   const btn=document.querySelector('#bas-step-3 .btn-pri');
   if(btn){btn.disabled=true;btn.textContent='Guardando...';}
   try{
@@ -1633,6 +1657,7 @@ async function guardarLinea(){
     basCurrentLinea+=10000;
     mostrarExitoLinea(savedId,payload);
     renderAlbaranStep3();
+    renderLineasAlbaran(true);
   }catch(e){
     alert('Error de conexión guardando pesada: '+e.message+'\n\nReintenta o recarga la página.');
     return;
