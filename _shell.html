@@ -870,7 +870,10 @@
         <div class="page" id="pg-pedidos">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
             <div class="sec-title" style="margin:0">Todos los pedidos</div>
-            <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="cargarPedidos()">&#8635; Actualizar</button>
+            <div style="display:flex;gap:6px">
+              <button class="btn-sec" style="font-size:.72rem;padding:6px 12px;color:#e05;border-color:#e05" onclick="buscarDuplicados()">&#128269; Duplicados</button>
+              <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="cargarPedidos()">&#8635; Actualizar</button>
+            </div>
           </div>
           <div class="frow">
             <input type="text" class="fsel" id="filt-ped-mat" placeholder="Matrícula..." oninput="filtrarPedidos()" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;padding:7px 10px;outline:none">

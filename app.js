@@ -1571,12 +1571,15 @@ document.addEventListener('change',function(e){
   }
 });
 
+let _guardandoLinea=false;
 async function guardarLinea(){
+  if(_guardandoLinea)return;
   const prodCod=document.getElementById('bas-producto-sel').value;
   const obraCod=document.getElementById('bas-obra-sel').value;
   if(!prodCod){alert('Selecciona un producto.');return;}
   if(!obraCod){if(!confirm('¿Seguro que quieres añadir un albarán sin obra?'))return;}
   if(!basNumPedido){alert('Crea primero la cabecera del pedido.');return;}
+  _guardandoLinea=true;
 
   const bruto=parseFloat(document.getElementById('bas-peso-input').value)||0;
   const tara=basSelCamion.tara||0;
@@ -1634,6 +1637,7 @@ async function guardarLinea(){
     alert('Error de conexión guardando pesada: '+e.message+'\n\nReintenta o recarga la página.');
     return;
   }finally{
+    _guardandoLinea=false;
     if(btn){btn.disabled=false;btn.textContent='Guardar';}
   }
 }
@@ -2068,6 +2072,30 @@ function renderPedidos(data){
       '</div>'+
     '</div>').join('')+
   '</div>';
+}
+function buscarDuplicados(){
+  if(!pedidosData||!pedidosData.length){alert('Carga los pedidos primero.');return;}
+  const MAX_DIFF=5*60*1000; // 5 minutos
+  const dupIds=new Set();
+  const sorted=[...pedidosData].sort((a,b)=>new Date(a.fechaHora||0)-new Date(b.fechaHora||0));
+  for(let i=0;i<sorted.length;i++){
+    for(let j=i+1;j<sorted.length;j++){
+      const a=sorted[i],b=sorted[j];
+      const ta=new Date(a.fechaHora||0).getTime(),tb=new Date(b.fechaHora||0).getTime();
+      if(tb-ta>MAX_DIFF)break; // ya no puede haber más duplicados con i
+      const mismaMatricula=(a.matriculacam||'')===(b.matriculacam||'')&&a.matriculacam;
+      if(!mismaMatricula)continue;
+      const mismoPeso=Number(a.pesoNeto)===Number(b.pesoNeto)&&Number(a.pesoNeto)>0;
+      const mismoProductoCliente=(a.productoCod||'')===(b.productoCod||'')&&(a.nombreCliente||'')===(b.nombreCliente||'');
+      if(mismoPeso||mismoProductoCliente){
+        dupIds.add(a.id);dupIds.add(b.id);
+      }
+    }
+  }
+  if(!dupIds.size){alert('No se encontraron posibles duplicados.');return;}
+  const dups=pedidosData.filter(r=>dupIds.has(r.id)).sort((a,b)=>new Date(a.fechaHora||0)-new Date(b.fechaHora||0));
+  alert(`Se encontraron ${dups.length} registros posiblemente duplicados.`);
+  renderPedidos(dups);
 }
 function abrirAlbaranPedido(id){
   const r=pedidosData.find(x=>x.id==id);
