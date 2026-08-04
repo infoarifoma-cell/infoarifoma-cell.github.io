@@ -1641,6 +1641,7 @@ async function guardarLinea(){
     const json=await apiPost(payload);
     if(!json.ok){
       alert('Error guardando pesada: '+(json.error||'Error desconocido')+'\n\nReintenta o recarga la página.');
+      if(btn){btn.disabled=false;btn.textContent='Guardar';btn.style.opacity='';}
       return;
     }
     const savedId=json.id!=null?json.id:Date.now();
@@ -1655,15 +1656,17 @@ async function guardarLinea(){
       _payload:payload,
     });
     basCurrentLinea+=10000;
+    if(btn){btn.disabled=true;btn.textContent='✓ Guardado';btn.style.opacity='.5';}
     mostrarExitoLinea(savedId,payload);
     renderAlbaranStep3();
     renderLineasAlbaran(true);
   }catch(e){
     alert('Error de conexión guardando pesada: '+e.message+'\n\nReintenta o recarga la página.');
+    if(btn){btn.disabled=false;btn.textContent='Guardar';btn.style.opacity='';}
     return;
   }finally{
     _guardandoLinea=false;
-    if(btn){btn.disabled=false;btn.textContent='Guardar';}
+    /* btn se reactiva solo en error; en éxito queda bloqueado */
   }
 }
 
