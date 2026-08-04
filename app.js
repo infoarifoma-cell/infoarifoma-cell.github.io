@@ -687,7 +687,9 @@ async function initApp(){
         if (worker && r.entrada && !r.salida) {
           fst.workers[worker].working = true;
           if (r.fentrada) {
-            fst.workers[worker].entradaTs = new Date(r.fentrada).getTime();
+            // Parse fentrada as local time (not UTC) to avoid timezone offset
+            const _fe = String(r.fentrada).replace('T',' ').split(/[- :]/);
+            fst.workers[worker].entradaTs = new Date(+_fe[0], _fe[1]-1, +_fe[2], +(_fe[3]||0), +(_fe[4]||0), 0).getTime();
           }
         }
       });
