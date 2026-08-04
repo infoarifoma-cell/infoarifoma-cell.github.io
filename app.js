@@ -1209,7 +1209,10 @@ function basGoStep(n){
   const labels={1:'PESADA',2:'CLIENTE',3:'ALBARÁN'};
   document.getElementById('bas-step-label').textContent=labels[n];
   const hdrGuardar=document.getElementById('hdr-btn-guardar');
-  if(hdrGuardar) hdrGuardar.style.display=n===3?'inline-block':'none';
+  if(hdrGuardar){
+    hdrGuardar.style.display=n===3?'inline-block':'none';
+    if(n===3&&_lineaGuardadaOk){hdrGuardar.disabled=true;hdrGuardar.textContent='✓ Guardado';hdrGuardar.style.opacity='.5';}
+  }
 
   if(n===2){
     // Only reset client/pedido when navigating FORWARD (new weighing, not going back from step 3)
@@ -1456,6 +1459,7 @@ function seleccionarCliente(nombre,codigo){
   basNumPedido=null;
   basLineasSesion=[];
   basCurrentLinea=10000;
+  _lineaGuardadaOk=false;
   // Update UI
   const cliText=document.getElementById('bas-cli-text');
   if(cliText){cliText.textContent=nombre;cliText.style.color='var(--text)';}
@@ -1500,6 +1504,7 @@ async function crearCabeceraPedido(){
   }
   basLineasSesion=[];
   basCurrentLinea=10000;
+  _lineaGuardadaOk=false;
   document.getElementById('bas-num-pedido').textContent=basNumPedido;
   document.getElementById('bas-pedido-estado').textContent='(nuevo pedido)';
   document.getElementById('bas-pedido-generado').style.display='block';
@@ -1573,9 +1578,9 @@ document.addEventListener('change',function(e){
   }
 });
 
-let _guardandoLinea=false;
+let _guardandoLinea=false,_lineaGuardadaOk=false;
 async function guardarLinea(){
-  if(_guardandoLinea)return;
+  if(_guardandoLinea||_lineaGuardadaOk){alert('Esta pesada ya ha sido guardada.');return;}
   const prodCod=document.getElementById('bas-producto-sel').value;
   const obraCod=document.getElementById('bas-obra-sel').value;
   if(!prodCod){alert('Selecciona un producto.');return;}
@@ -1659,6 +1664,7 @@ async function guardarLinea(){
       _payload:payload,
     });
     basCurrentLinea+=10000;
+    _lineaGuardadaOk=true;
     if(btn){btn.disabled=true;btn.textContent='✓ Guardado';btn.style.opacity='.5';}
     if(btnHdr){btnHdr.disabled=true;btnHdr.textContent='✓ Guardado';btnHdr.style.opacity='.5';}
     mostrarExitoLinea(savedId,payload);
