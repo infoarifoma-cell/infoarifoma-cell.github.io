@@ -3385,7 +3385,6 @@ function renderResumenCards(){
 // Horas laborables del mes según convenio: días_lab × 8h (uniforme para todos)
 function getExpectedMonth(nombre,y,m){
   if(y===2026&&DIAS_LAB_2026[m]!=null)return DIAS_LAB_2026[m]*HORAS_DIA_STD*3600000;
-  // Fallback: calcular desde festivos con 8h/día Mon-Fri
   let dias=0;const dim=new Date(y,m+1,0).getDate();
   for(let d=1;d<=dim;d++){
     const dow=new Date(y,m,d).getDay();
@@ -5432,7 +5431,7 @@ async function exportarExcelCliente(bcIdx) {
 
   // Anchos
   ws.columns = [
-    {width:22},{width:13},{width:8},{width:15},{width:18},
+    {width:22},{width:26},{width:15},{width:18},
     {width:24},{width:24},{width:13},{width:10},{width:9},{width:14}
   ];
 
@@ -5449,12 +5448,12 @@ async function exportarExcelCliente(bcIdx) {
   });
 
   // Fila 1 — ARIFOMA
-  ws.mergeCells('A1:K1');
+  ws.mergeCells('A1:J1');
   const r1 = ws.getRow(1); r1.height = 36;
   Object.assign(ws.getCell('A1'), { value: 'ARIFOMA', ...centerBold(20) });
 
   // Fila 2 — título
-  ws.mergeCells('A2:K2');
+  ws.mergeCells('A2:J2');
   const r2 = ws.getRow(2); r2.height = 22;
   Object.assign(ws.getCell('A2'), {
     value: `Desglose de viajes · ${nomMes} ${anyo}`,
@@ -5464,7 +5463,7 @@ async function exportarExcelCliente(bcIdx) {
   });
 
   // Fila 3 — cliente
-  ws.mergeCells('A3:K3');
+  ws.mergeCells('A3:J3');
   const r3 = ws.getRow(3); r3.height = 20;
   Object.assign(ws.getCell('A3'), {
     value: `Cliente: ${cli}`,
@@ -5474,7 +5473,7 @@ async function exportarExcelCliente(bcIdx) {
   });
 
   // Fila 4 — resumen
-  ws.mergeCells('A4:K4');
+  ws.mergeCells('A4:J4');
   const r4 = ws.getRow(4); r4.height = 18;
   Object.assign(ws.getCell('A4'), {
     value: `Viajes: ${viajes.length}   ·   Tn: ${(totalKg/1000).toFixed(2)}   ·   Base: ${totalEur.toFixed(2)} €   ·   IGIC ${IGIC_PCT}%: ${igic.toFixed(2)} €   ·   Total: ${(totalEur+igic).toFixed(2)} €`,
@@ -5487,7 +5486,7 @@ async function exportarExcelCliente(bcIdx) {
   ws.addRow([]);
 
   // Fila 6 — cabecera columnas
-  const hdrRow = ws.addRow(['Fecha/Hora','Nº Pedido','Línea','Matrícula','Chofer','Proyecto','Producto','Kg Neto','Tn','€/Tn','Importe']);
+  const hdrRow = ws.addRow(['Fecha/Hora','Nº Albarán','Matrícula','Chofer','Proyecto','Producto','Kg Neto','Tn','€/Tn','Importe']);
   hdrRow.height = 18;
   hdrRow.eachCell(cell => {
     cell.font = { bold:true, size:10, color:{argb:'FF'+BLANCO}, name:'Calibri' };
@@ -5503,7 +5502,7 @@ async function exportarExcelCliente(bcIdx) {
     const precioTn = getPrecioTn(cli, r.productoNombre || r.productoCod || '');
     const importe = tn * precioTn;
     const dataRow = ws.addRow([
-      fecha, r.numPedido||'', r.numLinea||'', r.matriculacam||'', r.chofer||'',
+      fecha, (r.id ? 'PEDV'+new Date(r.fechaHora||r.fechaPedido||Date.now()).getFullYear()+'-'+String(r.id).padStart(6,'0')+'/'+String(r.numLinea||0).padStart(5,'0') : (r.numPedido||'')), r.matriculacam||'', r.chofer||'',
       r.proyectoName||r.proyectoCod||'', r.productoNombre||r.productoCod||'',
       Number(r.pesoNeto)||0, parseFloat(tn.toFixed(3)),
       parseFloat(precioTn.toFixed(2)), parseFloat(importe.toFixed(2))
@@ -5516,7 +5515,7 @@ async function exportarExcelCliente(bcIdx) {
       cell.alignment = { vertical:'middle' };
     });
     // Números alineados derecha
-    [8,9,10,11].forEach(col => {
+    [7,8,9,10].forEach(col => {
       dataRow.getCell(col).alignment = { horizontal:'right', vertical:'middle' };
     });
   });
@@ -5525,7 +5524,7 @@ async function exportarExcelCliente(bcIdx) {
   ws.addRow([]);
 
   // Fila TOTAL
-  const totRow = ws.addRow(['TOTAL','','','','','','', totalKg, parseFloat((totalKg/1000).toFixed(3)),'', parseFloat(totalEur.toFixed(2))]);
+  const totRow = ws.addRow(['TOTAL','','','','','', totalKg, parseFloat((totalKg/1000).toFixed(3)),'', parseFloat(totalEur.toFixed(2))]);
   totRow.height = 18;
   totRow.eachCell(cell => {
     cell.font = { bold:true, size:10, color:{argb:'FF'+BLANCO}, name:'Calibri' };
@@ -5533,7 +5532,7 @@ async function exportarExcelCliente(bcIdx) {
     cell.alignment = { vertical:'middle' };
   });
   totRow.getCell(1).alignment = { horizontal:'center', vertical:'middle' };
-  [8,9,11].forEach(col => totRow.getCell(col).alignment = { horizontal:'right', vertical:'middle' });
+  [7,8,10].forEach(col => totRow.getCell(col).alignment = { horizontal:'right', vertical:'middle' });
 
   // Descargar
   const buf = await wb.xlsx.writeBuffer();
