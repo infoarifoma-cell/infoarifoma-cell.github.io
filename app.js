@@ -1636,12 +1636,15 @@ async function guardarLinea(){
   }catch(e){console.warn('Dup check failed:',e);}
 
   const btn=document.querySelector('#bas-step-3 .btn-pri');
+  const btnHdr=document.getElementById('hdr-btn-guardar');
   if(btn){btn.disabled=true;btn.textContent='Guardando...';}
+  if(btnHdr){btnHdr.disabled=true;btnHdr.textContent='Guardando...';}
   try{
     const json=await apiPost(payload);
     if(!json.ok){
       alert('Error guardando pesada: '+(json.error||'Error desconocido')+'\n\nReintenta o recarga la página.');
       if(btn){btn.disabled=false;btn.textContent='Guardar';btn.style.opacity='';}
+      if(btnHdr){btnHdr.disabled=false;btnHdr.textContent='✓ Guardar';btnHdr.style.opacity='';}
       return;
     }
     const savedId=json.id!=null?json.id:Date.now();
@@ -1657,12 +1660,14 @@ async function guardarLinea(){
     });
     basCurrentLinea+=10000;
     if(btn){btn.disabled=true;btn.textContent='✓ Guardado';btn.style.opacity='.5';}
+    if(btnHdr){btnHdr.disabled=true;btnHdr.textContent='✓ Guardado';btnHdr.style.opacity='.5';}
     mostrarExitoLinea(savedId,payload);
     renderAlbaranStep3();
     renderLineasAlbaran(true);
   }catch(e){
     alert('Error de conexión guardando pesada: '+e.message+'\n\nReintenta o recarga la página.');
     if(btn){btn.disabled=false;btn.textContent='Guardar';btn.style.opacity='';}
+    if(btnHdr){btnHdr.disabled=false;btnHdr.textContent='✓ Guardar';btnHdr.style.opacity='';}
     return;
   }finally{
     _guardandoLinea=false;
