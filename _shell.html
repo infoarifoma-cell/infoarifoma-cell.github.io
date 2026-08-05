@@ -1828,6 +1828,7 @@
             <div class="sec-title" style="margin:0">Gestión de conductores</div>
             <div style="display:flex;gap:8px">
               <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="cargarChoferes()">&#8635; Actualizar</button>
+              <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="abrirFirmarCAE()">✍ Firmar CAE</button>
               <button class="btn-sec" style="font-size:.72rem;padding:6px 12px" onclick="imprimirCAE()">🖨 Imprimir CAE</button>
               <button class="btn-pri" style="font-size:.72rem;padding:6px 14px" onclick="openChoferModal(null)">+ Añadir</button>
             </div>
@@ -1836,6 +1837,99 @@
             <input type="text" class="fsel" id="filt-chofer" placeholder="Buscar por nombre, DNI o empresa de conductor..." oninput="filtrarChoferesGestion()" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;padding:7px 10px;outline:none">
           </div>
           <div id="choferes-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
+
+          <!-- CAE FIRMA OVERLAY -->
+          <div id="cae-firma-wrap" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.75);z-index:999;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto">
+            <div style="background:#fff;color:#111;width:210mm;max-width:100%;font-family:Arial,Helvetica,sans-serif;font-size:9pt;padding:12mm;box-sizing:border-box;box-shadow:0 4px 24px rgba(0,0,0,.5);position:relative" id="cae-firma-doc">
+              <!-- Botones top -->
+              <div id="cae-firma-btns-top" style="display:flex;gap:8px;margin-bottom:12px;justify-content:flex-end">
+                <button onclick="caeFirmaCerrar()" style="padding:6px 16px;border-radius:6px;border:1px solid #ccc;background:#f5f5f5;cursor:pointer;font-size:.8rem">✕ Cerrar</button>
+              </div>
+              <!-- Selector chofer -->
+              <div id="cae-firma-selector" style="margin-bottom:16px;padding:12px;background:#f0f4ff;border-radius:8px;border:1px solid #c0d0f0">
+                <label style="font-weight:700;font-size:.85rem;display:block;margin-bottom:6px">Seleccionar conductor:</label>
+                <input type="text" id="cae-firma-chofer-input" placeholder="Escribe nombre del conductor..." list="cae-firma-chofer-list" style="width:100%;padding:8px 12px;border:1px solid #bbb;border-radius:6px;font-size:.9rem" oninput="caeFirmaChoferSelect()">
+                <datalist id="cae-firma-chofer-list"></datalist>
+              </div>
+              <!-- Cabecera documento -->
+              <table style="width:100%;border-collapse:collapse;margin-bottom:10px">
+                <tr>
+                  <td style="border:2px solid #333;padding:8px 12px;font-weight:900;font-size:11pt;text-align:center;line-height:1.4">
+                    COORDINACIÓN ACTIVIDADES EMPRESARIALES<br>
+                    <span style="font-size:10pt">EMPRESARIO TITULAR Y PRINCIPAL</span><br>
+                    <span style="font-size:10pt">SOLICITUD Y ENTREGA DE DOCUMENTACIÓN</span>
+                  </td>
+                  <td style="border:2px solid #333;padding:8px 12px;width:120px;vertical-align:top;font-size:8pt">
+                    <div style="font-weight:700">R-CAE/7</div>
+                    <div>Revisión: 0</div>
+                    <div>Pág:... 1 de 1</div>
+                  </td>
+                </tr>
+              </table>
+              <!-- Empresa titular -->
+              <div style="border:1.5px solid #333;padding:6px 10px;font-weight:900;font-size:10pt;margin-bottom:2px">EMPRESA: ARIDOS FONOLITICOS DE MASPALOMAS SL</div>
+              <div style="border:1.5px solid #333;border-top:none;padding:4px 10px;font-size:8.5pt;margin-bottom:12px">Centro de trabajo:</div>
+              <!-- Cuerpo legal -->
+              <div style="font-size:8.5pt;line-height:1.5;text-align:justify;margin-bottom:10px">
+                Estimado Señor/a:<br><br>
+                Según lo estipulado en el R.D. 171/2004 sobre Coordinación de Actividades Empresariales, desde
+                <b>ARIDOS FONOLITICOS DE MASPALOMAS SL</b> hemos establecido un sistema de comunicación y
+                coordinación de información sobre prevención de riesgos laborales y medidas preventivas con nuestras
+                empresas contratistas o subcontratistas de obras y servicios correspondientes a nuestra propia
+                actividad y que se desarrollan en nuestro centro de trabajo, bien directamente o a través de otra
+                empresa subcontratada al efecto.<br><br>
+                Por lo tanto, buscando dar cumplimiento a lo establecido en los Capítulos II y III del RD 171/2004 les
+                hago entrega de la siguiente documentación:
+              </div>
+              <ul style="font-size:8.5pt;line-height:1.6;margin:0 0 10px 20px;padding:0">
+                <li>Evaluación de riesgos propios del centro de trabajo que puedan afectar a las actividades desarrolladas por sus trabajadores, y las medidas referidas a la prevención de tales riesgos</li>
+                <li>las medidas de emergencia y evacuación que se deben aplicar en nuestro centro de trabajo en el caso de que se produzca una situación de emergencia.</li>
+                <li>Instrucciones para la prevención de los riesgos existentes en el centro de trabajo que puedan afectar a los trabajadores de su empresa y sobre las medidas que deben aplicarse cuando se produzca una situación de emergencia.</li>
+              </ul>
+              <div style="font-size:8.5pt;line-height:1.5;text-align:justify;margin-bottom:10px">
+                Asimismo, con el fin de mantener una información recíproca en materia de prevención, a continuación
+                relacionamos la documentación que nos deberán remitir, dando inicio a la coordinación empresarial:
+              </div>
+              <ul style="font-size:8.5pt;line-height:1.6;margin:0 0 10px 20px;padding:0">
+                <li>Persona de contacto (nombre y número de teléfono).</li>
+                <li>Evaluación de riesgos y planificación de su actividad preventiva, de las actividades que ustedes desarrollen en nuestro centro de trabajo, teniendo en cuenta la información que les hemos facilitado.</li>
+                <li>Documento acreditativo, firmado por todos los trabajadores, de que ha comunicado a sus trabajadores la información y las instrucciones que les hemos facilitado, en los términos previstos en el artículo 18.1 de la Ley 31/1995, de 8 de noviembre, de Prevención de Riesgos Laborales.</li>
+                <li>Certificados de entrega de equipos de protección individual por parte de las contratas y subcontratas a sus trabajadores</li>
+                <li>Certificados de aptitud médica para el trabajo a desarrollar por parte de los trabajadores de las contratas y subcontratas.</li>
+                <li>Certificados de formación e información por parte de las contratas y subcontratas a sus trabajadores.</li>
+              </ul>
+              <!-- Recuadros firma -->
+              <table style="width:100%;border-collapse:collapse;margin-top:14px">
+                <tr>
+                  <td style="border:1.5px solid #333;padding:10px;width:50%;vertical-align:top;height:80px">
+                    <div style="font-weight:700;font-size:8.5pt">EMPRESA:</div>
+                    <div style="font-size:9pt;margin-top:6px;font-weight:600" id="cae-firma-empresa">ARIDOS FONOLITICOS DE MASPALOMAS SL</div>
+                  </td>
+                  <td style="border:1.5px solid #333;padding:10px;width:50%;vertical-align:top">
+                    <div style="font-weight:700;font-size:8.5pt">RECIBÍ EMPRESA CONCURRENTE:</div>
+                    <div style="font-size:9pt;margin-top:4px;font-weight:600" id="cae-firma-nombre-chofer"></div>
+                    <div style="font-size:8pt;color:#555" id="cae-firma-empresa-chofer"></div>
+                    <canvas id="cae-firma-canvas" width="280" height="70" style="border-bottom:1px dashed #aaa;margin-top:4px;display:block;touch-action:none;cursor:crosshair"></canvas>
+                    <img id="cae-firma-img" style="display:none;max-height:70px" alt="Firma">
+                    <button id="cae-firma-clear" onclick="caeFirmaLimpiar()" style="font-size:.7rem;padding:2px 10px;margin-top:4px;border:1px solid #ccc;border-radius:4px;background:#f9f9f9;cursor:pointer">Borrar firma</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="border:1.5px solid #333;padding:6px 10px;font-size:8.5pt"><span style="font-weight:700">Fecha:</span> <span id="cae-firma-fecha-izq"></span></td>
+                  <td style="border:1.5px solid #333;padding:6px 10px;font-size:8.5pt"><span style="font-weight:700">Fecha:</span> <span id="cae-firma-fecha-der"></span></td>
+                </tr>
+              </table>
+              <!-- Footer -->
+              <div style="margin-top:20px;border-top:2px solid #333;padding-top:4px;display:flex;justify-content:space-between;font-size:7pt;color:#555">
+                <span>IBERSYS SEGURIDAD Y SALUD LABORAL</span>
+                <span>MANUAL DE GESTIÓN: REGISTROS <span style="font-size:6pt">v0I0418</span></span>
+              </div>
+              <!-- Botón firmar -->
+              <div id="cae-firma-btns" style="margin-top:16px;text-align:center">
+                <button id="btn-cae-firmar" onclick="caeFirmarYGuardar()" style="padding:10px 30px;font-size:1rem;font-weight:700;border:none;border-radius:8px;background:#0078d4;color:#fff;cursor:pointer">✍ Firmar y Guardar PDF</button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- ══ OBRAS / PROYECTOS ══ -->

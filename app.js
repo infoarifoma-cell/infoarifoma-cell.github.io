@@ -13595,6 +13595,167 @@ async function eliminarReg(id) {
   else alert('Error al eliminar');
 }
 
+// ── CAE FIRMA DIGITAL ──────────────────────────────────────────
+const CAE_ONEDRIVE_BASE='Escritorio/Arifoma/13. SEGURIDAD Y SALUD/13.02 SERVICIO DE PREVENCION/COORDINACION AE/0. CAE DOCUMENTACION';
+
+function abrirFirmarCAE(){
+  // Asegurarse de tener choferes cargados
+  if(!choferesData.length){alert('Carga primero los conductores (pulsa Actualizar)');return;}
+  const wrap=document.getElementById('cae-firma-wrap');
+  wrap.style.display='flex';
+  // Rellenar datalist
+  const dl=document.getElementById('cae-firma-chofer-list');
+  dl.innerHTML='';
+  choferesData.forEach(c=>{
+    const o=document.createElement('option');
+    o.value=c.nombre;
+    o.dataset.id=c.id;
+    dl.appendChild(o);
+  });
+  document.getElementById('cae-firma-chofer-input').value='';
+  document.getElementById('cae-firma-nombre-chofer').textContent='';
+  document.getElementById('cae-firma-empresa-chofer').textContent='';
+  // Fechas
+  const hoy=new Date().toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'});
+  document.getElementById('cae-firma-fecha-izq').textContent=hoy;
+  document.getElementById('cae-firma-fecha-der').textContent=hoy;
+  // Init SignaturePad
+  setTimeout(caeFirmaInit,100);
+}
+
+function caeFirmaCerrar(){
+  document.getElementById('cae-firma-wrap').style.display='none';
+  if(window._caeSignaturePad){window._caeSignaturePad.off();window._caeSignaturePad=null;}
+}
+
+function caeFirmaInit(){
+  const canvas=document.getElementById('cae-firma-canvas');
+  if(!canvas||typeof SignaturePad==='undefined')return;
+  if(window._caeSignaturePad){window._caeSignaturePad.clear();return;}
+  window._caeSignaturePad=new SignaturePad(canvas,{minWidth:1,maxWidth:2.5,penColor:'#111',backgroundColor:'rgba(250,250,250,0)'});
+  const ratio=Math.max(window.devicePixelRatio||1,1);
+  canvas.width=canvas.offsetWidth*ratio;
+  canvas.height=canvas.offsetHeight*ratio;
+  canvas.getContext('2d').scale(ratio,ratio);
+  window._caeSignaturePad.clear();
+}
+
+function caeFirmaLimpiar(){
+  if(window._caeSignaturePad)window._caeSignaturePad.clear();
+  const img=document.getElementById('cae-firma-img');
+  if(img){img.style.display='none';img.src='';}
+  const canvas=document.getElementById('cae-firma-canvas');
+  if(canvas)canvas.style.display='block';
+}
+
+function caeFirmaChoferSelect(){
+  const input=document.getElementById('cae-firma-chofer-input');
+  const nombre=input.value.trim();
+  const c=choferesData.find(x=>(x.nombre||'').toLowerCase()===nombre.toLowerCase());
+  if(c){
+    document.getElementById('cae-firma-nombre-chofer').textContent=c.nombre;
+    document.getElementById('cae-firma-empresa-chofer').textContent=c.empresa||'';
+  }
+}
+
+async function caeFirmarYGuardar(){
+  // Validar chofer seleccionado
+  const nombre=document.getElementById('cae-firma-chofer-input').value.trim();
+  const chofer=choferesData.find(x=>(x.nombre||'').toLowerCase()===nombre.toLowerCase());
+  if(!chofer){alert('Selecciona un conductor válido de la lista');return;}
+  if(!chofer.empresa){alert('Este conductor no tiene empresa asignada. Edítalo primero.');return;}
+  // Validar firma
+  if(!window._caeSignaturePad||window._caeSignaturePad.isEmpty()){
+    alert('El chofer debe firmar antes de guardar.');return;
+  }
+  const btn=document.getElementById('btn-cae-firmar');
+  btn.disabled=true;btn.textContent='Generando PDF...';
+  try{
+    // Colocar firma como imagen
+    const firmaDataUrl=window._caeSignaturePad.toDataURL('image/png');
+    const fCanvas=document.getElementById('cae-firma-canvas');
+    const fImg=document.getElementById('cae-firma-img');
+    if(fCanvas)fCanvas.style.display='none';
+    if(fImg){fImg.src=firmaDataUrl;fImg.style.display='block';}
+    const clearBtn=document.getElementById('cae-firma-clear');
+    if(clearBtn)clearBtn.style.display='none';
+
+    // Capturar documento
+    const doc=document.getElementById('cae-firma-doc');
+    const canvas=await html2canvas(doc,{
+      scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false,
+      onclone:function(clonedDoc){
+        const btns=clonedDoc.getElementById('cae-firma-btns');if(btns)btns.style.display='none';
+        const btnsTop=clonedDoc.getElementById('cae-firma-btns-top');if(btnsTop)btnsTop.style.display='none';
+        const sel=clonedDoc.getElementById('cae-firma-selector');if(sel)sel.style.display='none';
+        const clr=clonedDoc.getElementById('cae-firma-clear');if(clr)clr.style.display='none';
+      }
+    });
+
+    // PDF A4 portrait
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const pageW=pdf.internal.pageSize.getWidth();
+    const pageH=pdf.internal.pageSize.getHeight();
+    const imgData=canvas.toDataURL('image/jpeg',0.92);
+    const imgRatio=canvas.width/canvas.height;
+    let w=pageW-16,h=w/imgRatio;
+    if(h>pageH-16){h=pageH-16;w=h*imgRatio;}
+    pdf.addImage(imgData,'JPEG',(pageW-w)/2,(pageH-h)/2,w,h);
+    const pdfBlob=pdf.output('blob');
+
+    // Nombre archivo
+    const now=new Date();
+    const fechaStr=now.getFullYear()+pad(now.getMonth()+1)+pad(now.getDate());
+    const nombreSafe=chofer.nombre.replace(/[/\\:*?"<>|]/g,'-').replace(/\s+/g,'_');
+    const empresaSafe=chofer.empresa.replace(/[/\\:*?"<>|]/g,'-').replace(/\s+/g,'_');
+    const fileName='CAE_'+nombreSafe+'_'+fechaStr+'.pdf';
+
+    // Subir a OneDrive: .../0. CAE DOCUMENTACION/{empresa}/
+    try{
+      const token=await comprasGetToken();
+      const basePath=CAE_ONEDRIVE_BASE;
+      const parentEncoded=basePath.split('/').map(s=>encodeURIComponent(s)).join('/');
+
+      // Crear carpeta empresa si no existe
+      await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+parentEncoded+':/children',{
+        method:'POST',
+        headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+        body:JSON.stringify({name:empresaSafe,folder:{},'@microsoft.graph.conflictBehavior':'fail'})
+      });
+
+      // Upload PDF
+      const uploadPath=basePath+'/'+empresaSafe;
+      const encodedPath=uploadPath.split('/').map(s=>encodeURIComponent(s)).join('/');
+      const uploadUrl='https://graph.microsoft.com/v1.0/me/drive/root:/'+encodedPath+'/'+encodeURIComponent(fileName)+':/content';
+      const resp=await fetch(uploadUrl,{
+        method:'PUT',
+        headers:{'Authorization':'Bearer '+token,'Content-Type':'application/pdf'},
+        body:pdfBlob
+      });
+      if(!resp.ok){const err=await resp.text();throw new Error(err);}
+      alert('✓ CAE firmado guardado en OneDrive:\n'+uploadPath+'/'+fileName);
+      caeFirmaCerrar();
+    }catch(e){
+      console.error('Error subiendo CAE:',e);
+      alert('Error subiendo a OneDrive: '+e.message+'\n\nEl PDF se descargará localmente.');
+      const link=document.createElement('a');
+      link.href=URL.createObjectURL(pdfBlob);
+      link.download=fileName;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+
+    // Restaurar
+    if(clearBtn)clearBtn.style.display='';
+  }catch(e){
+    console.error('Error generando CAE PDF:',e);
+    alert('Error generando PDF: '+e.message);
+  }finally{
+    btn.disabled=false;btn.textContent='✍ Firmar y Guardar PDF';
+  }
+}
+
 // ── ALBARANES FIRMADOS ─────────────────────────────────────────
 let _afDriveId='',_afBaseId='',_afAnyos=[],_afMeses=[],_afClientes=[],_afPdfs=[];
 const AF_MESES_ORDEN=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
@@ -13814,11 +13975,12 @@ async function afEnviarEmailConfirmar(){
         subject:subject,
         body:{contentType:'Text',content:body},
         toRecipients:[{emailAddress:{address:to}}],
+        from:{emailAddress:{address:'info@arifoma.com',name:'ARIFOMA'}},
         attachments:attachments
       },
       saveToSentItems:true
     };
-    const r=await fetch('https://graph.microsoft.com/v1.0/me/sendMail',{
+    const r=await fetch('https://graph.microsoft.com/v1.0/users/info@arifoma.com/sendMail',{
       method:'POST',
       headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
       body:JSON.stringify(mailBody)
