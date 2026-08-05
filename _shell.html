@@ -522,6 +522,9 @@
         <button class="snav-btn" onclick="goPage('pedidos')" id="snav-pedidos">
           <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="14" height="12" rx="2"/><path d="M5 7h8M5 10h8M5 13h5"/></svg>Pedidos
         </button>
+        <button class="snav-btn" onclick="goPage('albaranes-firmados')" id="snav-albaranes-firmados">
+          <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 2h7l4 4v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M11 2v4h4"/><path d="M6 13c1-1.5 2-2 3-2s2 .5 3 2"/></svg>Albaranes firmados
+        </button>
         <button class="snav-btn" onclick="goPage('ventas')" id="snav-ventas">
           <svg class="snav-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 13l4-4 3 3 5-6"/><circle cx="15" cy="6" r="1.5"/></svg>Ventas
         </button>
@@ -2925,6 +2928,54 @@
               </select>
             </div>
             <div id="listado-prev-list"><div class="tbl"><div class="empty">Pulsa Actualizar para cargar</div></div></div>
+          </div>
+        </div>
+
+        <!-- ══ ALBARANES FIRMADOS ══ -->
+        <div class="page" id="pg-albaranes-firmados">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
+            <div class="sec-title" style="margin:0">Albaranes Firmados</div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              <select class="inp" id="af-anyo" onchange="afCargarMeses()" style="width:100px"></select>
+              <select class="inp" id="af-mes" onchange="afCargarClientes()" style="width:140px">
+                <option value="">— Mes —</option>
+              </select>
+              <select class="inp" id="af-cliente" onchange="afCargarPdfs()" style="width:200px;max-width:40vw">
+                <option value="">— Cliente —</option>
+              </select>
+            </div>
+          </div>
+          <!-- Acciones masivas -->
+          <div id="af-toolbar" style="display:none;margin-bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <label style="font-size:.75rem;cursor:pointer;display:flex;align-items:center;gap:4px">
+              <input type="checkbox" id="af-check-all" onchange="afToggleAll(this.checked)"> Seleccionar todos
+            </label>
+            <span id="af-sel-count" style="font-size:.72rem;color:var(--muted)"></span>
+            <button class="btn-sec" id="af-btn-zip" onclick="afDescargarZip()" style="font-size:.72rem;padding:5px 12px;display:none">
+              📦 Descargar ZIP
+            </button>
+            <button class="btn-sec" id="af-btn-email" onclick="afEnviarEmail()" style="font-size:.72rem;padding:5px 12px;display:none;border-color:#0078d4;color:#0078d4">
+              ✉ Enviar por email
+            </button>
+          </div>
+          <!-- Lista de PDFs -->
+          <div id="af-list"><div class="empty" style="padding:40px;text-align:center;color:var(--muted)">Selecciona año, mes y cliente para ver albaranes firmados</div></div>
+          <!-- Modal email -->
+          <div class="modal-wrap" id="af-modal-email">
+            <div class="modal-box" style="max-width:420px">
+              <h3>Enviar albaranes por email</h3>
+              <label>Destinatario</label>
+              <input class="inp" id="af-email-to" type="email" placeholder="cliente@ejemplo.com">
+              <label>Asunto</label>
+              <input class="inp" id="af-email-subject">
+              <label>Mensaje (opcional)</label>
+              <textarea class="inp" id="af-email-body" rows="3" style="resize:vertical" placeholder="Adjunto los albaranes firmados..."></textarea>
+              <div class="warn-msg" id="af-email-msg"></div>
+              <div class="modal-btns">
+                <button class="btn-cancel" onclick="document.getElementById('af-modal-email').classList.remove('open')">Cancelar</button>
+                <button class="btn-save" id="af-email-send-btn" onclick="afEnviarEmailConfirmar()">Enviar</button>
+              </div>
+            </div>
           </div>
         </div>
 

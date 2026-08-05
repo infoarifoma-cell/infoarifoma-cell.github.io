@@ -495,7 +495,7 @@ const DIAS_LAB_2026=[18,18,22,20,20,21,23,21,22,21,21,18];
 const HORAS_DIA_STD=8; // Jornada estándar convenio
 const PRODS=['ARIDO AF-T-0/4-I','ARIDO AG-T-4/12-I','ARIDO AG-T-12/20-I','ARIDO AG-T-20/40-I','ARIDO AG-T-40/70-I','REVUELTO 0/20','REVUELTO 0/10','PIEDRA PARA MURO (UD)','MATERIAL DE RELLENO 0/4'];
 const PROD_CAT={'ARIDO AF-T-0/4-I':'0/4','ARIDO AG-T-4/12-I':'4/12','ARIDO AG-T-12/20-I':'12/20','ARIDO AG-T-20/40-I':'20/40'};
-const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas','historico-ventas':'Histórico de Ventas',caja:'Caja',costes:'Análisis de Costes',produccion:'Producción Planta',informes:'Informes Planta',stock:'Stock Áridos',topografia:'Levantamiento Topográfico',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',tareas:'Tareas',preventivo:'Mantenimiento Preventivo',compras:'Escanear Factura',choferes:'Conductores',ensayos:'Control de Ensayos',kpis:'KPIs — Planta de Árido'};
+const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas','historico-ventas':'Histórico de Ventas',caja:'Caja',costes:'Análisis de Costes',produccion:'Producción Planta',informes:'Informes Planta',stock:'Stock Áridos',topografia:'Levantamiento Topográfico',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',tareas:'Tareas',preventivo:'Mantenimiento Preventivo',compras:'Escanear Factura',choferes:'Conductores',ensayos:'Control de Ensayos',kpis:'KPIs — Planta de Árido','albaranes-firmados':'Albaranes Firmados'};
 
 // Login via Google OAuth — ver funciones.js: googleLogin() y checkGoogleSession()
 
@@ -566,6 +566,7 @@ function goPage(id){
   if(id==='kpis')cargarKPIs();
   if(id==='tareas')initTareasPanel();
   if(id==='ensayos')initEnsayos();
+  if(id==='albaranes-firmados')initAlbaranesFirmados();
 }
 
 function goTareasSeccion(seccion){
@@ -13592,4 +13593,246 @@ async function eliminarReg(id) {
   const res = await dbQuery({ action:'delete', table:'tblRegularizaciones', filters:[{column:'id',op:'eq',value:id}] });
   if (res.ok) cargarTopografia();
   else alert('Error al eliminar');
+}
+
+// ── ALBARANES FIRMADOS ─────────────────────────────────────────
+let _afDriveId='',_afBaseId='',_afAnyos=[],_afMeses=[],_afClientes=[],_afPdfs=[];
+const AF_MESES_ORDEN=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+
+async function _afGetDriveAndBase(){
+  if(_afDriveId&&_afBaseId) return;
+  const token=await comprasGetToken();
+  const shareToken='u!'+btoa(COMPRAS_SHARE_URL).replace(/=+$/,'').replace(/\//g,'_').replace(/\+/g,'-');
+  const shareRes=await fetch('https://graph.microsoft.com/v1.0/shares/'+shareToken+'/driveItem?$select=id,parentReference',{
+    headers:{'Authorization':'Bearer '+token}
+  });
+  if(!shareRes.ok) throw new Error('No se pudo acceder a OneDrive ('+shareRes.status+')');
+  const shareItem=await shareRes.json();
+  _afDriveId=shareItem.parentReference.driveId;
+  let parentId=shareItem.id;
+  for(const seg of ALBARANES_ONEDRIVE_BASE.split('/')){
+    const r=await fetch('https://graph.microsoft.com/v1.0/drives/'+_afDriveId+'/items/'+parentId+'/children?$select=id,name,folder&$top=200',{
+      headers:{'Authorization':'Bearer '+token}
+    });
+    if(!r.ok) throw new Error('Error navegando a '+seg);
+    const j=await r.json();
+    const found=(j.value||[]).find(i=>i.folder&&i.name.trim().toLowerCase()===seg.trim().toLowerCase());
+    if(!found) throw new Error('Carpeta "'+seg+'" no encontrada');
+    parentId=found.id;
+  }
+  _afBaseId=parentId;
+}
+
+async function _afListChildren(parentId){
+  const token=await comprasGetToken();
+  const r=await fetch('https://graph.microsoft.com/v1.0/drives/'+_afDriveId+'/items/'+parentId+'/children?$select=id,name,folder,file,size,lastModifiedDateTime,webUrl&$top=500&$orderby=name',{
+    headers:{'Authorization':'Bearer '+token}
+  });
+  if(!r.ok) throw new Error('Error listando carpeta');
+  return (await r.json()).value||[];
+}
+
+async function initAlbaranesFirmados(){
+  const sel=document.getElementById('af-anyo');
+  if(sel.options.length>1) return; // ya inicializado
+  sel.innerHTML='<option value="">— Año —</option>';
+  try{
+    await _afGetDriveAndBase();
+    const items=await _afListChildren(_afBaseId);
+    _afAnyos=items.filter(i=>i.folder).sort((a,b)=>b.name.localeCompare(a.name));
+    _afAnyos.forEach(a=>{const o=document.createElement('option');o.value=a.id;o.textContent=a.name;sel.appendChild(o);});
+  }catch(e){
+    console.error('initAlbaranesFirmados:',e);
+    document.getElementById('af-list').innerHTML='<div class="empty" style="padding:20px;color:#e05">Error: '+e.message+'</div>';
+  }
+}
+
+async function afCargarMeses(){
+  const anyoId=document.getElementById('af-anyo').value;
+  const selMes=document.getElementById('af-mes');
+  const selCli=document.getElementById('af-cliente');
+  selMes.innerHTML='<option value="">— Mes —</option>';
+  selCli.innerHTML='<option value="">— Cliente —</option>';
+  _afPdfs=[];afRenderList();
+  if(!anyoId) return;
+  try{
+    const items=await _afListChildren(anyoId);
+    _afMeses=items.filter(i=>i.folder).sort((a,b)=>{
+      const ia=AF_MESES_ORDEN.indexOf(a.name.toUpperCase()),ib=AF_MESES_ORDEN.indexOf(b.name.toUpperCase());
+      return (ia===-1?99:ia)-(ib===-1?99:ib);
+    });
+    _afMeses.forEach(m=>{const o=document.createElement('option');o.value=m.id;o.textContent=m.name;selMes.appendChild(o);});
+  }catch(e){console.error('afCargarMeses:',e);}
+}
+
+async function afCargarClientes(){
+  const mesId=document.getElementById('af-mes').value;
+  const selCli=document.getElementById('af-cliente');
+  selCli.innerHTML='<option value="">— Cliente —</option>';
+  _afPdfs=[];afRenderList();
+  if(!mesId) return;
+  try{
+    const items=await _afListChildren(mesId);
+    _afClientes=items.filter(i=>i.folder).sort((a,b)=>a.name.localeCompare(b.name));
+    _afClientes.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;selCli.appendChild(o);});
+  }catch(e){console.error('afCargarClientes:',e);}
+}
+
+async function afCargarPdfs(){
+  const cliId=document.getElementById('af-cliente').value;
+  _afPdfs=[];afRenderList();
+  if(!cliId) return;
+  document.getElementById('af-list').innerHTML='<div class="empty" style="padding:20px">Cargando...</div>';
+  try{
+    const items=await _afListChildren(cliId);
+    _afPdfs=items.filter(i=>i.file&&i.name.toLowerCase().endsWith('.pdf')).map(f=>({
+      id:f.id,name:f.name,size:f.size,date:f.lastModifiedDateTime,webUrl:f.webUrl,checked:false
+    }));
+    afRenderList();
+  }catch(e){
+    console.error('afCargarPdfs:',e);
+    document.getElementById('af-list').innerHTML='<div class="empty" style="color:#e05">Error: '+e.message+'</div>';
+  }
+}
+
+function afRenderList(){
+  const el=document.getElementById('af-list');
+  const toolbar=document.getElementById('af-toolbar');
+  if(!_afPdfs.length){
+    toolbar.style.display='none';
+    if(!document.getElementById('af-cliente').value)
+      el.innerHTML='<div class="empty" style="padding:40px;text-align:center;color:var(--muted)">Selecciona año, mes y cliente para ver albaranes firmados</div>';
+    else
+      el.innerHTML='<div class="empty" style="padding:20px;color:var(--muted)">No hay albaranes en esta carpeta</div>';
+    return;
+  }
+  toolbar.style.display='flex';
+  const selCount=_afPdfs.filter(p=>p.checked).length;
+  document.getElementById('af-sel-count').textContent=selCount?selCount+' seleccionado'+(selCount>1?'s':''):'';
+  document.getElementById('af-btn-zip').style.display=selCount?'':'none';
+  document.getElementById('af-btn-email').style.display=selCount?'':'none';
+  document.getElementById('af-check-all').checked=selCount===_afPdfs.length;
+
+  el.innerHTML=_afPdfs.map((f,i)=>{
+    const sizeKb=f.size?(f.size/1024).toFixed(0)+' KB':'';
+    const fecha=f.date?new Date(f.date).toLocaleDateString('es-ES'):'';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:4px;cursor:pointer" onclick="afToggleCheck(${i})">
+      <input type="checkbox" ${f.checked?'checked':''} onclick="event.stopPropagation();afToggleCheck(${i})" style="cursor:pointer;width:16px;height:16px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.82rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</div>
+        <div style="font-size:.68rem;color:var(--muted)">${fecha} · ${sizeKb}</div>
+      </div>
+      <a href="${f.webUrl}" target="_blank" onclick="event.stopPropagation()" style="font-size:.7rem;padding:4px 10px;border:1px solid var(--border);border-radius:6px;color:var(--accent);text-decoration:none">Abrir</a>
+    </div>`;
+  }).join('');
+}
+
+function afToggleCheck(idx){
+  _afPdfs[idx].checked=!_afPdfs[idx].checked;
+  afRenderList();
+}
+function afToggleAll(checked){
+  _afPdfs.forEach(p=>p.checked=checked);
+  afRenderList();
+}
+
+async function _afDownloadFile(fileId){
+  const token=await comprasGetToken();
+  const r=await fetch('https://graph.microsoft.com/v1.0/drives/'+_afDriveId+'/items/'+fileId+'/content',{
+    headers:{'Authorization':'Bearer '+token}
+  });
+  if(!r.ok) throw new Error('Error descargando '+fileId);
+  return r.arrayBuffer();
+}
+
+async function afDescargarZip(){
+  const selected=_afPdfs.filter(p=>p.checked);
+  if(!selected.length){alert('Selecciona al menos un albarán');return;}
+  const btn=document.getElementById('af-btn-zip');
+  btn.disabled=true;btn.textContent='⏳ Generando ZIP...';
+  try{
+    const zip=new JSZip();
+    for(const f of selected){
+      const data=await _afDownloadFile(f.id);
+      zip.file(f.name,data);
+    }
+    const blob=await zip.generateAsync({type:'blob'});
+    const clienteName=document.getElementById('af-cliente').selectedOptions[0].textContent||'albaranes';
+    const mesName=document.getElementById('af-mes').selectedOptions[0].textContent||'';
+    const anyoName=document.getElementById('af-anyo').selectedOptions[0].textContent||'';
+    const link=document.createElement('a');
+    link.href=URL.createObjectURL(blob);
+    link.download='Albaranes_'+clienteName.replace(/\s+/g,'_')+'_'+mesName+'_'+anyoName+'.zip';
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }catch(e){
+    console.error('afDescargarZip:',e);
+    alert('Error generando ZIP: '+e.message);
+  }finally{
+    btn.disabled=false;btn.textContent='📦 Descargar ZIP';
+  }
+}
+
+function afEnviarEmail(){
+  const selected=_afPdfs.filter(p=>p.checked);
+  if(!selected.length){alert('Selecciona al menos un albarán');return;}
+  const clienteName=document.getElementById('af-cliente').selectedOptions[0].textContent||'';
+  const mesName=document.getElementById('af-mes').selectedOptions[0].textContent||'';
+  const anyoName=document.getElementById('af-anyo').selectedOptions[0].textContent||'';
+  document.getElementById('af-email-to').value='';
+  document.getElementById('af-email-subject').value='Albaranes firmados — '+clienteName+' ('+mesName+' '+anyoName+')';
+  document.getElementById('af-email-body').value='Estimado cliente,\n\nAdjunto los albaranes firmados correspondientes a '+mesName.toLowerCase()+' '+anyoName+'.\n\nUn saludo,\nÁridos Fonolíticos de Maspalomas SL';
+  document.getElementById('af-email-msg').textContent='';
+  document.getElementById('af-modal-email').classList.add('open');
+}
+
+async function afEnviarEmailConfirmar(){
+  const to=document.getElementById('af-email-to').value.trim();
+  if(!to){document.getElementById('af-email-msg').textContent='Introduce un email de destino';return;}
+  const subject=document.getElementById('af-email-subject').value.trim();
+  const body=document.getElementById('af-email-body').value.trim();
+  const selected=_afPdfs.filter(p=>p.checked);
+  const btn=document.getElementById('af-email-send-btn');
+  btn.disabled=true;btn.textContent='Enviando...';
+  document.getElementById('af-email-msg').textContent='';
+  try{
+    const token=await comprasGetToken();
+    // Descargar PDFs y convertir a base64
+    const attachments=[];
+    for(const f of selected){
+      const data=await _afDownloadFile(f.id);
+      const b64=btoa(new Uint8Array(data).reduce((s,b)=>s+String.fromCharCode(b),''));
+      attachments.push({
+        '@odata.type':'#microsoft.graph.fileAttachment',
+        name:f.name,
+        contentType:'application/pdf',
+        contentBytes:b64
+      });
+    }
+    const mailBody={
+      message:{
+        subject:subject,
+        body:{contentType:'Text',content:body},
+        toRecipients:[{emailAddress:{address:to}}],
+        attachments:attachments
+      },
+      saveToSentItems:true
+    };
+    const r=await fetch('https://graph.microsoft.com/v1.0/me/sendMail',{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+      body:JSON.stringify(mailBody)
+    });
+    if(!r.ok){
+      const err=await r.text();
+      throw new Error('Error enviando email ('+r.status+'): '+err);
+    }
+    document.getElementById('af-modal-email').classList.remove('open');
+    alert('✓ Email enviado correctamente a '+to);
+  }catch(e){
+    console.error('afEnviarEmailConfirmar:',e);
+    document.getElementById('af-email-msg').textContent='Error: '+e.message;
+  }finally{
+    btn.disabled=false;btn.textContent='Enviar';
+  }
 }
