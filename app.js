@@ -13596,7 +13596,7 @@ async function eliminarReg(id) {
 }
 
 // ── CAE FIRMA DIGITAL ──────────────────────────────────────────
-const CAE_ONEDRIVE_BASE='Escritorio/Arifoma/13. SEGURIDAD Y SALUD/13.02 SERVICIO DE PREVENCION/COORDINACION AE/0. CAE DOCUMENTACION';
+const CAE_ONEDRIVE_BASE='13. SEGURIDAD Y SALUD/13.02 SERVICIO DE PREVENCION/COORDINACION AE';
 
 function abrirFirmarCAE(){
   // Asegurarse de tener choferes cargados
@@ -13655,6 +13655,7 @@ function caeFirmaChoferSelect(){
   if(c){
     document.getElementById('cae-firma-nombre-chofer').textContent=c.nombre;
     document.getElementById('cae-firma-empresa-chofer').textContent=c.empresa||'';
+    document.getElementById('cae-firma-estimado').textContent=c.nombre;
   }
 }
 
@@ -13711,30 +13712,62 @@ async function caeFirmarYGuardar(){
     const empresaSafe=chofer.empresa.replace(/[/\\:*?"<>|]/g,'-').replace(/\s+/g,'_');
     const fileName='CAE_'+nombreSafe+'_'+fechaStr+'.pdf';
 
-    // Subir a OneDrive: .../0. CAE DOCUMENTACION/{empresa}/
+    // Subir a OneDrive compartido: .../COORDINACION AE/{empresa}/
     try{
       const token=await comprasGetToken();
-      const basePath=CAE_ONEDRIVE_BASE;
-      const parentEncoded=basePath.split('/').map(s=>encodeURIComponent(s)).join('/');
-
-      // Crear carpeta empresa si no existe
-      await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+parentEncoded+':/children',{
-        method:'POST',
-        headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
-        body:JSON.stringify({name:empresaSafe,folder:{},'@microsoft.graph.conflictBehavior':'fail'})
+      const shareToken='u!'+btoa(COMPRAS_SHARE_URL).replace(/=+$/,'').replace(/\//g,'_').replace(/\+/g,'-');
+      const shareRes=await fetch('https://graph.microsoft.com/v1.0/shares/'+shareToken+'/driveItem?$select=id,parentReference',{
+        headers:{'Authorization':'Bearer '+token}
       });
+      if(!shareRes.ok) throw new Error('No se pudo acceder a OneDrive compartido ('+shareRes.status+')');
+      const shareItem=await shareRes.json();
+      const driveId=shareItem.parentReference.driveId;
+      let parentId=shareItem.id;
+
+      // Navegar a carpeta base
+      for(const seg of CAE_ONEDRIVE_BASE.split('/')){
+        const listRes=await fetch('https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+parentId+'/children?$select=id,name,folder&$top=200',{
+          headers:{'Authorization':'Bearer '+token}
+        });
+        if(!listRes.ok) throw new Error('No se pudo listar carpeta: '+seg);
+        const listJson=await listRes.json();
+        const segNorm=seg.trim().toLowerCase();
+        const found=(listJson.value||[]).find(i=>i.folder&&i.name.trim().toLowerCase()===segNorm);
+        if(!found) throw new Error('Carpeta "'+seg+'" no encontrada en OneDrive');
+        parentId=found.id;
+      }
+
+      // Buscar o crear carpeta empresa
+      async function _caeFindOrCreate(pid,name){
+        const listRes=await fetch('https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+pid+'/children?$select=id,name,folder&$top=200',{
+          headers:{'Authorization':'Bearer '+token}
+        });
+        if(!listRes.ok) throw new Error('No se pudo listar carpeta para buscar "'+name+'"');
+        const listJson=await listRes.json();
+        const nameNorm=name.trim().toLowerCase().normalize('NFC').replace(/\s+/g,' ');
+        const found=(listJson.value||[]).find(i=>i.folder&&i.name.trim().toLowerCase().normalize('NFC').replace(/\s+/g,' ')===nameNorm);
+        if(found) return found.id;
+        const safeName=name.replace(/[.]+$/,'').replace(/\s+$/,'').replace(/[\\/:*?"<>|]/g,'_')||name;
+        const createRes=await fetch('https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+pid+'/children',{
+          method:'POST',
+          headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+          body:JSON.stringify({name:safeName,folder:{}})
+        });
+        if(!createRes.ok) throw new Error('Error creando carpeta "'+name+'": '+await createRes.text());
+        return (await createRes.json()).id;
+      }
+
+      parentId=await _caeFindOrCreate(parentId,chofer.empresa);
 
       // Upload PDF
-      const uploadPath=basePath+'/'+empresaSafe;
-      const encodedPath=uploadPath.split('/').map(s=>encodeURIComponent(s)).join('/');
-      const uploadUrl='https://graph.microsoft.com/v1.0/me/drive/root:/'+encodedPath+'/'+encodeURIComponent(fileName)+':/content';
+      const uploadUrl='https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+parentId+':/'+encodeURIComponent(fileName)+':/content';
       const resp=await fetch(uploadUrl,{
         method:'PUT',
         headers:{'Authorization':'Bearer '+token,'Content-Type':'application/pdf'},
         body:pdfBlob
       });
       if(!resp.ok){const err=await resp.text();throw new Error(err);}
-      alert('✓ CAE firmado guardado en OneDrive:\n'+uploadPath+'/'+fileName);
+      alert('✓ CAE firmado guardado en OneDrive:\nCOORDINACION AE/'+chofer.empresa+'/'+fileName);
       caeFirmaCerrar();
     }catch(e){
       console.error('Error subiendo CAE:',e);
