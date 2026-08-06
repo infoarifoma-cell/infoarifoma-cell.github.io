@@ -1,11 +1,12 @@
 // POST /api/ocr-hf
 // Envía imagen a NuExtract3 o Qwen VL vía Hugging Face Inference API
-// mode=factura (default) o mode=ensayo
+// Autodetecta tipo de documento (factura o acta de ensayo)
 // Requiere env var HF_TOKEN en Vercel
 
 export const config = { api: { bodyParser: { sizeLimit: '10mb' } } };
 
 const TEMPLATE_FACTURA = JSON.stringify({
+  doc_type: "factura",
   proveedor: "verbatim-string",
   nfactura: "verbatim-string",
   fecha: "date",
@@ -23,6 +24,7 @@ const TEMPLATE_FACTURA = JSON.stringify({
 });
 
 const TEMPLATE_ENSAYO = JSON.stringify({
+  doc_type: "ensayo",
   num_acta: "verbatim-string",
   num_albaran: "verbatim-string",
   fecha_toma: "date (YYYY-MM-DD)",
@@ -44,23 +46,30 @@ const TEMPLATE_ENSAYO = JSON.stringify({
   }
 });
 
-const PROMPT_FACTURA = `Extract the following fields from this invoice/receipt image.
-Return ONLY valid JSON matching this schema: ${TEMPLATE_FACTURA}
-"lineas" is the array of line items/articles in the invoice with description, quantity, unit price and line total.
-"proveedor" is the SELLER/SUPPLIER who issued the invoice, NOT the buyer/customer.
-IMPORTANT: "ARIDOS FONOLITICOS DE MASPALOMAS", "ARIFOMA" or any variation is the BUYER (customer), never the supplier. The supplier is the OTHER company on the invoice.
-If a field is not found, use null.`;
+const PROMPT_AUTO = `Analyze this document image and determine what type it is, then extract structured data.
 
-const PROMPT_ENSAYO = `Extract data from this laboratory test report / acta de ensayo image.
-Return ONLY valid JSON matching this schema: ${TEMPLATE_ENSAYO}
-This is a construction aggregates (áridos) quality control test report.
-- "num_acta": the report/acta number (e.g. "2026/258")
-- "num_albaran": the delivery note number / nº albarán / nº muestra (e.g. "2026/101"). It is NOT the same as num_acta.
-- "fecha_toma": date the sample was taken, format YYYY-MM-DD
-- "fecha_acta": date of the report / fin de ensayos, format YYYY-MM-DD
-- "fraccion": aggregate size fraction (e.g. "0/4", "4/12", "12/20", "20/40", "ZA25")
-- "tipo_ensayo": detect from content — "granulometria" if sieve analysis table, "eq_arena" if sand equivalent, "ind_lajas" if flakiness index, "cont_finos" if fines content (tamiz 0.063), "caras_fractura" if crushed faces percentage
-- "resultados": fill only the fields relevant to the test type. For granulometria, gran_X = percentage passing sieve X mm. Use gran_12_5 for 12.5mm, gran_6_3 for 6.3mm, gran_0_5 for 0.5mm, gran_0_25 for 0.25mm, gran_0_125 for 0.125mm, gran_0_063 for 0.063mm. For other tests fill only the matching field.
+STEP 1 — Detect document type:
+- If it is an INVOICE / RECEIPT / FACTURA → use "factura" schema
+- If it is a LABORATORY TEST REPORT / ACTA DE ENSAYO (aggregate testing, granulometry, sieve analysis) → use "ensayo" schema
+
+STEP 2 — Extract data using the matching schema below. Return ONLY valid JSON.
+
+=== If doc_type = "factura", use this schema: ===
+${TEMPLATE_FACTURA}
+- "proveedor" is the SELLER/SUPPLIER, NOT the buyer.
+- "ARIDOS FONOLITICOS DE MASPALOMAS" / "ARIFOMA" is the BUYER, never the supplier.
+- "lineas": array of line items with description, quantity, unit price, line total.
+
+=== If doc_type = "ensayo", use this schema: ===
+${TEMPLATE_ENSAYO}
+- "num_acta": report number (e.g. "2026/258")
+- "num_albaran": delivery note / sample number (e.g. "2026/101"), NOT the same as num_acta
+- "fecha_toma": sample date, YYYY-MM-DD
+- "fecha_acta": report date / fin de ensayos, YYYY-MM-DD
+- "fraccion": aggregate size (e.g. "0/4", "4/12", "12/20", "20/40", "ZA25")
+- "tipo_ensayo": "granulometria" if sieve table, "eq_arena" if sand equivalent, "ind_lajas" if flakiness, "cont_finos" if fines content, "caras_fractura" if crushed faces
+- "resultados": only fill relevant fields. gran_X = % passing sieve X mm (gran_12_5 for 12.5mm, gran_6_3 for 6.3mm, gran_0_5 for 0.5mm, etc.)
+
 If a field is not found, use null.`;
 
 export default async function handler(req, res) {
@@ -70,10 +79,9 @@ export default async function handler(req, res) {
   if (!token) return res.status(500).json({ ok: false, error: 'HF_TOKEN no configurado' });
 
   try {
-    const { image, mode } = req.body;
+    const { image } = req.body;
     if (!image) return res.status(400).json({ ok: false, error: 'Falta imagen' });
-    const PROMPT = mode === 'ensayo' ? PROMPT_ENSAYO : PROMPT_FACTURA;
-    const TEMPLATE = mode === 'ensayo' ? TEMPLATE_ENSAYO : TEMPLATE_FACTURA;
+    const PROMPT = PROMPT_AUTO;
 
     const match = image.match(/^data:(image\/\w+);base64,(.+)$/);
     if (!match) return res.status(400).json({ ok: false, error: 'Formato de imagen inválido' });
@@ -90,7 +98,6 @@ export default async function handler(req, res) {
         model: 'numind/NuExtract3',
         extraBody: {
           chat_template_kwargs: {
-            template: TEMPLATE,
             enable_thinking: false
           }
         }
@@ -125,7 +132,7 @@ export default async function handler(req, res) {
               ]
             }
           ],
-          max_tokens: 1024,
+          max_tokens: 2048,
           temperature: 0.2,
           ...prov.extraBody
         };

@@ -12915,7 +12915,7 @@ async function ensayosSubirPDFs(files) {
         const resp = await fetch('/api/ocr-hf', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: base64, mode: 'ensayo' })
+          body: JSON.stringify({ image: base64 })
         });
         const data = await resp.json();
         if (data.ok && data.parsed) {
@@ -13027,11 +13027,26 @@ function _ensayosParseActa(text) {
     // Extraer todos los pares (tamiz, pasa) del bloque de tabla
     // Buscar desde "Tamiz" o "Pasa" hasta el final de la zona de datos
     // Buscar tabla "Tamiz (mm)   Pasa (%)" — si no existe no parsear
-    var bloqueM = text.match(/Tamiz\s*\(mm\)[\s\S]{0,30}?Pasa\s*\(%\)([\s\S]{0,600})/i);
+    var bloqueM = text.match(/Tamiz\s*\(mm\)[\s\S]{0,30}?Pasa\s*\(%\)([\s\S]{0,800})/i);
     if (!bloqueM) { r.resultados = res; return r; }
-    // Truncar en "------" o "Esocan" para evitar texto posterior
-    var bloque = bloqueM[1].replace(/------[\s\S]*/i,'').replace(/Esocan[\s\S]*/i,'').trim();
-    var pares = [...bloque.matchAll(/\b(\d+[,.]?\d*)\s{1,15}(\d{1,3})\b/g)];
+    // Truncar en "------" o "Esocan" o "Observaciones" para evitar texto posterior
+    var bloque = bloqueM[1].replace(/------[\s\S]*/i,'').replace(/Esocan[\s\S]*/i,'').replace(/Observ[\s\S]*/i,'').trim();
+    console.log('Granulometría bloque texto:', bloque);
+    // Normalizar decimales con espacio: "12 , 5" o "12,5" o "6 , 3" → "12.5", "6.3"
+    // También "0 , 063" → "0.063", "0 , 5" → "0.5", "0 , 25" → "0.25", "0 , 125" → "0.125"
+    bloque = bloque.replace(/(\d+)\s*[,.]\s*(\d+)/g, '$1.$2');
+    // Extraer todos los números del bloque
+    var nums = [...bloque.matchAll(/(\d+\.?\d*)/g)].map(function(m){ return m[1]; });
+    console.log('Granulometría nums extraídos:', nums);
+    // Emparejar tamiz/pasa alternando — validar que tamiz sea conocido
+    var validTam = {'80':1,'63':1,'50':1,'40':1,'32':1,'31.5':1,'20':1,'16':1,'14':1,'13':1,'12.5':1,'10':1,'8':1,'6.3':1,'4':1,'2':1,'1':1,'0.5':1,'0.25':1,'0.125':1,'0.063':1};
+    var pares = [];
+    for (var ni = 0; ni < nums.length - 1; ni++) {
+      if (validTam[nums[ni]]) {
+        pares.push([null, nums[ni], nums[ni+1]]);
+        ni++; // saltar el pasa
+      }
+    }
     // Mapa tamiz normalizado -> clave gran_
     var tamMap = {'80':'80','63':'63','50':'50','40':'40','32':'32','20':'20','16':'16','14':'14','13':'13','12.5':'12.5','12,5':'12.5','10':'10',
                   '8':'8','6.3':'6.3','6,3':'6.3','4':'4','2':'2','1':'1',
@@ -13096,7 +13111,13 @@ function _ecfRenderPdf() {
   if (!_ecfPdf) return;
   const wrap = document.getElementById('ecf-pdf-canvas-wrap');
   if (!wrap) return;
+  // Guardar scroll position
+  const scrollTop = wrap.scrollTop;
+  const scrollLeft = wrap.scrollLeft;
   wrap.innerHTML = '';
+  // Permitir scroll en ambas direcciones cuando hay zoom
+  wrap.style.overflow = 'auto';
+  wrap.style.cursor = 'grab';
   var pageNums = [];
   for (var i = 1; i <= _ecfPdf.numPages; i++) pageNums.push(i);
   pageNums.reduce(function(p, pageNum) {
@@ -13105,12 +13126,36 @@ function _ecfRenderPdf() {
         var vp = page.getViewport({ scale: _ecfPdfScale });
         var canvas = document.createElement('canvas');
         canvas.width = vp.width; canvas.height = vp.height;
-        canvas.style.cssText = 'display:block;width:100%;margin-bottom:4px;border-radius:4px';
+        // No forzar width:100% — usar tamaño real del canvas para que el zoom funcione
+        canvas.style.cssText = 'display:block;margin-bottom:4px;border-radius:4px';
         wrap.appendChild(canvas);
         return page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
       });
     });
-  }, Promise.resolve());
+  }, Promise.resolve()).then(function() {
+    wrap.scrollTop = scrollTop;
+    wrap.scrollLeft = scrollLeft;
+  });
+  // Drag to pan
+  if (!wrap._ecfDragBound) {
+    wrap._ecfDragBound = true;
+    let dragging = false, startX, startY, sLeft, sTop;
+    wrap.addEventListener('pointerdown', function(e) {
+      dragging = true; startX = e.clientX; startY = e.clientY;
+      sLeft = wrap.scrollLeft; sTop = wrap.scrollTop;
+      wrap.style.cursor = 'grabbing';
+      wrap.setPointerCapture(e.pointerId);
+    });
+    wrap.addEventListener('pointermove', function(e) {
+      if (!dragging) return;
+      wrap.scrollLeft = sLeft - (e.clientX - startX);
+      wrap.scrollTop = sTop - (e.clientY - startY);
+    });
+    wrap.addEventListener('pointerup', function(e) {
+      dragging = false; wrap.style.cursor = 'grab';
+      wrap.releasePointerCapture(e.pointerId);
+    });
+  }
 }
 
 function ecfPdfImprimir() {

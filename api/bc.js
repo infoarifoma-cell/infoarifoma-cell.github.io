@@ -280,17 +280,21 @@ export default async function handler(req, res) {
         }
 
         const orderBody = { vendorNumber };
-        if (orderDate) { orderBody.orderDate = orderDate; orderBody.documentDate = orderDate; }
+        if (orderDate) orderBody.orderDate = orderDate;
         const orderRes = await fetch(`${base}(${cid})/purchaseOrders`, { method: 'POST', headers, body: JSON.stringify(orderBody) });
         if (!orderRes.ok) throw new Error('No se pudo crear pedido de compra: ' + await orderRes.text());
         const order = await orderRes.json();
 
-        if (vendorInvoiceNumber) {
+        // PATCH campos OData que no se pueden enviar en el POST
+        if (vendorInvoiceNumber || orderDate) {
+          const patchBody = {};
+          if (vendorInvoiceNumber) patchBody.Vendor_Invoice_No = vendorInvoiceNumber;
+          if (orderDate) patchBody.Document_Date = orderDate;
           const patchOdata = await fetch(`${odataBase}/PurchaseOrder(Document_Type='Order',No='${odataSafe(order.number)}')`, {
             method: 'PATCH', headers: { ...headers, 'If-Match': '*' },
-            body: JSON.stringify({ Vendor_Invoice_No: vendorInvoiceNumber })
+            body: JSON.stringify(patchBody)
           });
-          if (!patchOdata.ok) console.warn('PATCH Vendor_Invoice_No falló:', await patchOdata.text());
+          if (!patchOdata.ok) console.warn('PATCH OData falló:', await patchOdata.text());
         }
 
         // Crear líneas — soporta array `lines` o campos sueltos legacy
