@@ -9850,7 +9850,15 @@ function comprasApplyQwenResult(parsed){
   if(parsed.total!=null&&elTotal) elTotal.value=parsed.total;
 
   // Renderizar líneas de factura
-  const lineas=parsed.lineas||parsed.items||parsed.line_items||[];
+  // Buscar array de líneas en cualquier campo del parsed
+  let lineas=parsed.lineas||parsed.items||parsed.line_items||parsed.lines||parsed.productos||parsed.articulos||[];
+  if(!Array.isArray(lineas)){
+    // Buscar primer array dentro del parsed
+    for(const k of Object.keys(parsed)){
+      if(Array.isArray(parsed[k])&&parsed[k].length){lineas=parsed[k];break;}
+    }
+  }
+  console.log('OCR líneas detectadas:',lineas);
   const wrap=document.getElementById('compras-lineas-wrap');
   const tbody=document.getElementById('compras-lineas-body');
   if(lineas.length&&wrap&&tbody){
