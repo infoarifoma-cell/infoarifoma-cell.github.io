@@ -9783,6 +9783,61 @@ async function comprasTesseractOCR(file){
   return text;
 }
 
+async function _fileToBase64DataUrl(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result);
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function _canvasToBase64DataUrl(canvas){
+  return new Promise(r=>canvas.toBlob(blob=>{
+    const reader=new FileReader();
+    reader.onload=()=>r(reader.result);
+    reader.readAsDataURL(blob);
+  },'image/png'));
+}
+
+async function comprasQwenOCR(base64DataUrl){
+  const resp=await fetch('/api/ocr-hf',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({image:base64DataUrl})
+  });
+  const data=await resp.json();
+  if(!data.ok) throw new Error(data.error||'Error Qwen OCR');
+  return data.parsed;
+}
+
+function comprasApplyQwenResult(parsed){
+  if(!parsed) return false;
+  if(parsed.proveedor){
+    const input=document.getElementById('compras-proveedor');
+    // Buscar match fuzzy en lista de proveedores
+    const provList=_comprasVendorsBC.length?_comprasVendorsBC.map(v=>v.name):COMPRAS_PROVEEDORES;
+    const normP=comprasNormalize(parsed.proveedor);
+    let bestMatch='',bestScore=0;
+    for(const p of provList){
+      const score=comprasFuzzyScore(comprasNormalize(p),normP);
+      if(score>bestScore||(score===bestScore&&p.length>bestMatch.length)){
+        bestScore=score;bestMatch=p;
+      }
+    }
+    input.value=bestScore>=0.4?bestMatch:parsed.proveedor;
+  }
+  if(parsed.nfactura) document.getElementById('compras-nfactura').value=parsed.nfactura;
+  if(parsed.fecha) document.getElementById('compras-fecha').value=parsed.fecha;
+  const elBase=document.getElementById('compras-base');
+  const elIva=document.getElementById('compras-iva-pct');
+  const elTotal=document.getElementById('compras-total');
+  if(parsed.base_imponible!=null&&elBase) elBase.value=parsed.base_imponible;
+  if(parsed.iva_porcentaje!=null&&elIva) elIva.value=parsed.iva_porcentaje;
+  if(parsed.total!=null&&elTotal) elTotal.value=parsed.total;
+  return true;
+}
+
 async function comprasRunOCR(file){
   const s2=document.getElementById('compras-step2');
   const s3=document.getElementById('compras-step3');
@@ -9790,7 +9845,23 @@ async function comprasRunOCR(file){
   s2.style.display='block';
 
   try{
-    prog.textContent='Iniciando OCR...';
+    // Intentar Qwen-VL primero
+    prog.textContent='Analizando con IA (Qwen)...';
+    const base64=await _fileToBase64DataUrl(file);
+    const parsed=await comprasQwenOCR(base64);
+    if(comprasApplyQwenResult(parsed)){
+      document.getElementById('compras-ocr-text').value='[IA Qwen] '+JSON.stringify(parsed,null,2);
+      s2.style.display='none';
+      s3.style.display='block';
+      return;
+    }
+  }catch(e){
+    console.warn('Qwen OCR falló, usando Tesseract:',e.message);
+  }
+
+  // Fallback: Tesseract
+  try{
+    prog.textContent='Iniciando OCR (Tesseract)...';
     const text=await comprasTesseractOCR(file);
     document.getElementById('compras-ocr-text').value=text;
     comprasParseOCR(text);
@@ -10131,7 +10202,6 @@ async function comprasRunOCRPdf(file){
   s2.style.display='block';
 
   try{
-    // Renderizar primera página del PDF a imagen y enviar a Gemini
     prog.textContent='Leyendo PDF...';
     await _ensurePdfjs();
     const arrayBuf=await file.arrayBuffer();
@@ -10143,6 +10213,24 @@ async function comprasRunOCRPdf(file){
     canvas.width=viewport.width;canvas.height=viewport.height;
     const ctx=canvas.getContext('2d');
     await page.render({canvasContext:ctx,viewport}).promise;
+
+    // Intentar Qwen-VL primero
+    try{
+      prog.textContent='Analizando con IA (Qwen)...';
+      const base64=await _canvasToBase64DataUrl(canvas);
+      const parsed=await comprasQwenOCR(base64);
+      if(comprasApplyQwenResult(parsed)){
+        document.getElementById('compras-ocr-text').value='[IA Qwen] '+JSON.stringify(parsed,null,2);
+        s2.style.display='none';
+        s3.style.display='block';
+        return;
+      }
+    }catch(e){
+      console.warn('Qwen OCR falló en PDF, usando Tesseract:',e.message);
+    }
+
+    // Fallback: Tesseract
+    prog.textContent='Iniciando OCR (Tesseract)...';
     const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
     const text=await comprasTesseractOCR(blob);
     document.getElementById('compras-ocr-text').value=text;
