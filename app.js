@@ -9873,12 +9873,13 @@ function comprasApplyQwenResult(parsed){
         const cant=lin.cantidad||lin.quantity||'';
         const punit=lin.precio_unitario||lin.unit_price||'';
         const imp=lin.importe||lin.amount||lin.total||'';
+        const descUp=(typeof desc==='string'?desc:'').toUpperCase();
         tr.innerHTML=
           '<td style="padding:4px 6px"><input class="inp compras-linea-art" data-idx="'+i+'" list="compras-articulos-list" placeholder="Código..." style="font-size:.75rem;width:100%;min-width:120px"></td>'+
-          '<td style="padding:4px 6px;color:var(--muted)">'+desc+'</td>'+
-          '<td style="padding:4px 6px;text-align:right">'+cant+'</td>'+
-          '<td style="padding:4px 6px;text-align:right">'+punit+'</td>'+
-          '<td style="padding:4px 6px;text-align:right">'+imp+'</td>';
+          '<td style="padding:4px 6px"><input class="inp compras-linea-desc" value="'+descUp.replace(/"/g,'&quot;')+'" style="font-size:.75rem;width:100%;min-width:140px;text-transform:uppercase"></td>'+
+          '<td style="padding:4px 6px"><input class="inp compras-linea-cant" type="number" value="'+cant+'" style="font-size:.75rem;width:70px;text-align:right" step="any" min="0"></td>'+
+          '<td style="padding:4px 6px"><input class="inp compras-linea-punit" type="number" value="'+punit+'" style="font-size:.75rem;width:80px;text-align:right" step="0.01" min="0"></td>'+
+          '<td style="padding:4px 6px"><input class="inp compras-linea-imp" type="number" value="'+imp+'" style="font-size:.75rem;width:80px;text-align:right" step="0.01" min="0"></td>';
         tbody.appendChild(tr);
       });
     });
@@ -10144,17 +10145,16 @@ async function comprasSubir(){
     if(srcRows.length&&step4Body){
       step4Body.innerHTML='';
       srcRows.forEach((sr,i)=>{
-        const cells=sr.querySelectorAll('td');
         const artVal=sr.querySelector('.compras-linea-art')?.value||'';
-        const desc=cells[1]?.textContent||'';
-        const cant=cells[2]?.textContent||'';
-        const punit=cells[3]?.textContent||'';
-        const imp=cells[4]?.textContent||'';
+        const desc=sr.querySelector('.compras-linea-desc')?.value||'';
+        const cant=sr.querySelector('.compras-linea-cant')?.value||'';
+        const punit=sr.querySelector('.compras-linea-punit')?.value||'';
+        const imp=sr.querySelector('.compras-linea-imp')?.value||'';
         const tr=document.createElement('tr');
         tr.style.borderBottom='1px solid var(--border)';
         tr.innerHTML=
           '<td style="padding:4px 6px"><input class="inp compras-step4-art" data-idx="'+i+'" list="compras-articulos-list" value="'+artVal.replace(/"/g,'&quot;')+'" placeholder="Código..." style="font-size:.75rem;width:100%;min-width:120px"></td>'+
-          '<td style="padding:4px 6px;color:var(--muted)">'+desc+'</td>'+
+          '<td style="padding:4px 6px;color:var(--muted);text-transform:uppercase">'+desc+'</td>'+
           '<td style="padding:4px 6px;text-align:right" data-cant="'+cant+'">'+cant+'</td>'+
           '<td style="padding:4px 6px;text-align:right" data-punit="'+punit+'">'+punit+'</td>'+
           '<td style="padding:4px 6px;text-align:right">'+imp+'</td>';
@@ -12900,8 +12900,49 @@ async function ensayosSubirPDFs(files) {
         texto += content.items.map(function(it){ return it.str; }).join(' ') + '\n';
       }
 
-      // Parsear y abrir modal de confirmación
-      const d = _ensayosParseActa(texto);
+      let d = null;
+
+      // 1) Intentar IA primero
+      try {
+        if (toast) toast.textContent = 'Analizando con IA...';
+        // Renderizar primera página a imagen
+        const pg1 = await pdf.getPage(1);
+        const vp = pg1.getViewport({ scale: 2 });
+        const cvs = document.createElement('canvas');
+        cvs.width = vp.width; cvs.height = vp.height;
+        await pg1.render({ canvasContext: cvs.getContext('2d'), viewport: vp }).promise;
+        const base64 = await _canvasToBase64DataUrl(cvs);
+        const resp = await fetch('/api/ocr-hf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: base64, mode: 'ensayo' })
+        });
+        const data = await resp.json();
+        if (data.ok && data.parsed) {
+          d = _ensayosNormalizeIA(data.parsed);
+          console.log('Ensayo IA result:', d);
+        }
+      } catch (iaErr) {
+        console.warn('Ensayo IA falló, usando regex:', iaErr.message);
+      }
+
+      // 2) Fallback regex — rellenar campos que la IA no detectó
+      const dRegex = _ensayosParseActa(texto);
+      if (!d) {
+        d = dRegex;
+      } else {
+        // Merge: regex rellena huecos
+        for (const k of Object.keys(dRegex)) {
+          if (d[k] == null || d[k] === '') d[k] = dRegex[k];
+          if (k === 'resultados' && dRegex.resultados) {
+            d.resultados = d.resultados || {};
+            for (const rk of Object.keys(dRegex.resultados)) {
+              if (d.resultados[rk] == null) d.resultados[rk] = dRegex.resultados[rk];
+            }
+          }
+        }
+      }
+
       if (toast) toast.style.display = 'none';
       ensayosCerrarDrop();
       const pdfUrl = URL.createObjectURL(file);
@@ -12914,6 +12955,27 @@ async function ensayosSubirPDFs(files) {
   }
 
   document.getElementById('ensayos-pdf-input').value = '';
+}
+
+function _ensayosNormalizeIA(p) {
+  const d = {};
+  if (p.num_acta) d.num_acta = p.num_acta;
+  if (p.num_albaran) d.num_albaran = p.num_albaran;
+  if (p.fecha_toma) d.fecha_toma = p.fecha_toma;
+  if (p.fecha_acta) d.fecha_acta = p.fecha_acta;
+  if (p.fraccion) d.fraccion = p.fraccion;
+  if (p.tipo_ensayo) d.tipo_ensayo = p.tipo_ensayo;
+  if (p.resultados && typeof p.resultados === 'object') {
+    d.resultados = {};
+    // Normalizar claves: gran_12_5 → gran_12.5
+    for (const [k, v] of Object.entries(p.resultados)) {
+      if (v == null) continue;
+      const nk = k.replace(/gran_(\d+)_(\d+)/, function(_, a, b) { return 'gran_' + a + '.' + b; });
+      d.resultados[nk] = typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.'));
+    }
+  }
+  d.estado = 'recogido';
+  return d;
 }
 
 function _ensayosParseActa(text) {

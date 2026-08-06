@@ -1,10 +1,11 @@
 // POST /api/ocr-hf
-// Envía imagen de factura a NuExtract3 o Qwen VL vía Hugging Face Inference API
+// Envía imagen a NuExtract3 o Qwen VL vía Hugging Face Inference API
+// mode=factura (default) o mode=ensayo
 // Requiere env var HF_TOKEN en Vercel
 
 export const config = { api: { bodyParser: { sizeLimit: '10mb' } } };
 
-const TEMPLATE = JSON.stringify({
+const TEMPLATE_FACTURA = JSON.stringify({
   proveedor: "verbatim-string",
   nfactura: "verbatim-string",
   fecha: "date",
@@ -21,11 +22,45 @@ const TEMPLATE = JSON.stringify({
   ]
 });
 
-const PROMPT = `Extract the following fields from this invoice/receipt image.
-Return ONLY valid JSON matching this schema: ${TEMPLATE}
+const TEMPLATE_ENSAYO = JSON.stringify({
+  num_acta: "verbatim-string",
+  num_albaran: "verbatim-string",
+  fecha_toma: "date (YYYY-MM-DD)",
+  fecha_acta: "date (YYYY-MM-DD)",
+  fraccion: "verbatim-string (e.g. 0/4, 4/12, 12/20, 20/40, ZA25)",
+  tipo_ensayo: "one of: granulometria, cont_finos, eq_arena, ind_lajas, caras_fractura",
+  resultados: {
+    gran_80: "number or null", gran_63: "number or null", gran_50: "number or null",
+    gran_40: "number or null", gran_32: "number or null", gran_20: "number or null",
+    gran_16: "number or null", gran_14: "number or null", gran_12_5: "number or null",
+    gran_10: "number or null", gran_8: "number or null", gran_6_3: "number or null",
+    gran_4: "number or null", gran_2: "number or null", gran_1: "number or null",
+    gran_0_5: "number or null", gran_0_25: "number or null", gran_0_125: "number or null",
+    gran_0_063: "number or null",
+    eq_arena: "number or null",
+    ind_lajas: "number or null",
+    cont_finos: "number or null",
+    caras_fractura: "number or null"
+  }
+});
+
+const PROMPT_FACTURA = `Extract the following fields from this invoice/receipt image.
+Return ONLY valid JSON matching this schema: ${TEMPLATE_FACTURA}
 "lineas" is the array of line items/articles in the invoice with description, quantity, unit price and line total.
 "proveedor" is the SELLER/SUPPLIER who issued the invoice, NOT the buyer/customer.
 IMPORTANT: "ARIDOS FONOLITICOS DE MASPALOMAS", "ARIFOMA" or any variation is the BUYER (customer), never the supplier. The supplier is the OTHER company on the invoice.
+If a field is not found, use null.`;
+
+const PROMPT_ENSAYO = `Extract data from this laboratory test report / acta de ensayo image.
+Return ONLY valid JSON matching this schema: ${TEMPLATE_ENSAYO}
+This is a construction aggregates (áridos) quality control test report.
+- "num_acta": the report/acta number (e.g. "2026/258")
+- "num_albaran": the delivery note number / nº albarán / nº muestra (e.g. "2026/101"). It is NOT the same as num_acta.
+- "fecha_toma": date the sample was taken, format YYYY-MM-DD
+- "fecha_acta": date of the report / fin de ensayos, format YYYY-MM-DD
+- "fraccion": aggregate size fraction (e.g. "0/4", "4/12", "12/20", "20/40", "ZA25")
+- "tipo_ensayo": detect from content — "granulometria" if sieve analysis table, "eq_arena" if sand equivalent, "ind_lajas" if flakiness index, "cont_finos" if fines content (tamiz 0.063), "caras_fractura" if crushed faces percentage
+- "resultados": fill only the fields relevant to the test type. For granulometria, gran_X = percentage passing sieve X mm. Use gran_12_5 for 12.5mm, gran_6_3 for 6.3mm, gran_0_5 for 0.5mm, gran_0_25 for 0.25mm, gran_0_125 for 0.125mm, gran_0_063 for 0.063mm. For other tests fill only the matching field.
 If a field is not found, use null.`;
 
 export default async function handler(req, res) {
@@ -35,8 +70,10 @@ export default async function handler(req, res) {
   if (!token) return res.status(500).json({ ok: false, error: 'HF_TOKEN no configurado' });
 
   try {
-    const { image } = req.body;
+    const { image, mode } = req.body;
     if (!image) return res.status(400).json({ ok: false, error: 'Falta imagen' });
+    const PROMPT = mode === 'ensayo' ? PROMPT_ENSAYO : PROMPT_FACTURA;
+    const TEMPLATE = mode === 'ensayo' ? TEMPLATE_ENSAYO : TEMPLATE_FACTURA;
 
     const match = image.match(/^data:(image\/\w+);base64,(.+)$/);
     if (!match) return res.status(400).json({ ok: false, error: 'Formato de imagen inválido' });
