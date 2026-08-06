@@ -9820,7 +9820,7 @@ async function comprasQwenOCR(base64DataUrl){
     body:JSON.stringify({image:base64DataUrl})
   });
   const data=await resp.json();
-  if(!data.ok) throw new Error(data.error||'Error Qwen OCR');
+  if(!data.ok){console.error('Qwen OCR detail:',data.error);throw new Error(data.error||'Error Qwen OCR');}
   return data.parsed;
 }
 

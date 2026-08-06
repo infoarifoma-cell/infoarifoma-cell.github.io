@@ -70,7 +70,8 @@ export default async function handler(req, res) {
           }),
         });
         if (response.ok) break;
-        lastErr = `${prov.url} → ${response.status}`;
+        const errBody = await response.text().catch(() => '');
+        lastErr = `${prov.url} → ${response.status}: ${errBody.slice(0, 300)}`;
         console.error('HF provider failed:', lastErr);
         response = null;
       } catch (e) {
