@@ -9848,6 +9848,36 @@ function comprasApplyQwenResult(parsed){
   if(parsed.base_imponible!=null&&elBase) elBase.value=parsed.base_imponible;
   if(parsed.iva_porcentaje!=null&&elIva) elIva.value=parsed.iva_porcentaje;
   if(parsed.total!=null&&elTotal) elTotal.value=parsed.total;
+
+  // Renderizar líneas de factura
+  const lineas=parsed.lineas||parsed.items||parsed.line_items||[];
+  const wrap=document.getElementById('compras-lineas-wrap');
+  const tbody=document.getElementById('compras-lineas-body');
+  if(lineas.length&&wrap&&tbody){
+    wrap.style.display='block';
+    tbody.innerHTML='';
+    // Asegurar artículos BC cargados
+    comprasInitArticulos().then(()=>{
+      lineas.forEach((lin,i)=>{
+        const tr=document.createElement('tr');
+        tr.style.borderBottom='1px solid var(--border)';
+        const desc=lin.descripcion||lin.description||'';
+        const cant=lin.cantidad||lin.quantity||'';
+        const punit=lin.precio_unitario||lin.unit_price||'';
+        const imp=lin.importe||lin.amount||lin.total||'';
+        tr.innerHTML=
+          '<td style="padding:4px 6px"><input class="inp compras-linea-art" data-idx="'+i+'" list="compras-articulos-list" placeholder="Código..." style="font-size:.75rem;width:100%;min-width:120px"></td>'+
+          '<td style="padding:4px 6px;color:var(--muted)">'+desc+'</td>'+
+          '<td style="padding:4px 6px;text-align:right">'+cant+'</td>'+
+          '<td style="padding:4px 6px;text-align:right">'+punit+'</td>'+
+          '<td style="padding:4px 6px;text-align:right">'+imp+'</td>';
+        tbody.appendChild(tr);
+      });
+    });
+  }else if(wrap){
+    wrap.style.display='none';
+  }
+
   return true;
 }
 

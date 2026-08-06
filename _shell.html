@@ -2630,8 +2630,27 @@
                 <div><label>Nº Factura</label><input class="inp" id="compras-nfactura" placeholder="Ej: FAC-001"></div>
                 <div><label>Fecha</label><input class="inp" type="date" id="compras-fecha"></div>
               </div>
-              <label style="margin-top:8px">Texto OCR detectado</label>
-              <textarea class="inp" id="compras-ocr-text" style="resize:vertical;min-height:80px;font-size:.72rem;color:var(--muted)" readonly></textarea>
+              <!-- Líneas de factura detectadas por IA -->
+              <div id="compras-lineas-wrap" style="display:none;margin-top:10px">
+                <label>Líneas detectadas</label>
+                <div style="overflow-x:auto">
+                  <table id="compras-lineas-table" style="width:100%;font-size:.75rem;border-collapse:collapse">
+                    <thead><tr style="background:var(--surface2);text-align:left">
+                      <th style="padding:4px 6px">Artículo BC</th>
+                      <th style="padding:4px 6px">Descripción</th>
+                      <th style="padding:4px 6px;text-align:right">Cant.</th>
+                      <th style="padding:4px 6px;text-align:right">P.Unit.</th>
+                      <th style="padding:4px 6px;text-align:right">Importe</th>
+                    </tr></thead>
+                    <tbody id="compras-lineas-body"></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <details style="margin-top:8px">
+                <summary style="font-size:.75rem;color:var(--muted);cursor:pointer">Texto OCR detectado</summary>
+                <textarea class="inp" id="compras-ocr-text" style="resize:vertical;min-height:80px;font-size:.72rem;color:var(--muted)" readonly></textarea>
+              </details>
 
               <div style="display:flex;gap:8px;margin-top:12px">
                 <button class="btn-sec" onclick="comprasReset()">Cancelar</button>

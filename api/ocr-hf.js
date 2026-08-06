@@ -10,11 +10,20 @@ const TEMPLATE = JSON.stringify({
   fecha: "date",
   base_imponible: "number",
   iva_porcentaje: "number",
-  total: "number"
+  total: "number",
+  lineas: [
+    {
+      descripcion: "verbatim-string",
+      cantidad: "number",
+      precio_unitario: "number",
+      importe: "number"
+    }
+  ]
 });
 
 const PROMPT = `Extract the following fields from this invoice/receipt image.
 Return ONLY valid JSON matching this schema: ${TEMPLATE}
+"lineas" is the array of line items/articles in the invoice with description, quantity, unit price and line total.
 If a field is not found, use null.`;
 
 export default async function handler(req, res) {
