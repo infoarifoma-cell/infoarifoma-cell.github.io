@@ -280,7 +280,7 @@ export default async function handler(req, res) {
         }
 
         const orderBody = { vendorNumber };
-        if (orderDate) orderBody.orderDate = orderDate;
+        if (orderDate) { orderBody.orderDate = orderDate; orderBody.documentDate = orderDate; }
         const orderRes = await fetch(`${base}(${cid})/purchaseOrders`, { method: 'POST', headers, body: JSON.stringify(orderBody) });
         if (!orderRes.ok) throw new Error('No se pudo crear pedido de compra: ' + await orderRes.text());
         const order = await orderRes.json();
