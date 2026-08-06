@@ -35,11 +35,11 @@ export default async function handler(req, res) {
     // Intentar múltiples providers en orden
     const providers = [
       {
-        url: 'https://router.huggingface.co/hf-inference/models/Qwen/Qwen2.5-VL-7B-Instruct/v1/chat/completions',
-        model: 'Qwen/Qwen2.5-VL-7B-Instruct',
+        url: 'https://router.huggingface.co/hf-inference/models/Qwen/Qwen2.5-VL-3B-Instruct/v1/chat/completions',
+        model: 'Qwen/Qwen2.5-VL-3B-Instruct',
       },
       {
-        url: 'https://router.huggingface.co/novita/v3/openai/chat/completions',
+        url: 'https://router.huggingface.co/hf-inference/models/Qwen/Qwen2.5-VL-7B-Instruct/v1/chat/completions',
         model: 'Qwen/Qwen2.5-VL-7B-Instruct',
       },
     ];
