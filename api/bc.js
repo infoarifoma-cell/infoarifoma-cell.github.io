@@ -247,7 +247,7 @@ export default async function handler(req, res) {
 
       // ── PEDIDO COMPRA ─────────────────────────────────────
       case 'pedido-compra': {
-        const { vendorName, orderDate, vendorInvoiceNumber, itemNumber, quantity, unitPrice } = req.body;
+        const { vendorName, orderDate, vendorInvoiceNumber, itemNumber, quantity, unitPrice, lines } = req.body;
         if (!vendorName) return res.status(400).json({ ok: false, error: 'vendorName requerido' });
         if (orderDate && !/^\d{4}-\d{2}-\d{2}$/.test(orderDate)) {
           return res.status(400).json({ ok: false, error: 'Formato de fecha inválido (YYYY-MM-DD)' });
@@ -293,11 +293,14 @@ export default async function handler(req, res) {
           if (!patchOdata.ok) console.warn('PATCH Vendor_Invoice_No falló:', await patchOdata.text());
         }
 
-        if (itemNumber && quantity) {
-          const lineBody = { documentId: order.id, lineType: 'Item', lineObjectNumber: itemNumber, quantity: Number(quantity) };
-          if (unitPrice) lineBody.directUnitCost = Number(unitPrice);
+        // Crear líneas — soporta array `lines` o campos sueltos legacy
+        const allLines = (Array.isArray(lines) && lines.length) ? lines
+          : (itemNumber && quantity) ? [{ itemNumber, quantity: Number(quantity), unitPrice }] : [];
+        for (const ln of allLines) {
+          const lineBody = { documentId: order.id, lineType: 'Item', lineObjectNumber: ln.itemNumber, quantity: Number(ln.quantity) };
+          if (ln.unitPrice) lineBody.directUnitCost = Number(ln.unitPrice);
           const lineRes = await fetch(`${base}(${cid})/purchaseOrders(${order.id})/purchaseOrderLines`, { method: 'POST', headers, body: JSON.stringify(lineBody) });
-          if (!lineRes.ok) console.warn('No se pudo crear línea:', await lineRes.text());
+          if (!lineRes.ok) console.warn('No se pudo crear línea:', ln.itemNumber, await lineRes.text());
         }
 
         return res.status(200).json({ ok: true, order });

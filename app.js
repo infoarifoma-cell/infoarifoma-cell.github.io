@@ -10135,6 +10135,37 @@ async function comprasSubir(){
     document.getElementById('compras-ruta-destino').textContent='Arifoma/'+folderPath+'/'+fileName;
     await comprasInitArticulos();
     comprasAutoArticulo(prov);
+
+    // Copiar líneas IA de step3 a step4
+    const srcRows=document.querySelectorAll('#compras-lineas-body tr');
+    const step4Body=document.getElementById('compras-step4-lineas-body');
+    const step4Lineas=document.getElementById('compras-step4-lineas');
+    const step4Manual=document.getElementById('compras-step4-manual');
+    if(srcRows.length&&step4Body){
+      step4Body.innerHTML='';
+      srcRows.forEach((sr,i)=>{
+        const cells=sr.querySelectorAll('td');
+        const artVal=sr.querySelector('.compras-linea-art')?.value||'';
+        const desc=cells[1]?.textContent||'';
+        const cant=cells[2]?.textContent||'';
+        const punit=cells[3]?.textContent||'';
+        const imp=cells[4]?.textContent||'';
+        const tr=document.createElement('tr');
+        tr.style.borderBottom='1px solid var(--border)';
+        tr.innerHTML=
+          '<td style="padding:4px 6px"><input class="inp compras-step4-art" data-idx="'+i+'" list="compras-articulos-list" value="'+artVal.replace(/"/g,'&quot;')+'" placeholder="Código..." style="font-size:.75rem;width:100%;min-width:120px"></td>'+
+          '<td style="padding:4px 6px;color:var(--muted)">'+desc+'</td>'+
+          '<td style="padding:4px 6px;text-align:right" data-cant="'+cant+'">'+cant+'</td>'+
+          '<td style="padding:4px 6px;text-align:right" data-punit="'+punit+'">'+punit+'</td>'+
+          '<td style="padding:4px 6px;text-align:right">'+imp+'</td>';
+        step4Body.appendChild(tr);
+      });
+      step4Lineas.style.display='block';
+      step4Manual.style.display='none';
+    }else{
+      step4Lineas.style.display='none';
+      step4Manual.style.display='block';
+    }
   }catch(e){
     comprasShowError('Error al subir: '+e.message);
   }finally{
@@ -10157,12 +10188,30 @@ async function comprasCrearPedidoCompra(){
   try{
     const token=await getBCToken();
     const orderDate=fecha||null;
-    const articuloVal=(document.getElementById('compras-articulo')?.value||'').trim();
-    const itemNumber=articuloVal?articuloVal.split(' — ')[0].trim():null;
-    const quantity=document.getElementById('compras-cantidad')?.value||null;
-    const unitPrice=document.getElementById('compras-precio')?.value||null;
 
-    console.log('compras payload:', {vendorName:prov, vendorInvoiceNumber:nfac, itemNumber, quantity, unitPrice});
+    // Recoger líneas de step4 (tabla IA o formulario manual)
+    const step4Rows=document.querySelectorAll('#compras-step4-lineas-body tr');
+    let lines=[];
+    if(step4Rows.length){
+      step4Rows.forEach(tr=>{
+        const artInput=tr.querySelector('.compras-step4-art');
+        const artVal=artInput?artInput.value.trim():'';
+        const itemNum=artVal?artVal.split(' — ')[0].trim():null;
+        const cant=tr.querySelector('[data-cant]')?.dataset.cant||'';
+        const punit=tr.querySelector('[data-punit]')?.dataset.punit||'';
+        if(itemNum&&cant) lines.push({itemNumber:itemNum,quantity:Number(cant),unitPrice:punit?Number(punit):null});
+      });
+    }
+    // Fallback: formulario manual
+    if(!lines.length){
+      const articuloVal=(document.getElementById('compras-articulo')?.value||'').trim();
+      const itemNumber=articuloVal?articuloVal.split(' — ')[0].trim():null;
+      const quantity=document.getElementById('compras-cantidad')?.value||null;
+      const unitPrice=document.getElementById('compras-precio')?.value||null;
+      if(itemNumber&&quantity) lines.push({itemNumber,quantity:Number(quantity),unitPrice:unitPrice?Number(unitPrice):null});
+    }
+
+    console.log('compras payload:', {vendorName:prov, vendorInvoiceNumber:nfac, lines});
     const resp=await fetch('/api/bc',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
@@ -10172,9 +10221,7 @@ async function comprasCrearPedidoCompra(){
         vendorName:prov,
         orderDate,
         vendorInvoiceNumber:nfac||null,
-        itemNumber:itemNumber||null,
-        quantity:quantity?Number(quantity):null,
-        unitPrice:unitPrice?Number(unitPrice):null
+        lines
       })
     });
 
