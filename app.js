@@ -9783,21 +9783,34 @@ async function comprasTesseractOCR(file){
   return text;
 }
 
+function _resizeToBase64(source,maxPx,quality){
+  // source: Image, Canvas, or HTMLImageElement
+  maxPx=maxPx||1500; quality=quality||0.85;
+  const w=source.width||source.naturalWidth;
+  const h=source.height||source.naturalHeight;
+  let nw=w,nh=h;
+  if(Math.max(w,h)>maxPx){
+    const ratio=maxPx/Math.max(w,h);
+    nw=Math.round(w*ratio); nh=Math.round(h*ratio);
+  }
+  const c=document.createElement('canvas');
+  c.width=nw; c.height=nh;
+  const ctx=c.getContext('2d');
+  ctx.drawImage(source,0,0,nw,nh);
+  return c.toDataURL('image/jpeg',quality);
+}
+
 async function _fileToBase64DataUrl(file){
   return new Promise((resolve,reject)=>{
-    const reader=new FileReader();
-    reader.onload=()=>resolve(reader.result);
-    reader.onerror=reject;
-    reader.readAsDataURL(file);
+    const img=new Image();
+    img.onload=()=>resolve(_resizeToBase64(img));
+    img.onerror=reject;
+    img.src=URL.createObjectURL(file);
   });
 }
 
 async function _canvasToBase64DataUrl(canvas){
-  return new Promise(r=>canvas.toBlob(blob=>{
-    const reader=new FileReader();
-    reader.onload=()=>r(reader.result);
-    reader.readAsDataURL(blob);
-  },'image/png'));
+  return _resizeToBase64(canvas);
 }
 
 async function comprasQwenOCR(base64DataUrl){

@@ -32,35 +32,56 @@ export default async function handler(req, res) {
     const mimeType = match[1];
     const base64Data = match[2];
 
-    const response = await fetch(
-      'https://router.huggingface.co/novita/v3/openai/chat/completions',
+    // Intentar múltiples providers en orden
+    const providers = [
       {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'Qwen/Qwen2.5-VL-72B-Instruct',
-          messages: [
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: PROMPT },
-                { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64Data}` } }
-              ]
-            }
-          ],
-          max_tokens: 1024,
-          temperature: 0.1,
-        }),
-      }
-    );
+        url: 'https://router.huggingface.co/hf-inference/models/Qwen/Qwen2.5-VL-7B-Instruct/v1/chat/completions',
+        model: 'Qwen/Qwen2.5-VL-7B-Instruct',
+      },
+      {
+        url: 'https://router.huggingface.co/novita/v3/openai/chat/completions',
+        model: 'Qwen/Qwen2.5-VL-7B-Instruct',
+      },
+    ];
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('HF API error:', response.status, errText);
-      return res.status(502).json({ ok: false, error: `HF API error: ${response.status}` });
+    let response = null;
+    let lastErr = '';
+    for (const prov of providers) {
+      try {
+        response = await fetch(prov.url, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: prov.model,
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: PROMPT },
+                  { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64Data}` } }
+                ]
+              }
+            ],
+            max_tokens: 1024,
+            temperature: 0.1,
+          }),
+        });
+        if (response.ok) break;
+        lastErr = `${prov.url} → ${response.status}`;
+        console.error('HF provider failed:', lastErr);
+        response = null;
+      } catch (e) {
+        lastErr = `${prov.url} → ${e.message}`;
+        console.error('HF provider error:', lastErr);
+        response = null;
+      }
+    }
+
+    if (!response) {
+      return res.status(502).json({ ok: false, error: `All HF providers failed. Last: ${lastErr}` });
     }
 
     const data = await response.json();
