@@ -1632,15 +1632,22 @@ async function guardarLinea(){
   /* ── Detección de duplicados antes de guardar ── */
   try{
     const hace5min=new Date(Date.now()-5*60*1000).toISOString();
-    const dup=await dbQuery({action:'select',table:'tblpedidos',options:{
-      select:'id,pesoNeto,productoCod,nombreCliente',
+    const dup=await dbQuery({action:'select',table:'tblpedidos',
       filters:[
         {column:'matriculacam',op:'eq',value:payload.matriculacam},
         {column:'fechaHora',op:'gte',value:hace5min}
-      ],limit:20
-    }});
+      ],
+      options:{
+        select:'id,matriculacam,pesoNeto,productoNombre,nombreCliente,fechaHora',
+        limit:20
+      }
+    });
     if(dup.ok&&dup.data&&dup.data.length){
-      if(!confirm('⚠️ Se detectó una pesada de esta matrícula en los últimos 5 minutos.\n\n¿Guardar de todos modos?')){
+      const detalles=dup.data.map(r=>{
+        const f=r.fechaHora?new Date(r.fechaHora).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}):'?';
+        return `• ${r.matriculacam} — ${Number(r.pesoNeto||0).toLocaleString()} kg — ${r.productoNombre||'?'} — ${r.nombreCliente||'?'} (${f})`;
+      }).join('\n');
+      if(!confirm(`⚠️ Pesada(s) de ${payload.matriculacam} en los últimos 5 min:\n\n${detalles}\n\n¿Guardar de todos modos?`)){
         _guardandoLinea=false;return;
       }
     }
