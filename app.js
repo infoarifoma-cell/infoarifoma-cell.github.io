@@ -1640,12 +1640,7 @@ async function guardarLinea(){
       ],limit:20
     }});
     if(dup.ok&&dup.data&&dup.data.length){
-      const dominated=dup.data.some(r=>{
-        const mismoPeso=Number(r.pesoNeto)===payload.pesoNeto&&payload.pesoNeto>0;
-        const mismoPC=(r.productoCod||'')===payload.productoCod&&(r.nombreCliente||'')===payload.nombreCliente;
-        return mismoPeso||mismoPC;
-      });
-      if(dominated&&!confirm('⚠️ Se detectó una pesada similar en los últimos 5 minutos (misma matrícula y mismo peso o mismo producto/cliente).\n\n¿Guardar de todos modos?')){
+      if(!confirm('⚠️ Se detectó una pesada de esta matrícula en los últimos 5 minutos.\n\n¿Guardar de todos modos?')){
         _guardandoLinea=false;return;
       }
     }
