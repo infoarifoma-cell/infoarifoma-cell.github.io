@@ -981,6 +981,16 @@ function basCamBuscar(){
 function basSeleccionarCamion(id){
   const c=camionesData.find(x=>x.id==id);if(!c)return;
   basSelCamion=c;
+  _guardandoLinea=false;
+  _lineaGuardadaOk=false;
+  // Reset guardar buttons for new truck
+  const _btnG=document.querySelector('#bas-step-3 .btn-pri');
+  const _btnHG=document.getElementById('hdr-btn-guardar');
+  if(_btnG){_btnG.disabled=false;_btnG.textContent='Guardar';_btnG.style.opacity='';}
+  if(_btnHG){_btnHG.disabled=false;_btnHG.textContent='✓ Guardar';_btnHG.style.opacity='';}
+  // Remove success banner
+  const _okBanner=document.getElementById('linea-ok-banner');
+  if(_okBanner)_okBanner.remove();
   renderCamGrid(camionesData.filter(x=>{
     const q=document.getElementById('bas-cam-buscar').value.toUpperCase();
     return !q||x.matriculacam.includes(q)||String(x.chofer||'').toUpperCase().includes(q);
@@ -1625,8 +1635,8 @@ async function guardarLinea(){
     const dup=await dbQuery({action:'select',table:'tblpedidos',options:{
       select:'id,pesoNeto,productoCod,nombreCliente',
       filters:[
-        {col:'matriculacam',op:'eq',val:payload.matriculacam},
-        {col:'fechaHora',op:'gte',val:hace5min}
+        {column:'matriculacam',op:'eq',value:payload.matriculacam},
+        {column:'fechaHora',op:'gte',value:hace5min}
       ],limit:20
     }});
     if(dup.ok&&dup.data&&dup.data.length){
