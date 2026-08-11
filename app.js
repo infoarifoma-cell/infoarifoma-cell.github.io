@@ -714,6 +714,11 @@ async function initApp(){
   cargarNotas();
   // Comprobar facturas vencidas en segundo plano
   checkFacturasVencidasBackground().catch(() => {});
+  // Precargar datos en background para que todo esté listo sin pulsar "Cargar"
+  apiFetch('?accion=pedidos&dias=365').then(j=>{if(j.ok){factData=j.data;if(ventasData.length===0)ventasData=j.data;}}).catch(()=>{});
+  apiFetch('?accion=camiones').then(j=>{if(j.ok)window._camionesData=j.data;}).catch(()=>{});
+  apiFetch('?accion=obras').then(j=>{if(j.ok)window._obrasData=j.data;}).catch(()=>{});
+  apiFetch('?accion=choferes').then(j=>{if(j.ok)window._choferesData=j.data;}).catch(()=>{});
   ['filt-w','filt-mes-w','filt-edit'].forEach(id=>{const s=document.getElementById(id);if(!s)return;WORKERS.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;s.appendChild(o);});});
   ['vm-worker','em-worker','bm-worker','lm-worker','xm-worker'].forEach(id=>{const s=document.getElementById(id);if(!s)return;WORKERS.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;s.appendChild(o);});});
   // Populate year selectors for Resumen and Vacaciones
@@ -1859,6 +1864,11 @@ async function abrirFichaCliente(codigo){
   const body=document.getElementById('cli-ficha-body');
   body.innerHTML='<div style="color:var(--muted);padding:20px;text-align:center">Cargando datos...</div>';
 
+  // Auto-cargar pedidos si aún no hay datos
+  if(!factData||!factData.length){
+    try{const j=await apiFetch('?accion=pedidos&dias=365');if(j.ok)factData=j.data;}catch(e){}
+  }
+
   // Datos fiscales: primero de CLIENTES (ya con datos de BC), luego API BC como fallback
   let fiscalHtml='';
   const fiscal=_getDatosFiscalesLocal(codigo)||await _cargarDatosFiscalesBC(codigo);
@@ -1945,7 +1955,7 @@ async function abrirFichaCliente(codigo){
     });
     ventasHtml+=`</div>`;
   }else{
-    ventasHtml='<div style="color:var(--muted);font-size:.78rem;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);text-align:center">Sin pedidos registrados para este cliente. Carga datos en Facturación primero.</div>';
+    ventasHtml='<div style="color:var(--muted);font-size:.78rem;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);text-align:center">Sin pedidos registrados para este cliente en los últimos 365 días.</div>';
   }
 
   body.innerHTML=`
@@ -5137,12 +5147,16 @@ function initFacturacion(){
   cargarFacturacion();
 }
 
-async function cargarFacturacion(){
+async function cargarFacturacion(forceReload){
   document.getElementById('fact-desglose').innerHTML='<div style="color:var(--muted);padding:20px;text-align:center">Cargando pedidos...</div>';
   try{
-    const json=await apiFetch('?accion=pedidos&dias=365');
-    if(!json.ok)throw new Error(json.error);
-    factData=json.data;
+    if(!forceReload&&factData&&factData.length>0){
+      // Datos ya precargados, usar directamente
+    } else {
+      const json=await apiFetch('?accion=pedidos&dias=365');
+      if(!json.ok)throw new Error(json.error);
+      factData=json.data;
+    }
     renderFacturacion();
     renderInformeMensual();
   }catch(e){
