@@ -1854,9 +1854,11 @@ function _buildClientesList(lista){
     <svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="var(--muted)" stroke-width="2"><path d="M7 4l5 5-5 5"/></svg>
   </div>`).join('');
 }
+let _fichaClienteCodigo=null;
 async function abrirFichaCliente(codigo){
   const cli=CLIENTES.find(c=>c.codigo===codigo);
   if(!cli)return;
+  _fichaClienteCodigo=codigo;
   document.getElementById('cli-listado').style.display='none';
   document.getElementById('cli-search').style.display='none';
   const ficha=document.getElementById('cli-ficha');
@@ -1869,9 +1871,34 @@ async function abrirFichaCliente(codigo){
     try{const j=await apiFetch('?accion=pedidos&dias=365');if(j.ok)factData=j.data;}catch(e){}
   }
 
-  // Datos fiscales: primero de CLIENTES (ya con datos de BC), luego API BC como fallback
-  let fiscalHtml='';
+  // Datos fiscales
   const fiscal=_getDatosFiscalesLocal(codigo)||await _cargarDatosFiscalesBC(codigo);
+
+  // Guardar fiscal en window para renderFichaCliente
+  window._fichaClienteFiscal=fiscal;
+
+  renderFichaCliente();
+}
+
+function renderFichaCliente(){
+  const codigo=_fichaClienteCodigo;
+  if(!codigo)return;
+  const cli=CLIENTES.find(c=>c.codigo===codigo);
+  if(!cli)return;
+  const body=document.getElementById('cli-ficha-body');
+  const fiscal=window._fichaClienteFiscal;
+
+  // Leer filtros de fecha
+  const desdeEl=document.getElementById('cli-fecha-desde');
+  const hastaEl=document.getElementById('cli-fecha-hasta');
+  const desdeVal=desdeEl?desdeEl.value:'';
+  const hastaVal=hastaEl?hastaEl.value:'';
+  let fechaDesde=null,fechaHasta=null;
+  if(desdeVal){const[y,m,d]=desdeVal.split('-');fechaDesde=new Date(+y,m-1,+d,0,0,0);}
+  if(hastaVal){const[y,m,d]=hastaVal.split('-');fechaHasta=new Date(+y,m-1,+d,23,59,59);}
+
+  // Fiscal HTML
+  let fiscalHtml='';
   if(fiscal){
     fiscalHtml=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
       ${fiscal.cif?`<div style="flex:1;min-width:180px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px">
@@ -1888,15 +1915,21 @@ async function abrirFichaCliente(codigo){
     fiscalHtml='<div style="color:var(--muted);font-size:.75rem;margin-bottom:12px;padding:10px;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border)">No se pudieron obtener datos fiscales de BC</div>';
   }
 
-  // Ventas del cliente (de factData)
+  // Filtrar pedidos por cliente y fechas
   const pedidosCli=(factData||[]).filter(r=>{
-    const cliName=(r.nombreCliente||'').trim();
-    return cliName===cli.nombre;
+    const rc=r.codigoCliente||'';
+    const rn=(r.nombreCliente||'').trim().toUpperCase();
+    if(rc&&cli.codigo?rc!==cli.codigo:rn!==cli.nombre.toUpperCase())return false;
+    const d=parseFechaFact(r.fechaHora)||parseFechaFact(r.fechaPedido);
+    if(!d)return false;
+    if(fechaDesde&&d<fechaDesde)return false;
+    if(fechaHasta&&d>fechaHasta)return false;
+    return true;
   });
 
+  // KPIs + desglose
   let ventasHtml='';
   if(pedidosCli.length){
-    // Agrupar por producto
     const productos={};
     let totalKg=0,totalEur=0;
     pedidosCli.forEach(r=>{
@@ -1907,7 +1940,6 @@ async function abrirFichaCliente(codigo){
       productos[prod].kg+=neto;
       totalKg+=neto;
     });
-    // Calcular importes
     Object.entries(productos).forEach(([prod,info])=>{
       const precioTn=getPrecioTn(cli.nombre,prod);
       info.importe=(info.kg/1000)*precioTn;
@@ -1916,6 +1948,7 @@ async function abrirFichaCliente(codigo){
     });
     const igic=totalEur*IGIC_PCT/100;
 
+    // KPI cards
     ventasHtml+=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <div style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;text-align:center">
         <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;font-weight:700;margin-bottom:4px">Viajes</div>
@@ -1935,15 +1968,36 @@ async function abrirFichaCliente(codigo){
       </div>
     </div>`;
 
-    // Tabla de productos
-    ventasHtml+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+    // Material más vendido (ranking visual)
+    const prodSorted=Object.entries(productos).sort((a,b)=>a[1].kg-b[1].kg);
+    const maxKg=prodSorted.length?prodSorted[prodSorted.length-1][1].kg:1;
+    ventasHtml+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px">
+      <div style="font-size:.78rem;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">Material más vendido</div>`;
+    prodSorted.forEach(([prod,info],i)=>{
+      const pct=Math.round(info.kg/maxKg*100);
+      const ri=prodSorted.length-1-i;
+      const medal=ri===0?'🥇':ri===1?'🥈':ri===2?'🥉':'';
+      ventasHtml+=`<div style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+          <div style="font-size:.78rem;font-weight:600;color:var(--text)">${medal} ${prod}</div>
+          <div style="font-size:.75rem;font-family:'DM Mono',monospace;color:var(--accent2);font-weight:700">${(info.kg/1000).toFixed(2)} Tn · ${info.viajes} viajes</div>
+        </div>
+        <div style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:var(--accent);border-radius:3px;transition:width .3s"></div>
+        </div>
+      </div>`;
+    });
+    ventasHtml+=`</div>`;
+
+    // Desglose tabla
+    ventasHtml+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:14px">
       <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
         <div style="font-size:.78rem;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.04em">Desglose por material</div>
       </div>
       <div style="display:flex;padding:8px 16px;font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;gap:8px;border-bottom:1px solid var(--border)">
         <div style="flex:2">Producto</div><div style="flex:.7;text-align:right">Viajes</div><div style="flex:1;text-align:right">Kg Neto</div><div style="flex:.7;text-align:right">Tn</div><div style="flex:.8;text-align:right">€/Tn</div><div style="flex:1;text-align:right">Importe</div>
       </div>`;
-    Object.entries(productos).sort((a,b)=>b[1].kg-a[1].kg).forEach(([prod,info])=>{
+    prodSorted.forEach(([prod,info])=>{
       ventasHtml+=`<div style="display:flex;padding:8px 16px;font-size:.78rem;color:var(--text);gap:8px;border-bottom:1px solid rgba(0,0,0,.05)">
         <div style="flex:2;font-weight:600">${prod}</div>
         <div style="flex:.7;text-align:right;font-family:'DM Mono',monospace">${info.viajes}</div>
@@ -1954,9 +2008,45 @@ async function abrirFichaCliente(codigo){
       </div>`;
     });
     ventasHtml+=`</div>`;
+
+    // Historial de pedidos (tabla con fecha, matrícula, producto, kg)
+    const pedidosSorted=[...pedidosCli].sort((a,b)=>{
+      const da=parseFechaFact(a.fechaHora)||parseFechaFact(a.fechaPedido)||new Date(0);
+      const db=parseFechaFact(b.fechaHora)||parseFechaFact(b.fechaPedido)||new Date(0);
+      return db-da;
+    });
+    ventasHtml+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+        <div style="font-size:.78rem;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.04em">Historial de pedidos (${pedidosSorted.length})</div>
+      </div>
+      <div style="overflow-x:auto;max-height:400px;overflow-y:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:.75rem">
+          <thead><tr style="background:var(--surface2);position:sticky;top:0;z-index:1">
+            <th style="padding:8px 10px;text-align:left;font-weight:700;color:var(--muted)">Fecha</th>
+            <th style="padding:8px 10px;text-align:left;font-weight:700;color:var(--muted)">Matrícula</th>
+            <th style="padding:8px 10px;text-align:left;font-weight:700;color:var(--muted)">Material</th>
+            <th style="padding:8px 10px;text-align:left;font-weight:700;color:var(--muted)">Obra</th>
+            <th style="padding:8px 10px;text-align:right;font-weight:700;color:var(--muted)">Neto (kg)</th>
+          </tr></thead><tbody>`;
+    pedidosSorted.forEach(r=>{
+      const d=parseFechaFact(r.fechaHora)||parseFechaFact(r.fechaPedido);
+      const fechaStr=d?pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear():'—';
+      ventasHtml+=`<tr style="border-bottom:1px solid rgba(0,0,0,.05)">
+        <td style="padding:6px 10px;white-space:nowrap">${fechaStr}</td>
+        <td style="padding:6px 10px;font-family:'DM Mono',monospace;font-weight:600">${r.matriculacam||'—'}</td>
+        <td style="padding:6px 10px">${r.productoNombre||r.productoCod||'—'}</td>
+        <td style="padding:6px 10px;color:var(--muted);font-size:.7rem">${r.proyectoName||r.proyectoCod||'—'}</td>
+        <td style="padding:6px 10px;text-align:right;font-family:'DM Mono',monospace;font-weight:700">${Number(r.pesoNeto||0).toLocaleString()}</td>
+      </tr>`;
+    });
+    ventasHtml+=`</tbody></table></div></div>`;
   }else{
-    ventasHtml='<div style="color:var(--muted);font-size:.78rem;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);text-align:center">Sin pedidos registrados para este cliente en los últimos 365 días.</div>';
+    ventasHtml='<div style="color:var(--muted);font-size:.78rem;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);text-align:center">Sin pedidos registrados para este cliente en el periodo seleccionado.</div>';
   }
+
+  // Preserve date values
+  const prevDesde=desdeEl?desdeEl.value:'';
+  const prevHasta=hastaEl?hastaEl.value:'';
 
   body.innerHTML=`
     <div style="margin-bottom:16px">
@@ -1964,7 +2054,19 @@ async function abrirFichaCliente(codigo){
       <div style="font-size:.75rem;color:var(--muted);font-family:'DM Mono',monospace;margin-top:4px">${cli.codigo}</div>
     </div>
     ${fiscalHtml}
-    <div style="font-family:'Syne',sans-serif;font-size:.88rem;font-weight:700;color:var(--text);margin-bottom:10px">Resumen de ventas</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <div style="font-family:'Syne',sans-serif;font-size:.88rem;font-weight:700;color:var(--text)">Resumen de ventas</div>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+        <div>
+          <div style="font-size:.65rem;color:var(--muted);font-weight:600">Desde</div>
+          <input type="date" class="inp" id="cli-fecha-desde" value="${prevDesde}" onchange="renderFichaCliente()" style="font-size:.78rem;padding:6px 10px;min-width:130px">
+        </div>
+        <div>
+          <div style="font-size:.65rem;color:var(--muted);font-weight:600">Hasta</div>
+          <input type="date" class="inp" id="cli-fecha-hasta" value="${prevHasta}" onchange="renderFichaCliente()" style="font-size:.78rem;padding:6px 10px;min-width:130px">
+        </div>
+      </div>
+    </div>
     ${ventasHtml}`;
 }
 function cerrarFichaCliente(){
