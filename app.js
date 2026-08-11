@@ -715,7 +715,7 @@ async function initApp(){
   // Comprobar facturas vencidas en segundo plano
   checkFacturasVencidasBackground().catch(() => {});
   // Precargar datos en background para que todo esté listo sin pulsar "Cargar"
-  apiFetch('?accion=pedidos&dias=365').then(j=>{if(j.ok){factData=j.data;if(ventasData.length===0)ventasData=j.data;}}).catch(()=>{});
+  apiFetch('?accion=pedidos&dias=730').then(j=>{if(j.ok){factData=j.data;if(ventasData.length===0)ventasData=j.data;}}).catch(()=>{});
   apiFetch('?accion=camiones').then(j=>{if(j.ok)window._camionesData=j.data;}).catch(()=>{});
   apiFetch('?accion=obras').then(j=>{if(j.ok)window._obrasData=j.data;}).catch(()=>{});
   apiFetch('?accion=choferes').then(j=>{if(j.ok)window._choferesData=j.data;}).catch(()=>{});
@@ -1868,7 +1868,7 @@ async function abrirFichaCliente(codigo){
 
   // Auto-cargar pedidos si aún no hay datos
   if(!factData||!factData.length){
-    try{const j=await apiFetch('?accion=pedidos&dias=365');if(j.ok)factData=j.data;}catch(e){}
+    try{const j=await apiFetch('?accion=pedidos&dias=730');if(j.ok)factData=j.data;}catch(e){}
   }
 
   // Datos fiscales
