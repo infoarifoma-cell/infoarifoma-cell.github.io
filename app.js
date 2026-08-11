@@ -89,6 +89,8 @@ async function doPostPesada(data) {
     proyectoName: data.proyectoName, proyectoCod: data.proyectoCod,
     numPedido: data.numPedido, numLinea: data.numLinea,
     idproyecto: data.proyectoCod || null,
+    observaciones: data.observaciones || '',
+    fechaPedido: data.fechaPedido || null,
     numalbarancalle: (data.numPedido && data.numLinea) ? `${data.numPedido}/${data.numLinea}` : null,
     fechaHora: new Date().toISOString()
   }, options: { select: 'id' }});
@@ -495,7 +497,7 @@ const DIAS_LAB_2026=[18,18,22,20,20,21,23,21,22,21,21,18];
 const HORAS_DIA_STD=8; // Jornada estándar convenio
 const PRODS=['ARIDO AF-T-0/4-I','ARIDO AG-T-4/12-I','ARIDO AG-T-12/20-I','ARIDO AG-T-20/40-I','ARIDO AG-T-40/70-I','REVUELTO 0/20','REVUELTO 0/10','PIEDRA PARA MURO (UD)','MATERIAL DE RELLENO 0/4'];
 const PROD_CAT={'ARIDO AF-T-0/4-I':'0/4','ARIDO AG-T-4/12-I':'4/12','ARIDO AG-T-12/20-I':'12/20','ARIDO AG-T-20/40-I':'20/40'};
-const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas','historico-ventas':'Histórico de Ventas',caja:'Caja',costes:'Análisis de Costes',produccion:'Producción Planta',informes:'Informes Planta',stock:'Stock Áridos',topografia:'Levantamiento Topográfico',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',tareas:'Tareas',preventivo:'Mantenimiento Preventivo',compras:'Escanear Factura',choferes:'Conductores',ensayos:'Control de Ensayos',kpis:'KPIs — Planta de Árido','albaranes-firmados':'Albaranes Firmados'};
+const PAGE_TITLES={inicio:'Inicio',bascula:'Pesada',pedidos:'Pedidos',facturacion:'Facturación',ventas:'Ventas','historico-ventas':'Histórico de Ventas',caja:'Caja',costes:'Análisis de Costes',produccion:'Producción Planta',informes:'Informes Planta',stock:'Stock Áridos',topografia:'Levantamiento Topográfico',camiones:'Camiones',gasoil:'Gasoil',activos:'Activos / Maquinaria',fichaje:'Fichaje',resumen:'Resumen',vacaciones:'Vacaciones',calendario:'Calendario laboral',editar:'Editar fichajes',ot:'Nueva OT','historial-ot':'Historial OT',documentos:'Control Documental',tareas:'Tareas',preventivo:'Mantenimiento Preventivo',compras:'Escanear Factura',choferes:'Conductores',ensayos:'Control de Ensayos',kpis:'KPIs — Planta de Árido','albaranes-firmados':'Albaranes Firmados',clientes:'Clientes'};
 
 // Login via Google OAuth — ver funciones.js: googleLogin() y checkGoogleSession()
 
@@ -562,6 +564,7 @@ function goPage(id){
   if(id==='caja')initCaja();
   if(id==='costes')initCostes();
   if(id==='facturas-pendientes'){if(!_fpLoaded)cargarFacturasPendientes();else renderFacturasPendientes();}
+  if(id==='clientes')renderClientesPage();
   if(id==='historico-ventas')initHistoricoVentas();
   if(id==='kpis')cargarKPIs();
   if(id==='tareas')initTareasPanel();
@@ -892,11 +895,16 @@ async function _cargarClientesYProyectosBC(){
     const base=`https://api.businesscentral.dynamics.com/v2.0/${BC_TENANT}/${BC_ENV}/api/v2.0/companies(${companyId})`;
     const headers={'Authorization':`Bearer ${token}`};
 
-    const custUrl=`${base}/customers?$select=number,displayName&$orderby=displayName&$top=500`;
+    const custUrl=`${base}/customers?$select=number,displayName,taxRegistrationNumber,addressLine1,postalCode,city&$orderby=displayName&$top=500`;
     const custRes=await fetch(custUrl,{headers});
     if(custRes.ok){
       const custJson=await custRes.json();
-      const bcClientes=(custJson.value||[]).map(c=>({nombre:c.displayName,codigo:c.number})).filter(c=>c.nombre&&c.codigo);
+      const bcClientes=(custJson.value||[]).map(c=>({
+        nombre:c.displayName,codigo:c.number,
+        cif:c.taxRegistrationNumber||'',
+        dir1:c.addressLine1||'',
+        dir2:[c.postalCode,c.city].filter(Boolean).join(' ')
+      })).filter(c=>c.nombre&&c.codigo);
       if(bcClientes.length>0){
         CLIENTES=bcClientes;
         renderCliDropdown('');
@@ -1759,19 +1767,32 @@ function mostrarAlbaranUltimaLinea(){
   const notasBtn=document.getElementById('btn-notas-float');
   if(notasBtn)notasBtn.style.display='none';
   setTimeout(firmaInit,100);
-  // BC en segundo plano
+  // Datos fiscales: primero desde CLIENTES (ya cargados de BC), luego BC directo como fallback
   if(p.codigoCliente){
-    _cargarDatosFiscalesBC(p.codigoCliente).then(d=>{
-      if(!d)return;
-      document.getElementById('alb-cif').textContent=d.cif?'CIF: '+d.cif:'';
-      document.getElementById('alb-dir1').textContent=d.dir1?'DIRECCIÓN: '+d.dir1:'';
-      document.getElementById('alb-dir2').textContent=d.dir2||'';
-    });
+    const local=_getDatosFiscalesLocal(p.codigoCliente);
+    if(local){
+      document.getElementById('alb-cif').textContent=local.cif?'CIF: '+local.cif:'';
+      document.getElementById('alb-dir1').textContent=local.dir1?'DIRECCIÓN: '+local.dir1:'';
+      document.getElementById('alb-dir2').textContent=local.dir2||'';
+    } else {
+      _cargarDatosFiscalesBC(p.codigoCliente).then(d=>{
+        if(!d)return;
+        document.getElementById('alb-cif').textContent=d.cif?'CIF: '+d.cif:'';
+        document.getElementById('alb-dir1').textContent=d.dir1?'DIRECCIÓN: '+d.dir1:'';
+        document.getElementById('alb-dir2').textContent=d.dir2||'';
+      });
+    }
   }
   }catch(e){alert('Error albarán: '+e.message);console.error(e);}
 }
 
 // Cache datos fiscales clientes BC (codigo → {cif, dir1, dir2})
+function _getDatosFiscalesLocal(codigoCliente){
+  const c=CLIENTES.find(x=>x.codigo===codigoCliente);
+  if(c&&(c.cif||c.dir1))return{cif:c.cif||'',dir1:c.dir1||'',dir2:c.dir2||''};
+  return null;
+}
+
 const _bcClienteCache={};
 
 async function _cargarDatosFiscalesBC(codigoCliente){
@@ -1802,6 +1823,144 @@ async function _cargarDatosFiscalesBC(codigoCliente){
     _bcClienteCache[codigoCliente]=datos;
     return datos;
   }catch(e){console.warn('BC cliente fiscal:',e.message);return null;}
+}
+
+// ══ PÁGINA CLIENTES ══
+function renderClientesPage(){
+  const el=document.getElementById('cli-listado');
+  const ficha=document.getElementById('cli-ficha');
+  ficha.style.display='none';el.style.display='flex';
+  document.getElementById('cli-search').style.display='';
+  _buildClientesList(CLIENTES);
+}
+function filtrarClientesPage(){
+  const q=(document.getElementById('cli-search').value||'').toLowerCase();
+  const filtrados=CLIENTES.filter(c=>c.nombre.toLowerCase().includes(q)||c.codigo.toLowerCase().includes(q));
+  _buildClientesList(filtrados);
+}
+function _buildClientesList(lista){
+  const el=document.getElementById('cli-listado');
+  if(!lista.length){el.innerHTML='<div style="color:var(--muted);padding:20px;text-align:center;font-size:.82rem">Sin clientes</div>';return;}
+  el.innerHTML=lista.map(c=>`<div onclick="abrirFichaCliente('${c.codigo.replace(/'/g,"\\'")}')" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:box-shadow .15s" onmouseenter="this.style.boxShadow='0 2px 8px rgba(0,0,0,.1)'" onmouseleave="this.style.boxShadow='none'">
+    <div>
+      <div style="font-family:'Syne',sans-serif;font-size:.88rem;font-weight:700;color:var(--accent)">${c.nombre}</div>
+      <div style="font-size:.68rem;color:var(--muted);margin-top:2px;font-family:'DM Mono',monospace">${c.codigo}</div>
+    </div>
+    <svg viewBox="0 0 18 18" width="16" height="16" fill="none" stroke="var(--muted)" stroke-width="2"><path d="M7 4l5 5-5 5"/></svg>
+  </div>`).join('');
+}
+async function abrirFichaCliente(codigo){
+  const cli=CLIENTES.find(c=>c.codigo===codigo);
+  if(!cli)return;
+  document.getElementById('cli-listado').style.display='none';
+  document.getElementById('cli-search').style.display='none';
+  const ficha=document.getElementById('cli-ficha');
+  ficha.style.display='block';
+  const body=document.getElementById('cli-ficha-body');
+  body.innerHTML='<div style="color:var(--muted);padding:20px;text-align:center">Cargando datos...</div>';
+
+  // Datos fiscales: primero de CLIENTES (ya con datos de BC), luego API BC como fallback
+  let fiscalHtml='';
+  const fiscal=_getDatosFiscalesLocal(codigo)||await _cargarDatosFiscalesBC(codigo);
+  if(fiscal){
+    fiscalHtml=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+      ${fiscal.cif?`<div style="flex:1;min-width:180px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px">
+        <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;font-weight:700;margin-bottom:4px">CIF / NIF</div>
+        <div style="font-size:.92rem;font-weight:700;color:var(--text);font-family:'DM Mono',monospace">${fiscal.cif}</div>
+      </div>`:''}
+      ${fiscal.dir1?`<div style="flex:2;min-width:220px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px">
+        <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;font-weight:700;margin-bottom:4px">Dirección</div>
+        <div style="font-size:.82rem;color:var(--text)">${fiscal.dir1}</div>
+        ${fiscal.dir2?`<div style="font-size:.78rem;color:var(--muted)">${fiscal.dir2}</div>`:''}
+      </div>`:''}
+    </div>`;
+  }else{
+    fiscalHtml='<div style="color:var(--muted);font-size:.75rem;margin-bottom:12px;padding:10px;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border)">No se pudieron obtener datos fiscales de BC</div>';
+  }
+
+  // Ventas del cliente (de factData)
+  const pedidosCli=(factData||[]).filter(r=>{
+    const cliName=(r.nombreCliente||'').trim();
+    return cliName===cli.nombre;
+  });
+
+  let ventasHtml='';
+  if(pedidosCli.length){
+    // Agrupar por producto
+    const productos={};
+    let totalKg=0,totalEur=0;
+    pedidosCli.forEach(r=>{
+      const prod=r.productoNombre||r.productoCod||'Sin producto';
+      const neto=Number(r.pesoNeto)||0;
+      if(!productos[prod])productos[prod]={viajes:0,kg:0};
+      productos[prod].viajes++;
+      productos[prod].kg+=neto;
+      totalKg+=neto;
+    });
+    // Calcular importes
+    Object.entries(productos).forEach(([prod,info])=>{
+      const precioTn=getPrecioTn(cli.nombre,prod);
+      info.importe=(info.kg/1000)*precioTn;
+      info.precioTn=precioTn;
+      totalEur+=info.importe;
+    });
+    const igic=totalEur*IGIC_PCT/100;
+
+    ventasHtml+=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <div style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;text-align:center">
+        <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;font-weight:700;margin-bottom:4px">Viajes</div>
+        <div style="font-size:1.3rem;font-weight:700;color:var(--text);font-family:'DM Mono',monospace">${pedidosCli.length}</div>
+      </div>
+      <div style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;text-align:center">
+        <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;font-weight:700;margin-bottom:4px">Toneladas</div>
+        <div style="font-size:1.3rem;font-weight:700;color:var(--accent);font-family:'DM Mono',monospace">${(totalKg/1000).toFixed(2)}</div>
+      </div>
+      <div style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;text-align:center">
+        <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;font-weight:700;margin-bottom:4px">Base imponible</div>
+        <div style="font-size:1.3rem;font-weight:700;color:var(--accent2);font-family:'DM Mono',monospace">${totalEur.toFixed(2)} €</div>
+      </div>
+      <div style="flex:1;min-width:120px;background:rgba(107,125,46,.08);border:1px solid rgba(107,125,46,.3);border-radius:var(--radius);padding:12px 14px;text-align:center">
+        <div style="font-size:.65rem;color:var(--accent2);text-transform:uppercase;font-weight:700;margin-bottom:4px">Total + IGIC</div>
+        <div style="font-size:1.3rem;font-weight:700;color:var(--accent2);font-family:'DM Mono',monospace">${(totalEur+igic).toFixed(2)} €</div>
+      </div>
+    </div>`;
+
+    // Tabla de productos
+    ventasHtml+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+        <div style="font-size:.78rem;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.04em">Desglose por material</div>
+      </div>
+      <div style="display:flex;padding:8px 16px;font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;gap:8px;border-bottom:1px solid var(--border)">
+        <div style="flex:2">Producto</div><div style="flex:.7;text-align:right">Viajes</div><div style="flex:1;text-align:right">Kg Neto</div><div style="flex:.7;text-align:right">Tn</div><div style="flex:.8;text-align:right">€/Tn</div><div style="flex:1;text-align:right">Importe</div>
+      </div>`;
+    Object.entries(productos).sort((a,b)=>b[1].kg-a[1].kg).forEach(([prod,info])=>{
+      ventasHtml+=`<div style="display:flex;padding:8px 16px;font-size:.78rem;color:var(--text);gap:8px;border-bottom:1px solid rgba(0,0,0,.05)">
+        <div style="flex:2;font-weight:600">${prod}</div>
+        <div style="flex:.7;text-align:right;font-family:'DM Mono',monospace">${info.viajes}</div>
+        <div style="flex:1;text-align:right;font-family:'DM Mono',monospace">${info.kg.toLocaleString()}</div>
+        <div style="flex:.7;text-align:right;font-family:'DM Mono',monospace">${(info.kg/1000).toFixed(2)}</div>
+        <div style="flex:.8;text-align:right;font-family:'DM Mono',monospace;color:var(--muted)">${info.precioTn.toFixed(2)}</div>
+        <div style="flex:1;text-align:right;font-family:'DM Mono',monospace;font-weight:700;color:var(--accent2)">${info.importe.toFixed(2)} €</div>
+      </div>`;
+    });
+    ventasHtml+=`</div>`;
+  }else{
+    ventasHtml='<div style="color:var(--muted);font-size:.78rem;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);text-align:center">Sin pedidos registrados para este cliente. Carga datos en Facturación primero.</div>';
+  }
+
+  body.innerHTML=`
+    <div style="margin-bottom:16px">
+      <div style="font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;color:var(--accent)">${cli.nombre}</div>
+      <div style="font-size:.75rem;color:var(--muted);font-family:'DM Mono',monospace;margin-top:4px">${cli.codigo}</div>
+    </div>
+    ${fiscalHtml}
+    <div style="font-family:'Syne',sans-serif;font-size:.88rem;font-weight:700;color:var(--text);margin-bottom:10px">Resumen de ventas</div>
+    ${ventasHtml}`;
+}
+function cerrarFichaCliente(){
+  document.getElementById('cli-ficha').style.display='none';
+  document.getElementById('cli-listado').style.display='flex';
+  document.getElementById('cli-search').style.display='';
 }
 
 async function mostrarAlbaran(id,p){
@@ -1856,15 +2015,22 @@ async function mostrarAlbaran(id,p){
     setTimeout(firmaInit,100);
     setTimeout(()=>{const s=document.createElement('style');s.id='_pgsz';s.textContent='@page{size:A5 landscape;margin:4mm}';document.head.appendChild(s);window.print();setTimeout(()=>s.remove(),500);},100);
   }
-  // Cargar datos fiscales BC en segundo plano (deshabilitado por error MSAL)
-  /*if(p.codigoCliente){
-    _cargarDatosFiscalesBC(p.codigoCliente).then(d=>{
-      if(!d)return;
-      document.getElementById('alb-cif').textContent=d.cif?'CIF: '+d.cif:'';
-      document.getElementById('alb-dir1').textContent=d.dir1?'DIRECCIÓN: '+d.dir1:'';
-      document.getElementById('alb-dir2').textContent=d.dir2||'';
-    });
-  }*/
+  // Datos fiscales: primero desde CLIENTES (ya cargados de BC), luego BC directo como fallback
+  if(p.codigoCliente){
+    const local=_getDatosFiscalesLocal(p.codigoCliente);
+    if(local){
+      document.getElementById('alb-cif').textContent=local.cif?'CIF: '+local.cif:'';
+      document.getElementById('alb-dir1').textContent=local.dir1?'DIRECCIÓN: '+local.dir1:'';
+      document.getElementById('alb-dir2').textContent=local.dir2||'';
+    } else {
+      _cargarDatosFiscalesBC(p.codigoCliente).then(d=>{
+        if(!d)return;
+        document.getElementById('alb-cif').textContent=d.cif?'CIF: '+d.cif:'';
+        document.getElementById('alb-dir1').textContent=d.dir1?'DIRECCIÓN: '+d.dir1:'';
+        document.getElementById('alb-dir2').textContent=d.dir2||'';
+      });
+    }
+  }
 }
 function cerrarAlbaran(){
   const aw=document.getElementById('albaran-wrap');
@@ -6028,13 +6194,14 @@ async function _cargarConfig(){
     _configLoaded=true;
   }catch(e){console.error('No se pudo cargar config:',e.message);}
 }
-_cargarConfig();
+const _configPromise=_cargarConfig();
 // Resetear cache companyId y clientes BC al cargar
 window._bcCompanyId = null;
 window._bcClientesData = [];
 
 let msalApp = null;
 async function getMsalApp() {
+  await _configPromise;
   if (msalApp) return msalApp;
   msalApp = new msal.PublicClientApplication({
     auth: {
@@ -9690,6 +9857,7 @@ function comprasAutoArticulo(proveedorNombre){
 
 let _msalInstancePromise=null;
 async function getMsalInstance(){
+  await _configPromise;
   if(_msalInstancePromise)return _msalInstancePromise;
   _msalInstancePromise=(async()=>{
     if(_msalInstance)return _msalInstance;
