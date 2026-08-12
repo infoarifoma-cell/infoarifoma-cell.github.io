@@ -77,22 +77,115 @@ function getStyleValue(name) {
   return val || DEFAULTS[name] || '';
 }
 
-// Abrir modal del panel
-function openStylePanel() {
+// Abrir panel de ajustes
+function openSettingsPanel() {
   const modal = document.getElementById('style-panel-wrap');
   if (!modal) return console.error('style-panel-wrap no encontrado');
-
-  // Renderizar valores actuales ANTES de abrir
   renderStyleInputs();
-  setTimeout(() => {
-    modal.classList.add('open');
-  }, 0);
+  switchSettingsTab('estilos');
+  setTimeout(() => { modal.classList.add('open'); }, 0);
 }
 
-// Cerrar modal
-function closeStylePanel() {
+// Compat alias
+function openStylePanel() { openSettingsPanel(); }
+
+// Cerrar panel
+function closeSettingsPanel() {
   const modal = document.getElementById('style-panel-wrap');
   if (modal) modal.classList.remove('open');
+}
+function closeStylePanel() { closeSettingsPanel(); }
+
+// Cambiar tab
+function switchSettingsTab(tab) {
+  const tabs = ['estilos', 'conectores'];
+  tabs.forEach(t => {
+    const panel = document.getElementById('settings-tab-' + t);
+    const btn = document.getElementById('tab-' + t);
+    if (panel) panel.style.display = t === tab ? 'block' : 'none';
+    if (btn) {
+      btn.style.background = t === tab ? 'var(--accent)' : 'var(--surface2)';
+      btn.style.color = t === tab ? '#fff' : 'var(--text)';
+    }
+  });
+  if (tab === 'conectores') checkAllConnectors();
+}
+
+// ── CONECTORES ──────────────────────────────────────────────
+const CONNECTORS = [
+  { id: 'supabase', name: 'Supabase (Base de datos)', check: checkSupabase },
+  { id: 'bc', name: 'Business Central (ERP)', check: checkBC },
+  { id: 'google', name: 'Google Sheets', check: checkGoogle },
+  { id: 'onedrive', name: 'OneDrive / SharePoint', check: checkOneDrive },
+  { id: 'ocr', name: 'OCR (Hugging Face)', check: checkOCR },
+];
+
+function renderConnectorStatus(results) {
+  const list = document.getElementById('connectors-list');
+  if (!list) return;
+  list.innerHTML = results.map(r => {
+    const color = r.ok ? '#27ae60' : '#c0392b';
+    const icon = r.ok ? '●' : '●';
+    const statusText = r.ok ? 'Operativo' : (r.error || 'Error');
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:8px;border:1.5px solid var(--border)">
+      <span style="color:${color};font-size:1.1rem;flex-shrink:0">${icon}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.8rem;font-weight:700;color:var(--text)">${r.name}</div>
+        <div style="font-size:.7rem;color:${color};font-weight:600">${statusText}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function checkAllConnectors() {
+  const list = document.getElementById('connectors-list');
+  if (list) list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:.85rem">Comprobando conectores...</div>';
+
+  const results = await Promise.all(CONNECTORS.map(async c => {
+    try {
+      const ok = await c.check();
+      return { name: c.name, ok };
+    } catch (e) {
+      return { name: c.name, ok: false, error: e.message || 'Sin conexión' };
+    }
+  }));
+  renderConnectorStatus(results);
+}
+
+async function checkSupabase() {
+  if (!_sessionToken) return false;
+  const res = await fetch('/api/supabase', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _sessionToken },
+    body: JSON.stringify({ action: 'select', table: 'tblConfig', options: { limit: 1 } })
+  });
+  return res.ok;
+}
+
+async function checkBC() {
+  const res = await fetch('/api/config');
+  if (!res.ok) return false;
+  const cfg = await res.json();
+  return !!(cfg.BC_TENANT && cfg.BC_CLIENT && cfg.BC_ENV);
+}
+
+async function checkGoogle() {
+  const res = await fetch('/api/google-sheet?sheet=PRODUCCION&range=A1:A1');
+  return res.ok;
+}
+
+async function checkOneDrive() {
+  try {
+    const res = await fetch('/api/config');
+    if (!res.ok) return false;
+    const cfg = await res.json();
+    return !!(cfg.COMPRAS_CLIENT_ID);
+  } catch { return false; }
+}
+
+async function checkOCR() {
+  const res = await fetch('/api/ocr-hf', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ping: true }) });
+  return res.ok;
 }
 
 // Renderizar inputs del panel con valores actuales
