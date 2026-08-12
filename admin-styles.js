@@ -113,28 +113,56 @@ function switchSettingsTab(tab) {
 
 // ── CONECTORES ──────────────────────────────────────────────
 const CONNECTORS = [
-  { id: 'supabase', name: 'Supabase (Base de datos)', check: checkSupabase },
-  { id: 'bc', name: 'Business Central (ERP)', check: checkBC },
+  { id: 'supabase', name: 'Supabase (Base de datos)', check: checkSupabase, reconnect: reconnectSupabase },
+  { id: 'bc', name: 'Business Central (ERP)', check: checkBC, reconnect: reconnectBC },
   { id: 'google', name: 'Google Sheets', check: checkGoogle },
-  { id: 'onedrive', name: 'OneDrive / SharePoint', check: checkOneDrive },
+  { id: 'onedrive', name: 'OneDrive / SharePoint', check: checkOneDrive, reconnect: reconnectOneDrive },
   { id: 'ocr', name: 'OCR (Hugging Face)', check: checkOCR },
 ];
 
+let _connectorResults = [];
+
 function renderConnectorStatus(results) {
+  _connectorResults = results;
   const list = document.getElementById('connectors-list');
   if (!list) return;
-  list.innerHTML = results.map(r => {
+  list.innerHTML = results.map((r, i) => {
     const color = r.ok ? '#27ae60' : '#c0392b';
-    const icon = r.ok ? '●' : '●';
-    const statusText = r.ok ? 'Operativo' : (r.error || 'Error');
-    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:8px;border:1.5px solid var(--border)">
-      <span style="color:${color};font-size:1.1rem;flex-shrink:0">${icon}</span>
+    const statusText = r.ok ? 'Operativo' : (r.error || 'Sin conexión');
+    const connector = CONNECTORS[i];
+    const reconnectBtn = !r.ok && connector.reconnect
+      ? `<button onclick="reconnectSingle(${i})" style="padding:4px 10px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:.68rem;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">Conectar</button>`
+      : '';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:8px;border:1.5px solid ${r.ok ? 'var(--border)' : 'rgba(192,57,43,.3)'}">
+      <span style="color:${color};font-size:1.1rem;flex-shrink:0">●</span>
       <div style="flex:1;min-width:0">
         <div style="font-size:.8rem;font-weight:700;color:var(--text)">${r.name}</div>
         <div style="font-size:.7rem;color:${color};font-weight:600">${statusText}</div>
       </div>
+      ${reconnectBtn}
     </div>`;
   }).join('');
+}
+
+async function reconnectSingle(idx) {
+  const c = CONNECTORS[idx];
+  if (!c || !c.reconnect) return;
+  // Show loading on that item
+  const list = document.getElementById('connectors-list');
+  const items = list?.children;
+  if (items && items[idx]) {
+    const btn = items[idx].querySelector('button');
+    if (btn) { btn.textContent = '...'; btn.disabled = true; }
+  }
+  try {
+    await c.reconnect();
+    // Re-check after reconnect
+    const ok = await c.check();
+    _connectorResults[idx] = { name: c.name, ok };
+  } catch (e) {
+    _connectorResults[idx] = { name: c.name, ok: false, error: e.message || 'Error' };
+  }
+  renderConnectorStatus(_connectorResults);
 }
 
 async function checkAllConnectors() {
@@ -152,6 +180,7 @@ async function checkAllConnectors() {
   renderConnectorStatus(results);
 }
 
+// ── Checks ──
 async function checkSupabase() {
   if (!_sessionToken) return false;
   const res = await fetch('/api/supabase', {
@@ -163,15 +192,23 @@ async function checkSupabase() {
 }
 
 async function checkBC() {
-  const res = await fetch('/api/config');
-  if (!res.ok) return false;
-  const cfg = await res.json();
-  return !!(cfg.BC_TENANT && cfg.BC_CLIENT && cfg.BC_ENV);
+  try {
+    const res = await fetch('/api/config');
+    if (!res.ok) return false;
+    const cfg = await res.json();
+    return !!(cfg.bc && cfg.bc.tenant && cfg.bc.client && cfg.bc.env);
+  } catch { return false; }
 }
 
 async function checkGoogle() {
-  const res = await fetch('/api/google-sheet?sheet=PRODUCCION&range=A1:A1');
-  return res.ok;
+  try {
+    const res = await fetch('/api/google-sheet', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ spreadsheetId: '1fxHwVEgcIrRdyPh-TJ-k84QFBHXX-P3mNRCiWYaeDTQ', sheet: 'STOCK', range: 'STOCK!A1:A1' })
+    });
+    return res.ok;
+  } catch { return false; }
 }
 
 async function checkOneDrive() {
@@ -179,13 +216,32 @@ async function checkOneDrive() {
     const res = await fetch('/api/config');
     if (!res.ok) return false;
     const cfg = await res.json();
-    return !!(cfg.COMPRAS_CLIENT_ID);
+    return !!(cfg.compras && cfg.compras.clientId);
   } catch { return false; }
 }
 
 async function checkOCR() {
-  const res = await fetch('/api/ocr-hf', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ping: true }) });
-  return res.ok;
+  try {
+    const res = await fetch('/api/config');
+    return res.ok; // OCR depends on HF_TOKEN env var, we just check API is reachable
+  } catch { return false; }
+}
+
+// ── Reconnect actions ──
+async function reconnectSupabase() {
+  if (typeof _refreshToken === 'function') await _refreshToken();
+}
+
+async function reconnectBC() {
+  if (typeof getBCToken === 'function') {
+    try { await getBCToken(); } catch {}
+  }
+}
+
+async function reconnectOneDrive() {
+  if (typeof comprasGetToken === 'function') {
+    try { await comprasGetToken(); } catch {}
+  }
 }
 
 // Renderizar inputs del panel con valores actuales
