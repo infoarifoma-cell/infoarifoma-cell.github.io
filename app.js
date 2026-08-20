@@ -137,6 +137,7 @@ async function doEditarPedido(data) {
   if (data.proyectoName  !== undefined) updates.proyectoName  = data.proyectoName;
   if (data.observaciones !== undefined) updates.observaciones = data.observaciones;
   if (data.precioManual  !== undefined) updates.precioManual  = data.precioManual===''?null:Number(data.precioManual);
+  if (data.importeFijo   !== undefined) updates.importeFijo   = data.importeFijo===''?null:Number(data.importeFijo);
   return dbQuery({ action: 'update', table: 'tblpedidos', data: updates, filters: [{ column: 'id', op: 'eq', value: data.id }] });
 }
 
@@ -855,6 +856,10 @@ function getPrecioTn(cliente,producto){
 function getPrecioRow(row){
   if(row.precioManual!=null && row.precioManual!=='') return Number(row.precioManual);
   return getPrecioTn(row.nombreCliente||'', row.productoNombre||row.productoCod||'');
+}
+function getImporteRow(row){
+  if(row.importeFijo!=null && row.importeFijo!=='') return Number(row.importeFijo);
+  return (Number(row.pesoNeto)||0)/1000 * getPrecioRow(row);
 }
 
 let camionesData=[];
@@ -1943,7 +1948,7 @@ function renderFichaCliente(){
       if(!productos[prod])productos[prod]={viajes:0,kg:0,importe:0};
       productos[prod].viajes++;
       productos[prod].kg+=neto;
-      productos[prod].importe+=(neto/1000)*getPrecioRow(r);
+      productos[prod].importe+=getImporteRow(r);
       totalKg+=neto;
     });
     Object.entries(productos).forEach(([prod,info])=>{
@@ -2469,6 +2474,7 @@ function editarPedidoModal(id){
   const epedPrecio=document.getElementById('eped-precio');
   epedPrecio.value=(r.precioManual!=null&&r.precioManual!=='')?r.precioManual:'';
   epedPrecio.placeholder=getPrecioTn(r.nombreCliente||'',r.productoNombre||'').toFixed(2)+' (auto)';
+  document.getElementById('eped-importe-fijo').value=(r.importeFijo!=null&&r.importeFijo!=='')?r.importeFijo:'';
   document.getElementById('eped-fecha').value=formatFechaHoraPed(r.fechaHora);
   document.getElementById('eped-msg').textContent='';
   document.getElementById('modal-eped').classList.add('open');
@@ -2512,6 +2518,7 @@ async function guardarPedidoEditar(){
       pesoBruto:document.getElementById('eped-bruto').value,
       pesoNeto:document.getElementById('eped-neto').value,
       precioManual:document.getElementById('eped-precio').value,
+      importeFijo:document.getElementById('eped-importe-fijo').value,
       observaciones:document.getElementById('eped-obs').value,
     };
     const json=await apiPost(payload);
@@ -2519,7 +2526,7 @@ async function guardarPedidoEditar(){
       msg.style.color='var(--accent)'; msg.textContent='Guardado correctamente';
       // Actualizar dato local
       const r=pedidosData.find(x=>x.id==payload.id);
-      if(r){Object.assign(r,{nombreCliente:payload.nombreCliente,matriculacam:payload.matriculacam,matricularem:payload.matricularem,chofer:payload.chofer,productoNombre:payload.productoNombre,pesoBruto:Number(payload.pesoBruto),pesoNeto:Number(payload.pesoNeto),precioManual:payload.precioManual===''?null:Number(payload.precioManual),observaciones:payload.observaciones});}
+      if(r){Object.assign(r,{nombreCliente:payload.nombreCliente,matriculacam:payload.matriculacam,matricularem:payload.matricularem,chofer:payload.chofer,productoNombre:payload.productoNombre,pesoBruto:Number(payload.pesoBruto),pesoNeto:Number(payload.pesoNeto),precioManual:payload.precioManual===''?null:Number(payload.precioManual),importeFijo:payload.importeFijo===''?null:Number(payload.importeFijo),observaciones:payload.observaciones});}
       filtrarPedidos();
       setTimeout(cerrarModalEped,900);
     } else {
@@ -5322,8 +5329,7 @@ function renderFacturacion(){
     if(!clientes[cli].proyectos[proy].productos[prod])clientes[cli].proyectos[proy].productos[prod]={viajes:0,kg:0,importe:0,cod:r.productoCod||''};
     clientes[cli].proyectos[proy].productos[prod].viajes++;
     clientes[cli].proyectos[proy].productos[prod].kg+=neto;
-    const _precioRow=getPrecioRow(r);
-    clientes[cli].proyectos[proy].productos[prod].importe+=(neto/1000)*_precioRow;
+    clientes[cli].proyectos[proy].productos[prod].importe+=getImporteRow(r);
   });
 
   // Calcular precios
@@ -5605,8 +5611,7 @@ function renderInformeMensual() {
     clientes[cli].viajes++;
     const neto = Number(r.pesoNeto) || 0;
     clientes[cli].kg += neto;
-    const precioTn = getPrecioRow(r);
-    clientes[cli].importe += (neto / 1000) * precioTn;
+    clientes[cli].importe += getImporteRow(r);
   });
 
   // Ordenar por importe desc
@@ -5719,7 +5724,7 @@ function imprimirInformeMensual() {
     clientes[cli].viajes++;
     const neto = Number(r.pesoNeto) || 0;
     clientes[cli].kg += neto;
-    clientes[cli].importe += (neto / 1000) * getPrecioRow(r);
+    clientes[cli].importe += getImporteRow(r);
   });
 
   const sorted = Object.entries(clientes).sort((a, b) => b[1].importe - a[1].importe);
@@ -5793,8 +5798,7 @@ async function exportarExcelCliente(bcIdx) {
 
   const totalKg = viajes.reduce((s, r) => s + (Number(r.pesoNeto) || 0), 0);
   const totalEur = viajes.reduce((s, r) => {
-    const tn = Number(r.pesoNeto) / 1000;
-    return s + tn * getPrecioRow(r);
+    return s + getImporteRow(r);
   }, 0);
   const igic = totalEur * IGIC_PCT / 100;
 
@@ -5872,8 +5876,8 @@ async function exportarExcelCliente(bcIdx) {
   viajes.forEach((r, i) => {
     const fecha = r.fechaHora ? new Date(r.fechaHora).toLocaleString('es-ES') : '';
     const tn = Number(r.pesoNeto) / 1000;
-    const precioTn = getPrecioRow(r);
-    const importe = tn * precioTn;
+    const importe = getImporteRow(r);
+    const precioTn = tn>0?(importe/tn):getPrecioRow(r);
     const dataRow = ws.addRow([
       fecha, (r.id ? 'PEDV'+new Date(r.fechaHora||r.fechaPedido||Date.now()).getFullYear()+'-'+String(r.id).padStart(6,'0')+'/'+String(r.numLinea||0).padStart(5,'0') : (r.numPedido||'')), r.matriculacam||'', r.chofer||'',
       r.proyectoName||r.proyectoCod||'', r.productoNombre||r.productoCod||'',
@@ -6542,8 +6546,7 @@ function abrirModalAlbaranes(cli) {
     groups[key].lineas.push(r);
     const neto = Number(r.pesoNeto) || 0;
     groups[key].totalKg += neto;
-    const precioTn = getPrecioRow(r);
-    groups[key].totalEur += (neto / 1000) * precioTn;
+    groups[key].totalEur += getImporteRow(r);
     if (!groups[key].fecha) groups[key].fecha = parseFechaFact(r.fechaHora) || parseFechaFact(r.fechaPedido);
     if (!groups[key].proyecto) groups[key].proyecto = r.proyectoName || r.proyectoCod || '';
   });
@@ -6715,7 +6718,7 @@ async function facturarAlbaranesSeleccionados() {
         if (!prodLines[key]) prodLines[key] = { cod, prod, proy, proyCod, kg: 0, importe: 0, viajes: 0, albNums: new Set() };
         const _neto = Number(r.pesoNeto) || 0;
         prodLines[key].kg += _neto;
-        prodLines[key].importe += (_neto/1000)*getPrecioRow(r);
+        prodLines[key].importe += getImporteRow(r);
         prodLines[key].viajes++;
         prodLines[key].albNums.add(alb.numPedido);
       });
@@ -10922,8 +10925,8 @@ function _renderInforme(d) {
       const d2 = new Date(p.fechaHora);
       const hora = !isNaN(d2) ? pad(d2.getHours())+':'+pad(d2.getMinutes()) : (p.fechaHora||'').split(' ')[1]||'';
       const neto = Number(p.pesoNeto||0)/1000;
-      const precio = getPrecioRow(p);
-      const total = neto * precio;
+      const total = getImporteRow(p);
+      const precio = neto>0?(total/neto):getPrecioRow(p);
       totalNeto += neto; totalImporte += total;
       return `<tr style="border-bottom:1px solid var(--border)">
         <td style="padding:4px 8px;color:var(--muted)">${hora}</td>
@@ -11049,8 +11052,8 @@ async function _infGenerarBuffer(d) {
     const d2 = new Date(p.fechaHora);
     const hora = !isNaN(d2) ? fechaFmt+' '+pad(d2.getHours())+':'+pad(d2.getMinutes()) : p.fechaHora||'';
     const neto = Number(p.pesoNeto||0)/1000;
-    const precio = getPrecioRow(p);
-    const total = neto * precio;
+    const total = getImporteRow(p);
+    const precio = neto>0?(total/neto):getPrecioRow(p);
     totalNeto += neto; totalImp += total;
     addRow([hora, p.matriculacam||'', Number(p.pesoBruto||0), Number(p.pesoNeto||0), p.productoNombre||'', p.nombreCliente||'', precio, total]);
   });

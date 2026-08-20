@@ -905,8 +905,10 @@
                 <div><label>Bruto (kg)</label><input class="inp inp-mono" id="eped-bruto" type="number"></div>
                 <div><label>Neto (kg)</label><input class="inp inp-mono" id="eped-neto" type="number"></div>
               </div>
-              <label>Precio €/Tn <span style="font-weight:400;color:var(--muted)">(vacío = precio automático)</span></label>
-              <input class="inp inp-mono" id="eped-precio" type="number" step="0.01" placeholder="Auto">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div><label>Precio €/Tn <span style="font-weight:400;color:var(--muted)">(auto)</span></label><input class="inp inp-mono" id="eped-precio" type="number" step="0.01" placeholder="Auto"></div>
+                <div><label>Importe fijo € <span style="font-weight:400;color:var(--muted)">(total)</span></label><input class="inp inp-mono" id="eped-importe-fijo" type="number" step="0.01" placeholder="Vacío"></div>
+              </div>
               <label>Observaciones</label><textarea class="inp" id="eped-obs" rows="2" style="resize:vertical"></textarea>
               <label>Fecha / Hora</label><input class="inp" id="eped-fecha" readonly style="color:var(--muted)">
               <div class="warn-msg" id="eped-msg"></div>
